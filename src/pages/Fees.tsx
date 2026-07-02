@@ -1,8 +1,16 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { DataTable, type TableColumn } from '../components/DataTable'
 import { Icon } from '../components/Icon'
+import { ReceiptPreview } from '../components/ReceiptPreview'
 import { getErpApi, getErrorMessage } from '../lib/erpApi'
-import type { FeePayment, PaymentMode, Student } from '../types'
+import type {
+  FeeHead,
+  FeePayment,
+  FeeStructure,
+  PaymentMode,
+  SchoolSettings,
+  Student,
+} from '../types'
 
 const formatCurrency = (amount: number) =>
   new Intl.NumberFormat('en-IN', {
@@ -12,7 +20,8 @@ const formatCurrency = (amount: number) =>
   }).format(amount)
 
 const formatPaymentDate = (value: string) => {
-  const date = new Date(value)
+  const dateText = value.slice(0, 10)
+  const date = new Date(`${dateText}T00:00:00`)
   return Number.isNaN(date.getTime())
     ? value
     : new Intl.DateTimeFormat('en-IN', {
@@ -22,25 +31,50 @@ const formatPaymentDate = (value: string) => {
       }).format(date)
 }
 
-const formatPaymentTime = (value: string) => {
-  const date = new Date(value)
-  return Number.isNaN(date.getTime())
-    ? ''
-    : new Intl.DateTimeFormat('en-IN', {
-        hour: '2-digit',
-        minute: '2-digit',
-      }).format(date)
+const getTodayValue = () => {
+  const today = new Date()
+  const year = today.getFullYear()
+  const month = String(today.getMonth() + 1).padStart(2, '0')
+  const day = String(today.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+const getStructuredAmount = (
+  structures: FeeStructure[],
+  student: Student | undefined,
+  feeType: string,
+  academicYear: string,
+) => {
+  const matchingStructures = structures.filter(
+    (structure) =>
+      structure.status === 'Active' &&
+      structure.className === student?.className &&
+      structure.feeHeadName === feeType,
+  )
+  return (
+    matchingStructures.find(
+      (structure) => academicYear && structure.academicYear === academicYear,
+    )?.amount ??
+    matchingStructures.find((structure) => !structure.academicYear)?.amount ??
+    matchingStructures[0]?.amount
+  )
 }
 
 export function Fees() {
   const [studentRows, setStudentRows] = useState<Student[]>([])
   const [paymentRows, setPaymentRows] = useState<FeePayment[]>([])
+  const [feeHeads, setFeeHeads] = useState<FeeHead[]>([])
+  const [feeStructures, setFeeStructures] = useState<FeeStructure[]>([])
+  const [settings, setSettings] = useState<SchoolSettings | null>(null)
   const [search, setSearch] = useState('')
   const [selectedStudentId, setSelectedStudentId] = useState('')
   const [amount, setAmount] = useState('')
-  const [feeType, setFeeType] = useState('Tuition Fee')
+  const [feeType, setFeeType] = useState('')
   const [paymentMode, setPaymentMode] = useState<PaymentMode>('Cash')
+  const [paymentDate, setPaymentDate] = useState(getTodayValue)
   const [notes, setNotes] = useState('')
+  const [selectedReceipt, setSelectedReceipt] = useState<FeePayment | null>(null)
+  const [printRequested, setPrintRequested] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [message, setMessage] = useState('')
@@ -51,15 +85,35 @@ export function Fees() {
 
     Promise.resolve()
       .then(() =>
-        Promise.all([getErpApi().getStudents(), getErpApi().getFeePayments()]),
+        Promise.all([
+          getErpApi().getStudents(),
+          getErpApi().getFeePayments(),
+          getErpApi().getFeeHeads(),
+          getErpApi().getFeeStructures(),
+          getErpApi().getSchoolSettings(),
+        ]),
       )
-      .then(([students, payments]) => {
-        if (isCurrent) {
-          setStudentRows(students)
-          setPaymentRows(payments)
-          setSelectedStudentId(students[0]?.id ?? '')
-          setError('')
-        }
+      .then(([students, payments, headRows, structureRows, schoolSettings]) => {
+        if (!isCurrent) return
+
+        const firstStudent = students[0]
+        const firstFeeHead = headRows.find((feeHead) => feeHead.status === 'Active')
+        const firstAmount = getStructuredAmount(
+          structureRows,
+          firstStudent,
+          firstFeeHead?.name ?? '',
+          schoolSettings.academicYear,
+        )
+
+        setStudentRows(students)
+        setPaymentRows(payments)
+        setFeeHeads(headRows)
+        setFeeStructures(structureRows)
+        setSettings(schoolSettings)
+        setSelectedStudentId(firstStudent?.id ?? '')
+        setFeeType(firstFeeHead?.name ?? '')
+        setAmount(firstAmount ? String(firstAmount) : '')
+        setError('')
       })
       .catch((loadError: unknown) => {
         if (isCurrent) {
@@ -77,6 +131,17 @@ export function Fees() {
     }
   }, [])
 
+  useEffect(() => {
+    if (!printRequested || !selectedReceipt) return
+
+    const printTimer = window.setTimeout(() => {
+      window.print()
+      setPrintRequested(false)
+    }, 150)
+
+    return () => window.clearTimeout(printTimer)
+  }, [printRequested, selectedReceipt])
+
   const matchingStudents = useMemo(() => {
     const query = search.trim().toLowerCase()
     if (!query) return studentRows.slice(0, 5)
@@ -88,12 +153,80 @@ export function Fees() {
   }, [search, studentRows])
 
   const selectedStudent = studentRows.find((student) => student.id === selectedStudentId)
+  const activeFeeHeads = useMemo(
+    () => feeHeads.filter((feeHead) => feeHead.status === 'Active'),
+    [feeHeads],
+  )
+  const configuredFee = useMemo(
+    () =>
+      selectedStudent
+        ? feeStructures
+            .filter(
+              (structure) =>
+                structure.status === 'Active' &&
+                structure.className === selectedStudent.className &&
+                (!settings?.academicYear ||
+                  structure.academicYear === settings.academicYear),
+            )
+            .reduce((total, structure) => total + structure.amount, 0)
+        : 0,
+    [feeStructures, selectedStudent, settings],
+  )
+  const recordedPaid = useMemo(
+    () =>
+      selectedStudent
+        ? paymentRows
+            .filter((payment) => payment.studentId === selectedStudent.id)
+            .reduce((total, payment) => total + payment.amount, 0)
+        : 0,
+    [paymentRows, selectedStudent],
+  )
+
+  const selectStudent = (student: Student) => {
+    const structuredAmount = getStructuredAmount(
+      feeStructures,
+      student,
+      feeType,
+      settings?.academicYear ?? '',
+    )
+    setSelectedStudentId(student.id)
+    setAmount(structuredAmount ? String(structuredAmount) : '')
+  }
+
+  const selectFeeType = (nextFeeType: string) => {
+    const structuredAmount = getStructuredAmount(
+      feeStructures,
+      selectedStudent,
+      nextFeeType,
+      settings?.academicYear ?? '',
+    )
+    setFeeType(nextFeeType)
+    setAmount(structuredAmount ? String(structuredAmount) : '')
+  }
+
+  const openReceipt = (payment: FeePayment) => {
+    setPrintRequested(false)
+    setSelectedReceipt(payment)
+  }
+
+  const printReceipt = (payment: FeePayment) => {
+    setSelectedReceipt(payment)
+    setPrintRequested(true)
+  }
 
   const columns: TableColumn<FeePayment>[] = [
     {
       key: 'receipt',
       header: 'Receipt No.',
-      render: (payment) => <span className="table-primary">{payment.receiptNo}</span>,
+      render: (payment) => (
+        <button
+          className="receipt-link"
+          type="button"
+          onClick={() => openReceipt(payment)}
+        >
+          {payment.receiptNo}
+        </button>
+      ),
     },
     {
       key: 'student',
@@ -105,17 +238,17 @@ export function Fees() {
         </div>
       ),
     },
-    { key: 'class', header: 'Class', render: (payment) => payment.className || '—' },
-    { key: 'fee', header: 'Fee Type', render: (payment) => payment.feeType || '—' },
+    {
+      key: 'class',
+      header: 'Class / Section',
+      render: (payment) =>
+        `${payment.className || '—'}${payment.section ? `-${payment.section}` : ''}`,
+    },
+    { key: 'fee', header: 'Fee Head', render: (payment) => payment.feeType || '—' },
     {
       key: 'date',
-      header: 'Date & Time',
-      render: (payment) => (
-        <div>
-          <span className="table-block">{formatPaymentDate(payment.paymentDate)}</span>
-          <span className="table-secondary">{formatPaymentTime(payment.paymentDate)}</span>
-        </div>
-      ),
+      header: 'Date',
+      render: (payment) => formatPaymentDate(payment.paymentDate),
     },
     {
       key: 'mode',
@@ -129,18 +262,27 @@ export function Fees() {
       render: (payment) => <strong>{formatCurrency(payment.amount)}</strong>,
     },
     {
-      key: 'print',
+      key: 'actions',
       header: '',
       className: 'align-right',
       render: (payment) => (
-        <button
-          className="row-action row-action--print"
-          type="button"
-          title="Print receipt"
-          onClick={() => setMessage(`${payment.receiptNo} is ready for printing.`)}
-        >
-          <Icon name="print" size={16} />
-        </button>
+        <div className="receipt-row-actions">
+          <button
+            className="table-action-button"
+            type="button"
+            onClick={() => openReceipt(payment)}
+          >
+            View
+          </button>
+          <button
+            className="table-action-button"
+            type="button"
+            onClick={() => printReceipt(payment)}
+          >
+            <Icon name="print" size={13} />
+            Print
+          </button>
+        </div>
       ),
     },
   ]
@@ -148,8 +290,13 @@ export function Fees() {
   const handlePayment = async (event: FormEvent) => {
     event.preventDefault()
     const numericAmount = Number(amount)
-    if (!selectedStudent || !Number.isInteger(numericAmount) || numericAmount <= 0) {
-      setError('Select a student and enter a valid whole-number amount.')
+    if (
+      !selectedStudent ||
+      !feeType ||
+      !Number.isInteger(numericAmount) ||
+      numericAmount <= 0
+    ) {
+      setError('Select a student and fee head, then enter a valid whole-number amount.')
       return
     }
 
@@ -157,17 +304,16 @@ export function Fees() {
     try {
       const payment = await getErpApi().createFeePayment({
         studentId: selectedStudent.id,
-        studentName: selectedStudent.name,
-        className: `${selectedStudent.className}-${selectedStudent.section}`,
         feeType,
         amount: numericAmount,
         paymentMode,
+        paymentDate,
         notes,
       })
       setPaymentRows(await getErpApi().getFeePayments())
-      setAmount('')
       setNotes('')
-      setMessage(`Payment recorded. Receipt ${payment.receiptNo} is ready.`)
+      setMessage(`Payment recorded. Receipt ${payment.receiptNo} was generated.`)
+      setSelectedReceipt(payment)
       setError('')
     } catch (saveError) {
       setError(getErrorMessage(saveError))
@@ -182,7 +328,7 @@ export function Fees() {
       <section className="page-header">
         <div>
           <h2>Fee Collection</h2>
-          <p>Find a student, review dues and record a payment.</p>
+          <p>Find a student, collect a configured fee and issue a receipt.</p>
         </div>
         <button
           className="secondary-button"
@@ -236,7 +382,7 @@ export function Fees() {
               <button
                 className={`student-result${selectedStudent?.id === student.id ? ' student-result--active' : ''}`}
                 key={student.id}
-                onClick={() => setSelectedStudentId(student.id)}
+                onClick={() => selectStudent(student)}
                 type="button"
               >
                 <span className="person-avatar person-avatar--blue">
@@ -274,37 +420,63 @@ export function Fees() {
             {selectedStudent && (
               <span className="active-student-badge">
                 <Icon name="user" size={15} />
-                Class {selectedStudent.className}-{selectedStudent.section}
+                {selectedStudent.admissionNo}
               </span>
             )}
           </div>
+
+          {selectedStudent && (
+            <div className="selected-student-details">
+              <div><span>Student</span><strong>{selectedStudent.name}</strong></div>
+              <div><span>Admission No.</span><strong>{selectedStudent.admissionNo}</strong></div>
+              <div><span>Class</span><strong>{selectedStudent.className}</strong></div>
+              <div><span>Section</span><strong>{selectedStudent.section || '—'}</strong></div>
+              <div><span>Guardian</span><strong>{selectedStudent.guardianName || '—'}</strong></div>
+              <div><span>Mobile</span><strong>{selectedStudent.mobile || '—'}</strong></div>
+            </div>
+          )}
+
           <div className="fee-summary-grid">
             <div>
-              <span>Total Fee</span>
-              <strong>₹42,000</strong>
+              <span>Configured Fee</span>
+              <strong>{formatCurrency(configuredFee)}</strong>
             </div>
             <div>
-              <span>Paid</span>
-              <strong className="text-success">₹29,500</strong>
+              <span>Recorded Paid</span>
+              <strong className="text-success">{formatCurrency(recordedPaid)}</strong>
             </div>
             <div>
-              <span>Balance Due</span>
-              <strong className="text-danger">₹12,500</strong>
+              <span>Current Balance</span>
+              <strong className="text-danger">
+                {formatCurrency(Math.max(configuredFee - recordedPaid, 0))}
+              </strong>
             </div>
           </div>
+
           <form className="payment-form" onSubmit={(event) => void handlePayment(event)}>
-            <div className="form-row form-row--three">
+            {activeFeeHeads.length === 0 && !isLoading && (
+              <div className="form-note form-note--warning">
+                <Icon name="clock" size={17} />
+                Create fee heads from Settings first.
+              </div>
+            )}
+            <div className="form-row form-row--four">
               <label className="form-field">
-                <span>Fee Type</span>
+                <span>Fee Head</span>
                 <select
-                  disabled={!selectedStudent}
+                  disabled={!selectedStudent || activeFeeHeads.length === 0}
+                  required
                   value={feeType}
-                  onChange={(event) => setFeeType(event.target.value)}
+                  onChange={(event) => selectFeeType(event.target.value)}
                 >
-                  <option>Tuition Fee</option>
-                  <option>Quarterly Fee</option>
-                  <option>Transport Fee</option>
-                  <option>Annual Fee</option>
+                  {activeFeeHeads.length === 0 && (
+                    <option value="">No fee heads available</option>
+                  )}
+                  {activeFeeHeads.map((feeHead) => (
+                    <option key={feeHead.id} value={feeHead.name}>
+                      {feeHead.name}
+                    </option>
+                  ))}
                 </select>
               </label>
               <label className="form-field">
@@ -331,15 +503,26 @@ export function Fees() {
                   <option>UPI</option>
                   <option>Card</option>
                   <option>Bank Transfer</option>
+                  <option>Cheque</option>
                 </select>
+              </label>
+              <label className="form-field">
+                <span>Payment Date</span>
+                <input
+                  disabled={!selectedStudent}
+                  required
+                  type="date"
+                  value={paymentDate}
+                  onChange={(event) => setPaymentDate(event.target.value)}
+                />
               </label>
             </div>
             <label className="form-field">
-              <span>Payment Note</span>
+              <span>Notes</span>
               <input
                 disabled={!selectedStudent}
                 onChange={(event) => setNotes(event.target.value)}
-                placeholder="Optional note or transaction reference"
+                placeholder="Optional note, cheque number or transaction reference"
                 value={notes}
               />
             </label>
@@ -347,11 +530,11 @@ export function Fees() {
               <span>Receipt number is generated automatically when payment is saved.</span>
               <button
                 className="primary-button"
-                disabled={!selectedStudent || isSaving}
+                disabled={!selectedStudent || isSaving || activeFeeHeads.length === 0}
                 type="submit"
               >
                 <Icon name="wallet" size={17} />
-                {isSaving ? 'Recording...' : 'Record Payment'}
+                {isSaving ? 'Recording...' : 'Collect Fee & Generate Receipt'}
               </button>
             </div>
           </form>
@@ -362,22 +545,30 @@ export function Fees() {
         <div className="panel-heading">
           <div>
             <h3>Recent Receipts</h3>
-            <p>Latest payments recorded in the local database</p>
+            <p>Latest persisted fee receipts</p>
           </div>
-          <button className="text-button" type="button">
-            View all receipts
-            <Icon name="arrow" size={16} />
-          </button>
         </div>
         <DataTable
           columns={columns}
           getRowKey={(payment) => payment.id}
-          rows={paymentRows.slice(0, 5)}
+          rows={paymentRows.slice(0, 10)}
           emptyMessage={
-            isLoading ? 'Loading fee payments...' : 'No fee payments recorded yet.'
+            isLoading ? 'Loading fee receipts...' : 'No fee receipts recorded yet.'
           }
         />
       </section>
+
+      {selectedReceipt && settings && (
+        <ReceiptPreview
+          payment={selectedReceipt}
+          settings={settings}
+          onClose={() => {
+            setPrintRequested(false)
+            setSelectedReceipt(null)
+          }}
+          onPrint={() => window.print()}
+        />
+      )}
     </div>
   )
 }

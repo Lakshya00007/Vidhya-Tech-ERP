@@ -22,6 +22,7 @@ export type IconName =
   | 'arrow'
   | 'school'
   | 'trash'
+  | 'edit'
 
 interface IconProps {
   name: IconName
@@ -92,6 +93,7 @@ const paths: Record<IconName, React.ReactNode> = {
   arrow: <><path d="M5 12h14M14 7l5 5-5 5" /></>,
   school: <><path d="M3 10l9-6 9 6M5 9v11h14V9M3 20h18" /><path d="M9 20v-6h6v6M9 10h6" /></>,
   trash: <><path d="M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14M10 11v6M14 11v6" /></>,
+  edit: <><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L8 18l-4 1 1-4z" /></>,
 }
 
 export function Icon({ name, size = 20, className }: IconProps) {

@@ -3,8 +3,22 @@ const Database = require("better-sqlite3");
 
 const DEFAULT_SETTINGS_ID = "school-profile";
 const STUDENT_STATUSES = new Set(["Active", "Inactive"]);
-const PAYMENT_MODES = new Set(["Cash", "UPI", "Card", "Bank Transfer"]);
+const MASTER_STATUSES = new Set(["Active", "Inactive"]);
+const PAYMENT_MODES = new Set([
+  "Cash",
+  "UPI",
+  "Card",
+  "Bank Transfer",
+  "Cheque",
+]);
 const ATTENDANCE_STATUSES = new Set(["Present", "Absent", "Leave"]);
+const FEE_FREQUENCIES = new Set([
+  "Monthly",
+  "Quarterly",
+  "Half-Yearly",
+  "Yearly",
+  "One-Time",
+]);
 
 function now() {
   return new Date().toISOString();
@@ -20,6 +34,30 @@ function requiredText(value, fieldName) {
     throw new Error(`${fieldName} is required.`);
   }
   return text;
+}
+
+function addColumnIfMissing(db, tableName, columnName, definition) {
+  const columns = db.prepare(`PRAGMA table_info("${tableName}")`).all();
+  if (!columns.some((column) => column.name === columnName)) {
+    db.exec(
+      `ALTER TABLE "${tableName}" ADD COLUMN "${columnName}" ${definition}`,
+    );
+  }
+}
+
+function normalizeDate(value, fieldName) {
+  const dateText = requiredText(value, fieldName);
+  const dateOnly = dateText.match(/^\d{4}-\d{2}-\d{2}/)?.[0];
+  const parsedDate = dateOnly ? new Date(`${dateOnly}T00:00:00Z`) : null;
+  if (
+    !dateOnly ||
+    !parsedDate ||
+    Number.isNaN(parsedDate.getTime()) ||
+    parsedDate.toISOString().slice(0, 10) !== dateOnly
+  ) {
+    throw new Error(`${fieldName} is invalid.`);
+  }
+  return dateOnly;
 }
 
 function studentFromRow(row) {
@@ -62,8 +100,11 @@ function paymentFromRow(row) {
     receiptNo: row.receipt_no,
     studentId: row.student_id,
     studentName: row.student_name,
-    admissionNo: row.admission_no ?? "",
+    admissionNo: row.admission_no ?? row.student_admission_no ?? "",
     className: row.class_name ?? "",
+    section: row.section ?? "",
+    guardianName: row.guardian_name ?? "",
+    mobile: row.mobile ?? "",
     feeType: row.fee_type ?? "",
     amount: row.amount,
     paymentMode: row.payment_mode ?? "Cash",
@@ -90,10 +131,94 @@ function attendanceFromRow(row) {
   };
 }
 
+function classFromRow(row) {
+  return {
+    id: row.id,
+    name: row.name,
+    displayOrder: row.display_order ?? 0,
+    status: row.status,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at,
+    syncStatus: row.sync_status,
+  };
+}
+
+function sectionFromRow(row) {
+  return {
+    id: row.id,
+    classId: row.class_id ?? "",
+    className: row.class_name,
+    name: row.name,
+    status: row.status,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at,
+    syncStatus: row.sync_status,
+  };
+}
+
+function feeHeadFromRow(row) {
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description ?? "",
+    frequency: row.frequency,
+    status: row.status,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at,
+    syncStatus: row.sync_status,
+  };
+}
+
+function feeStructureFromRow(row) {
+  return {
+    id: row.id,
+    className: row.class_name,
+    feeHeadId: row.fee_head_id,
+    feeHeadName: row.fee_head_name,
+    amount: row.amount,
+    academicYear: row.academic_year ?? "",
+    status: row.status,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at,
+    syncStatus: row.sync_status,
+  };
+}
+
+function masterStatus(value, fallback = "Active") {
+  const status = optionalText(value) || fallback;
+  if (!MASTER_STATUSES.has(status)) {
+    throw new Error("Status must be Active or Inactive.");
+  }
+  return status;
+}
+
+function displayOrder(value, fallback = 0) {
+  if (value === undefined || value === null || value === "") {
+    return fallback;
+  }
+  const order = Number(value);
+  if (!Number.isInteger(order) || order < 0) {
+    throw new Error("Display order must be a non-negative whole number.");
+  }
+  return order;
+}
+
 function createDatabase(databasePath) {
   const db = new Database(databasePath);
   db.pragma("journal_mode = WAL");
   db.pragma("foreign_keys = ON");
+
+  const hadClassesTable = Boolean(
+    db
+      .prepare(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
+      )
+      .get("classes"),
+  );
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS school_settings (
@@ -131,7 +256,11 @@ function createDatabase(databasePath) {
       receipt_no TEXT UNIQUE NOT NULL,
       student_id TEXT,
       student_name TEXT NOT NULL,
+      admission_no TEXT,
       class_name TEXT,
+      section TEXT,
+      guardian_name TEXT,
+      mobile TEXT,
       fee_type TEXT,
       amount INTEGER NOT NULL,
       payment_mode TEXT,
@@ -157,13 +286,77 @@ function createDatabase(databasePath) {
       FOREIGN KEY (student_id) REFERENCES students(id)
     );
 
+    CREATE TABLE IF NOT EXISTS classes (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      display_order INTEGER,
+      status TEXT DEFAULT 'Active',
+      created_at TEXT,
+      updated_at TEXT,
+      deleted_at TEXT,
+      sync_status TEXT DEFAULT 'pending'
+    );
+
+    CREATE TABLE IF NOT EXISTS sections (
+      id TEXT PRIMARY KEY,
+      class_id TEXT,
+      class_name TEXT NOT NULL,
+      name TEXT NOT NULL,
+      status TEXT DEFAULT 'Active',
+      created_at TEXT,
+      updated_at TEXT,
+      deleted_at TEXT,
+      sync_status TEXT DEFAULT 'pending',
+      FOREIGN KEY (class_id) REFERENCES classes(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS fee_heads (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT,
+      frequency TEXT NOT NULL,
+      status TEXT DEFAULT 'Active',
+      created_at TEXT,
+      updated_at TEXT,
+      deleted_at TEXT,
+      sync_status TEXT DEFAULT 'pending'
+    );
+
+    CREATE TABLE IF NOT EXISTS fee_structures (
+      id TEXT PRIMARY KEY,
+      class_name TEXT NOT NULL,
+      fee_head_id TEXT NOT NULL,
+      fee_head_name TEXT NOT NULL,
+      amount INTEGER NOT NULL,
+      academic_year TEXT,
+      status TEXT DEFAULT 'Active',
+      created_at TEXT,
+      updated_at TEXT,
+      deleted_at TEXT,
+      sync_status TEXT DEFAULT 'pending',
+      FOREIGN KEY (fee_head_id) REFERENCES fee_heads(id)
+    );
+
     CREATE INDEX IF NOT EXISTS idx_students_active
       ON students(deleted_at, created_at);
     CREATE INDEX IF NOT EXISTS idx_fee_payments_date
       ON fee_payments(payment_date);
     CREATE UNIQUE INDEX IF NOT EXISTS idx_attendance_student_date
       ON attendance(student_id, attendance_date);
+    CREATE INDEX IF NOT EXISTS idx_classes_active
+      ON classes(deleted_at, display_order, name);
+    CREATE INDEX IF NOT EXISTS idx_sections_class
+      ON sections(class_id, deleted_at, name);
+    CREATE INDEX IF NOT EXISTS idx_fee_heads_active
+      ON fee_heads(deleted_at, name);
+    CREATE INDEX IF NOT EXISTS idx_fee_structures_class
+      ON fee_structures(class_name, academic_year, deleted_at);
   `);
+
+  addColumnIfMissing(db, "fee_payments", "admission_no", "TEXT");
+  addColumnIfMissing(db, "fee_payments", "section", "TEXT");
+  addColumnIfMissing(db, "fee_payments", "guardian_name", "TEXT");
+  addColumnIfMissing(db, "fee_payments", "mobile", "TEXT");
 
   const timestamp = now();
   db.prepare(`
@@ -185,6 +378,71 @@ function createDatabase(databasePath) {
     createdAt: timestamp,
     updatedAt: timestamp,
   });
+
+  if (!hadClassesTable) {
+    const legacyClasses = db
+      .prepare(`
+        SELECT class_name, MIN(created_at) AS first_created
+        FROM students
+        WHERE deleted_at IS NULL AND trim(class_name) <> ''
+        GROUP BY class_name
+        ORDER BY CAST(class_name AS INTEGER), class_name
+      `)
+      .all();
+    const insertMigratedClass = db.prepare(`
+      INSERT INTO classes (
+        id, name, display_order, status, created_at, updated_at, deleted_at,
+        sync_status
+      ) VALUES (
+        @id, @name, @displayOrder, 'Active', @createdAt, @updatedAt, NULL,
+        'pending'
+      )
+    `);
+    const insertMigratedSection = db.prepare(`
+      INSERT INTO sections (
+        id, class_id, class_name, name, status, created_at, updated_at,
+        deleted_at, sync_status
+      ) VALUES (
+        @id, @classId, @className, @name, 'Active', @createdAt, @updatedAt,
+        NULL, 'pending'
+      )
+    `);
+
+    db.transaction(() => {
+      legacyClasses.forEach((legacyClass, index) => {
+        const classId = crypto.randomUUID();
+        const createdAt = legacyClass.first_created || timestamp;
+        insertMigratedClass.run({
+          id: classId,
+          name: legacyClass.class_name,
+          displayOrder: index + 1,
+          createdAt,
+          updatedAt: timestamp,
+        });
+
+        const legacySections = db
+          .prepare(`
+            SELECT DISTINCT section
+            FROM students
+            WHERE deleted_at IS NULL
+              AND class_name = ?
+              AND trim(COALESCE(section, '')) <> ''
+            ORDER BY section
+          `)
+          .all(legacyClass.class_name);
+        for (const legacySection of legacySections) {
+          insertMigratedSection.run({
+            id: crypto.randomUUID(),
+            classId,
+            className: legacyClass.class_name,
+            name: legacySection.section,
+            createdAt,
+            updatedAt: timestamp,
+          });
+        }
+      });
+    })();
+  }
 
   const getStudentsStatement = db.prepare(`
     SELECT *
@@ -228,11 +486,28 @@ function createDatabase(databasePath) {
     WHERE id = @id AND deleted_at IS NULL
   `);
 
-  const getPaymentsStatement = db.prepare(`
-    SELECT fee_payments.*, students.admission_no
+  const paymentSelect = `
+    SELECT
+      fee_payments.*,
+      students.admission_no AS student_admission_no
     FROM fee_payments
     LEFT JOIN students ON students.id = fee_payments.student_id
+  `;
+
+  const getPaymentsStatement = db.prepare(`
+    ${paymentSelect}
     ORDER BY fee_payments.payment_date DESC, fee_payments.created_at DESC
+  `);
+
+  const getActiveClassById = db.prepare(`
+    SELECT * FROM classes WHERE id = ? AND deleted_at IS NULL
+  `);
+  const getActiveClassByName = db.prepare(`
+    SELECT * FROM classes
+    WHERE name = ? COLLATE NOCASE AND deleted_at IS NULL
+  `);
+  const getActiveFeeHeadById = db.prepare(`
+    SELECT * FROM fee_heads WHERE id = ? AND deleted_at IS NULL
   `);
 
   function generateAdmissionNumber() {
@@ -241,22 +516,25 @@ function createDatabase(databasePath) {
     return `VSE-${year}-${suffix}`;
   }
 
-  function generateReceiptNumber() {
+  function generateReceiptNumber(paymentDate) {
     const settings = db
       .prepare("SELECT receipt_prefix FROM school_settings WHERE id = ?")
       .get(DEFAULT_SETTINGS_ID);
-    const prefix = optionalText(settings?.receipt_prefix) || "VSE-RC";
+    const prefix =
+      optionalText(settings?.receipt_prefix).replace(/-+$/, "") || "VSE-RC";
+    const year = normalizeDate(paymentDate, "Payment date").slice(0, 4);
+    const receiptStem = `${prefix}-${year}-`;
     const sequence = db
       .prepare(`
         SELECT MAX(
-          CAST(substr(receipt_no, length(?) + 2) AS INTEGER)
+          CAST(substr(receipt_no, length(?) + 1) AS INTEGER)
         ) AS last_sequence
         FROM fee_payments
-        WHERE receipt_no LIKE ?
+        WHERE substr(receipt_no, 1, length(?)) = ?
       `)
-      .get(prefix, `${prefix}-%`);
-    const lastSequence = Number(sequence?.last_sequence ?? 1000);
-    return `${prefix}-${lastSequence + 1}`;
+      .get(receiptStem, receiptStem, receiptStem);
+    const nextSequence = Number(sequence?.last_sequence ?? 0) + 1;
+    return `${receiptStem}${String(nextSequence).padStart(4, "0")}`;
   }
 
   return {
@@ -271,12 +549,34 @@ function createDatabase(databasePath) {
         throw new Error("Student status is invalid.");
       }
 
+      const className = requiredText(input?.className, "Class");
+      const schoolClass = getActiveClassByName.get(className);
+      if (!schoolClass || schoolClass.status !== "Active") {
+        throw new Error("Select an active class from Settings.");
+      }
+      const section = optionalText(input?.section);
+      if (section) {
+        const schoolSection = db
+          .prepare(`
+            SELECT id
+            FROM sections
+            WHERE class_id = ?
+              AND name = ? COLLATE NOCASE
+              AND status = 'Active'
+              AND deleted_at IS NULL
+          `)
+          .get(schoolClass.id, section);
+        if (!schoolSection) {
+          throw new Error("Select an active section for the chosen class.");
+        }
+      }
+
       const student = {
         id: crypto.randomUUID(),
         admissionNo: optionalText(input?.admissionNo) || generateAdmissionNumber(),
         name: requiredText(input?.name, "Student name"),
-        className: requiredText(input?.className, "Class"),
-        section: optionalText(input?.section),
+        className: schoolClass.name,
+        section,
         guardianName: optionalText(input?.guardianName),
         mobile: optionalText(input?.mobile),
         status,
@@ -304,16 +604,46 @@ function createDatabase(databasePath) {
         throw new Error("Student status is invalid.");
       }
 
+      let className = existingStudent.className;
+      if (input?.className !== undefined) {
+        const schoolClass = getActiveClassByName.get(
+          requiredText(input.className, "Class"),
+        );
+        if (!schoolClass || schoolClass.status !== "Active") {
+          throw new Error("Select an active class from Settings.");
+        }
+        className = schoolClass.name;
+      }
+      const section =
+        input?.section === undefined
+          ? existingStudent.section
+          : optionalText(input.section);
+      if ((input?.className !== undefined || input?.section !== undefined) && section) {
+        const schoolClass = getActiveClassByName.get(className);
+        const schoolSection = schoolClass
+          ? db
+              .prepare(`
+                SELECT id
+                FROM sections
+                WHERE class_id = ?
+                  AND name = ? COLLATE NOCASE
+                  AND status = 'Active'
+                  AND deleted_at IS NULL
+              `)
+              .get(schoolClass.id, section)
+          : null;
+        if (!schoolSection) {
+          throw new Error("Select an active section for the chosen class.");
+        }
+      }
+
       updateStudentStatement.run({
         id: studentId,
         admissionNo:
           optionalText(input?.admissionNo) || existingStudent.admissionNo,
         name: optionalText(input?.name) || existingStudent.name,
-        className: optionalText(input?.className) || existingStudent.className,
-        section:
-          input?.section === undefined
-            ? existingStudent.section
-            : optionalText(input.section),
+        className,
+        section,
         guardianName:
           input?.guardianName === undefined
             ? existingStudent.guardianName
@@ -398,6 +728,24 @@ function createDatabase(databasePath) {
       return getPaymentsStatement.all().map(paymentFromRow);
     },
 
+    getFeePaymentsByDateRange(startDate, endDate) {
+      const normalizedStart = normalizeDate(startDate, "Start date");
+      const normalizedEnd = normalizeDate(endDate, "End date");
+      if (normalizedStart > normalizedEnd) {
+        throw new Error("Start date must be before or equal to end date.");
+      }
+
+      return db
+        .prepare(`
+          ${paymentSelect}
+          WHERE date(fee_payments.payment_date)
+            BETWEEN date(?) AND date(?)
+          ORDER BY fee_payments.payment_date DESC, fee_payments.created_at DESC
+        `)
+        .all(normalizedStart, normalizedEnd)
+        .map(paymentFromRow);
+    },
+
     createFeePayment(input) {
       const amount = Number(input?.amount);
       if (!Number.isInteger(amount) || amount <= 0) {
@@ -409,43 +757,65 @@ function createDatabase(databasePath) {
         throw new Error("Payment mode is invalid.");
       }
 
-      const studentId = optionalText(input?.studentId) || null;
-      if (studentId && !getStudentStatement.get(studentId)) {
+      const studentId = requiredText(input?.studentId, "Student");
+      const student = getStudentStatement.get(studentId);
+      if (!student) {
         throw new Error("The selected student was not found.");
+      }
+      const feeType = requiredText(input?.feeType, "Fee type");
+      const feeHead = db
+        .prepare(`
+          SELECT id
+          FROM fee_heads
+          WHERE name = ? COLLATE NOCASE
+            AND status = 'Active'
+            AND deleted_at IS NULL
+        `)
+        .get(feeType);
+      if (!feeHead) {
+        throw new Error("Select an active fee head from Settings.");
       }
 
       const timestamp = now();
+      const paymentDate = normalizeDate(
+        optionalText(input?.paymentDate) || timestamp.slice(0, 10),
+        "Payment date",
+      );
       const id = crypto.randomUUID();
-      db.prepare(`
-        INSERT INTO fee_payments (
-          id, receipt_no, student_id, student_name, class_name, fee_type,
-          amount, payment_mode, payment_date, notes, created_at, updated_at,
-          sync_status
-        ) VALUES (
-          @id, @receiptNo, @studentId, @studentName, @className, @feeType,
-          @amount, @paymentMode, @paymentDate, @notes, @createdAt, @updatedAt,
-          'pending'
-        )
-      `).run({
-        id,
-        receiptNo: optionalText(input?.receiptNo) || generateReceiptNumber(),
-        studentId,
-        studentName: requiredText(input?.studentName, "Student name"),
-        className: optionalText(input?.className),
-        feeType: optionalText(input?.feeType),
-        amount,
-        paymentMode,
-        paymentDate: optionalText(input?.paymentDate) || timestamp,
-        notes: optionalText(input?.notes),
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      });
+      db.transaction(() => {
+        db.prepare(`
+          INSERT INTO fee_payments (
+            id, receipt_no, student_id, student_name, admission_no, class_name,
+            section, guardian_name, mobile, fee_type, amount, payment_mode,
+            payment_date, notes, created_at, updated_at, sync_status
+          ) VALUES (
+            @id, @receiptNo, @studentId, @studentName, @admissionNo, @className,
+            @section, @guardianName, @mobile, @feeType, @amount, @paymentMode,
+            @paymentDate, @notes, @createdAt, @updatedAt, 'pending'
+          )
+        `).run({
+          id,
+          receiptNo: generateReceiptNumber(paymentDate),
+          studentId,
+          studentName: student.name,
+          admissionNo: student.admission_no,
+          className: student.class_name,
+          section: student.section ?? "",
+          guardianName: student.guardian_name ?? "",
+          mobile: student.mobile ?? "",
+          feeType,
+          amount,
+          paymentMode,
+          paymentDate,
+          notes: optionalText(input?.notes),
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        });
+      })();
 
       return paymentFromRow(
         db.prepare(`
-          SELECT fee_payments.*, students.admission_no
-          FROM fee_payments
-          LEFT JOIN students ON students.id = fee_payments.student_id
+          ${paymentSelect}
           WHERE fee_payments.id = ?
         `).get(id),
       );
@@ -512,6 +882,581 @@ function createDatabase(databasePath) {
           `)
           .get(studentId, attendanceDate),
       );
+    },
+
+    getClasses() {
+      return db
+        .prepare(`
+          SELECT *
+          FROM classes
+          WHERE deleted_at IS NULL
+          ORDER BY display_order, name COLLATE NOCASE
+        `)
+        .all()
+        .map(classFromRow);
+    },
+
+    createClass(input) {
+      const name = requiredText(input?.name, "Class name");
+      const duplicate = db
+        .prepare(`
+          SELECT id FROM classes
+          WHERE name = ? COLLATE NOCASE AND deleted_at IS NULL
+        `)
+        .get(name);
+      if (duplicate) {
+        throw new Error("A class with this name already exists.");
+      }
+
+      const timestamp = now();
+      const id = crypto.randomUUID();
+      db.prepare(`
+        INSERT INTO classes (
+          id, name, display_order, status, created_at, updated_at, deleted_at,
+          sync_status
+        ) VALUES (
+          @id, @name, @displayOrder, @status, @createdAt, @updatedAt, NULL,
+          'pending'
+        )
+      `).run({
+        id,
+        name,
+        displayOrder: displayOrder(input?.displayOrder),
+        status: masterStatus(input?.status),
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+
+      return classFromRow(getActiveClassById.get(id));
+    },
+
+    updateClass(id, input) {
+      const classId = requiredText(id, "Class id");
+      const existing = getActiveClassById.get(classId);
+      if (!existing) {
+        throw new Error("Class record was not found.");
+      }
+
+      const name =
+        input?.name === undefined
+          ? existing.name
+          : requiredText(input.name, "Class name");
+      const duplicate = db
+        .prepare(`
+          SELECT id FROM classes
+          WHERE name = ? COLLATE NOCASE
+            AND id <> ?
+            AND deleted_at IS NULL
+        `)
+        .get(name, classId);
+      if (duplicate) {
+        throw new Error("A class with this name already exists.");
+      }
+
+      const updatedAt = now();
+      db.transaction(() => {
+        db.prepare(`
+          UPDATE classes
+          SET name = @name,
+              display_order = @displayOrder,
+              status = @status,
+              updated_at = @updatedAt,
+              sync_status = 'pending'
+          WHERE id = @id AND deleted_at IS NULL
+        `).run({
+          id: classId,
+          name,
+          displayOrder: displayOrder(input?.displayOrder, existing.display_order ?? 0),
+          status: masterStatus(input?.status, existing.status),
+          updatedAt,
+        });
+
+        if (name !== existing.name) {
+          db.prepare(`
+            UPDATE sections
+            SET class_name = ?, updated_at = ?, sync_status = 'pending'
+            WHERE class_id = ? AND deleted_at IS NULL
+          `).run(name, updatedAt, classId);
+          db.prepare(`
+            UPDATE fee_structures
+            SET class_name = ?, updated_at = ?, sync_status = 'pending'
+            WHERE class_name = ? AND deleted_at IS NULL
+          `).run(name, updatedAt, existing.name);
+        }
+      })();
+
+      return classFromRow(getActiveClassById.get(classId));
+    },
+
+    deleteClass(id) {
+      const classId = requiredText(id, "Class id");
+      const existing = getActiveClassById.get(classId);
+      if (!existing) {
+        return { success: false };
+      }
+      const deletedAt = now();
+      const result = db.transaction(() => {
+        const classResult = db
+          .prepare(`
+            UPDATE classes
+            SET deleted_at = ?, updated_at = ?, sync_status = 'pending'
+            WHERE id = ? AND deleted_at IS NULL
+          `)
+          .run(deletedAt, deletedAt, classId);
+        db.prepare(`
+          UPDATE sections
+          SET deleted_at = ?, updated_at = ?, sync_status = 'pending'
+          WHERE class_id = ? AND deleted_at IS NULL
+        `).run(deletedAt, deletedAt, classId);
+        db.prepare(`
+          UPDATE fee_structures
+          SET deleted_at = ?, updated_at = ?, sync_status = 'pending'
+          WHERE class_name = ? AND deleted_at IS NULL
+        `).run(deletedAt, deletedAt, existing.name);
+        return classResult;
+      })();
+      return { success: result.changes === 1 };
+    },
+
+    getSections() {
+      return db
+        .prepare(`
+          SELECT *
+          FROM sections
+          WHERE deleted_at IS NULL
+          ORDER BY class_name COLLATE NOCASE, name COLLATE NOCASE
+        `)
+        .all()
+        .map(sectionFromRow);
+    },
+
+    createSection(input) {
+      const classId = requiredText(input?.classId, "Class");
+      const schoolClass = getActiveClassById.get(classId);
+      if (!schoolClass || schoolClass.status !== "Active") {
+        throw new Error("Select an active class.");
+      }
+      const name = requiredText(input?.name, "Section name");
+      const duplicate = db
+        .prepare(`
+          SELECT id
+          FROM sections
+          WHERE class_id = ?
+            AND name = ? COLLATE NOCASE
+            AND deleted_at IS NULL
+        `)
+        .get(classId, name);
+      if (duplicate) {
+        throw new Error("This section already exists for the selected class.");
+      }
+
+      const timestamp = now();
+      const id = crypto.randomUUID();
+      db.prepare(`
+        INSERT INTO sections (
+          id, class_id, class_name, name, status, created_at, updated_at,
+          deleted_at, sync_status
+        ) VALUES (
+          @id, @classId, @className, @name, @status, @createdAt, @updatedAt,
+          NULL, 'pending'
+        )
+      `).run({
+        id,
+        classId,
+        className: schoolClass.name,
+        name,
+        status: masterStatus(input?.status),
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+
+      return sectionFromRow(
+        db
+          .prepare("SELECT * FROM sections WHERE id = ? AND deleted_at IS NULL")
+          .get(id),
+      );
+    },
+
+    updateSection(id, input) {
+      const sectionId = requiredText(id, "Section id");
+      const existing = db
+        .prepare("SELECT * FROM sections WHERE id = ? AND deleted_at IS NULL")
+        .get(sectionId);
+      if (!existing) {
+        throw new Error("Section record was not found.");
+      }
+
+      const classId = optionalText(input?.classId) || existing.class_id;
+      const schoolClass = getActiveClassById.get(classId);
+      if (!schoolClass || schoolClass.status !== "Active") {
+        throw new Error("Select an active class.");
+      }
+      const name =
+        input?.name === undefined
+          ? existing.name
+          : requiredText(input.name, "Section name");
+      const duplicate = db
+        .prepare(`
+          SELECT id
+          FROM sections
+          WHERE class_id = ?
+            AND name = ? COLLATE NOCASE
+            AND id <> ?
+            AND deleted_at IS NULL
+        `)
+        .get(classId, name, sectionId);
+      if (duplicate) {
+        throw new Error("This section already exists for the selected class.");
+      }
+
+      db.prepare(`
+        UPDATE sections
+        SET class_id = @classId,
+            class_name = @className,
+            name = @name,
+            status = @status,
+            updated_at = @updatedAt,
+            sync_status = 'pending'
+        WHERE id = @id AND deleted_at IS NULL
+      `).run({
+        id: sectionId,
+        classId,
+        className: schoolClass.name,
+        name,
+        status: masterStatus(input?.status, existing.status),
+        updatedAt: now(),
+      });
+
+      return sectionFromRow(
+        db
+          .prepare("SELECT * FROM sections WHERE id = ? AND deleted_at IS NULL")
+          .get(sectionId),
+      );
+    },
+
+    deleteSection(id) {
+      const timestamp = now();
+      const result = db
+        .prepare(`
+          UPDATE sections
+          SET deleted_at = ?, updated_at = ?, sync_status = 'pending'
+          WHERE id = ? AND deleted_at IS NULL
+        `)
+        .run(timestamp, timestamp, requiredText(id, "Section id"));
+      return { success: result.changes === 1 };
+    },
+
+    getFeeHeads() {
+      return db
+        .prepare(`
+          SELECT *
+          FROM fee_heads
+          WHERE deleted_at IS NULL
+          ORDER BY name COLLATE NOCASE
+        `)
+        .all()
+        .map(feeHeadFromRow);
+    },
+
+    createFeeHead(input) {
+      const name = requiredText(input?.name, "Fee head name");
+      const duplicate = db
+        .prepare(`
+          SELECT id FROM fee_heads
+          WHERE name = ? COLLATE NOCASE AND deleted_at IS NULL
+        `)
+        .get(name);
+      if (duplicate) {
+        throw new Error("A fee head with this name already exists.");
+      }
+      const frequency = requiredText(input?.frequency, "Frequency");
+      if (!FEE_FREQUENCIES.has(frequency)) {
+        throw new Error("Fee frequency is invalid.");
+      }
+
+      const timestamp = now();
+      const id = crypto.randomUUID();
+      db.prepare(`
+        INSERT INTO fee_heads (
+          id, name, description, frequency, status, created_at, updated_at,
+          deleted_at, sync_status
+        ) VALUES (
+          @id, @name, @description, @frequency, @status, @createdAt,
+          @updatedAt, NULL, 'pending'
+        )
+      `).run({
+        id,
+        name,
+        description: optionalText(input?.description),
+        frequency,
+        status: masterStatus(input?.status),
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+
+      return feeHeadFromRow(
+        db
+          .prepare("SELECT * FROM fee_heads WHERE id = ? AND deleted_at IS NULL")
+          .get(id),
+      );
+    },
+
+    updateFeeHead(id, input) {
+      const feeHeadId = requiredText(id, "Fee head id");
+      const existing = getActiveFeeHeadById.get(feeHeadId);
+      if (!existing) {
+        throw new Error("Fee head record was not found.");
+      }
+
+      const name =
+        input?.name === undefined
+          ? existing.name
+          : requiredText(input.name, "Fee head name");
+      const duplicate = db
+        .prepare(`
+          SELECT id FROM fee_heads
+          WHERE name = ? COLLATE NOCASE
+            AND id <> ?
+            AND deleted_at IS NULL
+        `)
+        .get(name, feeHeadId);
+      if (duplicate) {
+        throw new Error("A fee head with this name already exists.");
+      }
+      const frequency =
+        input?.frequency === undefined
+          ? existing.frequency
+          : requiredText(input.frequency, "Frequency");
+      if (!FEE_FREQUENCIES.has(frequency)) {
+        throw new Error("Fee frequency is invalid.");
+      }
+
+      const updatedAt = now();
+      db.transaction(() => {
+        db.prepare(`
+          UPDATE fee_heads
+          SET name = @name,
+              description = @description,
+              frequency = @frequency,
+              status = @status,
+              updated_at = @updatedAt,
+              sync_status = 'pending'
+          WHERE id = @id AND deleted_at IS NULL
+        `).run({
+          id: feeHeadId,
+          name,
+          description:
+            input?.description === undefined
+              ? existing.description ?? ""
+              : optionalText(input.description),
+          frequency,
+          status: masterStatus(input?.status, existing.status),
+          updatedAt,
+        });
+
+        if (name !== existing.name) {
+          db.prepare(`
+            UPDATE fee_structures
+            SET fee_head_name = ?, updated_at = ?, sync_status = 'pending'
+            WHERE fee_head_id = ? AND deleted_at IS NULL
+          `).run(name, updatedAt, feeHeadId);
+        }
+      })();
+
+      return feeHeadFromRow(getActiveFeeHeadById.get(feeHeadId));
+    },
+
+    deleteFeeHead(id) {
+      const feeHeadId = requiredText(id, "Fee head id");
+      const existing = getActiveFeeHeadById.get(feeHeadId);
+      if (!existing) {
+        return { success: false };
+      }
+      const deletedAt = now();
+      const result = db.transaction(() => {
+        const feeHeadResult = db
+          .prepare(`
+            UPDATE fee_heads
+            SET deleted_at = ?, updated_at = ?, sync_status = 'pending'
+            WHERE id = ? AND deleted_at IS NULL
+          `)
+          .run(deletedAt, deletedAt, feeHeadId);
+        db.prepare(`
+          UPDATE fee_structures
+          SET deleted_at = ?, updated_at = ?, sync_status = 'pending'
+          WHERE fee_head_id = ? AND deleted_at IS NULL
+        `).run(deletedAt, deletedAt, feeHeadId);
+        return feeHeadResult;
+      })();
+      return { success: result.changes === 1 };
+    },
+
+    getFeeStructures() {
+      return db
+        .prepare(`
+          SELECT *
+          FROM fee_structures
+          WHERE deleted_at IS NULL
+          ORDER BY class_name COLLATE NOCASE, fee_head_name COLLATE NOCASE
+        `)
+        .all()
+        .map(feeStructureFromRow);
+    },
+
+    createFeeStructure(input) {
+      const className = requiredText(input?.className, "Class");
+      const schoolClass = getActiveClassByName.get(className);
+      if (!schoolClass || schoolClass.status !== "Active") {
+        throw new Error("Select an active class.");
+      }
+      const feeHeadId = requiredText(input?.feeHeadId, "Fee head");
+      const feeHead = getActiveFeeHeadById.get(feeHeadId);
+      if (!feeHead || feeHead.status !== "Active") {
+        throw new Error("Select an active fee head.");
+      }
+      const amount = Number(input?.amount);
+      if (!Number.isInteger(amount) || amount <= 0) {
+        throw new Error("Fee amount must be a positive whole number.");
+      }
+      const academicYear = optionalText(input?.academicYear);
+      const duplicate = db
+        .prepare(`
+          SELECT id
+          FROM fee_structures
+          WHERE class_name = ? COLLATE NOCASE
+            AND fee_head_id = ?
+            AND academic_year = ?
+            AND deleted_at IS NULL
+        `)
+        .get(schoolClass.name, feeHeadId, academicYear);
+      if (duplicate) {
+        throw new Error(
+          "This fee head is already configured for the class and academic year.",
+        );
+      }
+
+      const timestamp = now();
+      const id = crypto.randomUUID();
+      db.prepare(`
+        INSERT INTO fee_structures (
+          id, class_name, fee_head_id, fee_head_name, amount, academic_year,
+          status, created_at, updated_at, deleted_at, sync_status
+        ) VALUES (
+          @id, @className, @feeHeadId, @feeHeadName, @amount, @academicYear,
+          @status, @createdAt, @updatedAt, NULL, 'pending'
+        )
+      `).run({
+        id,
+        className: schoolClass.name,
+        feeHeadId,
+        feeHeadName: feeHead.name,
+        amount,
+        academicYear,
+        status: masterStatus(input?.status),
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+
+      return feeStructureFromRow(
+        db
+          .prepare(
+            "SELECT * FROM fee_structures WHERE id = ? AND deleted_at IS NULL",
+          )
+          .get(id),
+      );
+    },
+
+    updateFeeStructure(id, input) {
+      const feeStructureId = requiredText(id, "Fee structure id");
+      const existing = db
+        .prepare(
+          "SELECT * FROM fee_structures WHERE id = ? AND deleted_at IS NULL",
+        )
+        .get(feeStructureId);
+      if (!existing) {
+        throw new Error("Fee structure record was not found.");
+      }
+
+      const className =
+        input?.className === undefined
+          ? existing.class_name
+          : requiredText(input.className, "Class");
+      const schoolClass = getActiveClassByName.get(className);
+      if (!schoolClass || schoolClass.status !== "Active") {
+        throw new Error("Select an active class.");
+      }
+      const feeHeadId = optionalText(input?.feeHeadId) || existing.fee_head_id;
+      const feeHead = getActiveFeeHeadById.get(feeHeadId);
+      if (!feeHead || feeHead.status !== "Active") {
+        throw new Error("Select an active fee head.");
+      }
+      const amount =
+        input?.amount === undefined ? existing.amount : Number(input.amount);
+      if (!Number.isInteger(amount) || amount <= 0) {
+        throw new Error("Fee amount must be a positive whole number.");
+      }
+      const academicYear =
+        input?.academicYear === undefined
+          ? existing.academic_year ?? ""
+          : optionalText(input.academicYear);
+      const duplicate = db
+        .prepare(`
+          SELECT id
+          FROM fee_structures
+          WHERE class_name = ? COLLATE NOCASE
+            AND fee_head_id = ?
+            AND academic_year = ?
+            AND id <> ?
+            AND deleted_at IS NULL
+        `)
+        .get(schoolClass.name, feeHeadId, academicYear, feeStructureId);
+      if (duplicate) {
+        throw new Error(
+          "This fee head is already configured for the class and academic year.",
+        );
+      }
+
+      db.prepare(`
+        UPDATE fee_structures
+        SET class_name = @className,
+            fee_head_id = @feeHeadId,
+            fee_head_name = @feeHeadName,
+            amount = @amount,
+            academic_year = @academicYear,
+            status = @status,
+            updated_at = @updatedAt,
+            sync_status = 'pending'
+        WHERE id = @id AND deleted_at IS NULL
+      `).run({
+        id: feeStructureId,
+        className: schoolClass.name,
+        feeHeadId,
+        feeHeadName: feeHead.name,
+        amount,
+        academicYear,
+        status: masterStatus(input?.status, existing.status),
+        updatedAt: now(),
+      });
+
+      return feeStructureFromRow(
+        db
+          .prepare(
+            "SELECT * FROM fee_structures WHERE id = ? AND deleted_at IS NULL",
+          )
+          .get(feeStructureId),
+      );
+    },
+
+    deleteFeeStructure(id) {
+      const timestamp = now();
+      const result = db
+        .prepare(`
+          UPDATE fee_structures
+          SET deleted_at = ?, updated_at = ?, sync_status = 'pending'
+          WHERE id = ? AND deleted_at IS NULL
+        `)
+        .run(timestamp, timestamp, requiredText(id, "Fee structure id"));
+      return { success: result.changes === 1 };
     },
 
     close() {

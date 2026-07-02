@@ -16,6 +16,16 @@ const formatCurrency = (amount: number) =>
     maximumFractionDigits: 0,
   }).format(amount)
 
+const getLocalDateKey = (value: string | Date) => {
+  const date = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0'),
+  ].join('-')
+}
+
 const paymentColumns: TableColumn<FeePayment>[] = [
   {
     key: 'receipt',
@@ -38,7 +48,8 @@ const paymentColumns: TableColumn<FeePayment>[] = [
   {
     key: 'class',
     header: 'Class',
-    render: (payment) => payment.className || '—',
+    render: (payment) =>
+      `${payment.className || '—'}${payment.section ? `-${payment.section}` : ''}`,
   },
   {
     key: 'type',
@@ -125,14 +136,15 @@ export function Dashboard({ onNavigate }: DashboardProps) {
   }, [])
 
   const todayPayments = useMemo(
-    () =>
-      payments.filter((payment) => {
-        const paymentDate = new Date(payment.paymentDate)
-        return (
-          !Number.isNaN(paymentDate.getTime()) &&
-          paymentDate.toDateString() === new Date().toDateString()
-        )
-      }),
+    () => {
+      const todayKey = getLocalDateKey(new Date())
+      return payments.filter((payment) => {
+        const paymentKey = payment.paymentDate.includes('T')
+          ? getLocalDateKey(payment.paymentDate)
+          : payment.paymentDate.slice(0, 10)
+        return paymentKey === todayKey
+      })
+    },
     [payments],
   )
 

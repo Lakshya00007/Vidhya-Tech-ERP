@@ -1,23 +1,25 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { DataTable, type TableColumn } from '../components/DataTable'
 import { Icon } from '../components/Icon'
-import { classOptions, sectionOptions } from '../data/mockData'
 import { getErpApi, getErrorMessage } from '../lib/erpApi'
-import type { CreateStudentInput, Student } from '../types'
+import type { ClassItem, CreateStudentInput, SectionItem, Student } from '../types'
 
 const emptyForm: CreateStudentInput = {
   admissionNo: '',
   name: '',
-  className: '1',
-  section: 'A',
+  className: '',
+  section: '',
   guardianName: '',
   mobile: '',
 }
 
 export function Students() {
   const [studentRows, setStudentRows] = useState<Student[]>([])
+  const [classes, setClasses] = useState<ClassItem[]>([])
+  const [sections, setSections] = useState<SectionItem[]>([])
   const [search, setSearch] = useState('')
   const [isFormOpen, setIsFormOpen] = useState(false)
+  const [editingStudentId, setEditingStudentId] = useState<string | null>(null)
   const [form, setForm] = useState<CreateStudentInput>(emptyForm)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
@@ -39,10 +41,18 @@ export function Students() {
     let isCurrent = true
 
     Promise.resolve()
-      .then(() => getErpApi().getStudents())
-      .then((students) => {
+      .then(() =>
+        Promise.all([
+          getErpApi().getStudents(),
+          getErpApi().getClasses(),
+          getErpApi().getSections(),
+        ]),
+      )
+      .then(([students, classRows, sectionRows]) => {
         if (isCurrent) {
           setStudentRows(students)
+          setClasses(classRows)
+          setSections(sectionRows)
           setError('')
         }
       })
@@ -61,6 +71,20 @@ export function Students() {
       isCurrent = false
     }
   }, [])
+
+  const activeClasses = useMemo(
+    () => classes.filter((item) => item.status === 'Active'),
+    [classes],
+  )
+
+  const availableSections = useMemo(
+    () =>
+      sections.filter(
+        (section) =>
+          section.status === 'Active' && section.className === form.className,
+      ),
+    [form.className, sections],
+  )
 
   const filteredStudents = useMemo(() => {
     const query = search.trim().toLowerCase()
@@ -94,6 +118,44 @@ export function Students() {
       setError(getErrorMessage(deleteError))
       setMessage('')
     }
+  }
+
+  const openAddForm = () => {
+    const firstClass = activeClasses[0]
+    const firstSection = sections.find(
+      (section) =>
+        section.status === 'Active' && section.classId === firstClass?.id,
+    )
+    setEditingStudentId(null)
+    setForm({
+      ...emptyForm,
+      className: firstClass?.name ?? '',
+      section: firstSection?.name ?? '',
+    })
+    setIsFormOpen(true)
+  }
+
+  const openEditForm = (student: Student) => {
+    setEditingStudentId(student.id)
+    setForm({
+      admissionNo: student.admissionNo,
+      name: student.name,
+      className: student.className,
+      section: student.section,
+      guardianName: student.guardianName,
+      mobile: student.mobile,
+      status: student.status,
+      address: student.address,
+      dateOfBirth: student.dateOfBirth,
+      admissionDate: student.admissionDate,
+    })
+    setIsFormOpen(true)
+  }
+
+  const closeForm = () => {
+    setIsFormOpen(false)
+    setEditingStudentId(null)
+    setForm(emptyForm)
   }
 
   const columns: TableColumn<Student>[] = [
@@ -140,15 +202,26 @@ export function Students() {
       header: '',
       className: 'align-right',
       render: (student) => (
-        <button
-          className="row-action row-action--danger"
-          type="button"
-          aria-label={`Delete ${student.name}`}
-          title="Delete student"
-          onClick={() => void handleDelete(student)}
-        >
-          <Icon name="trash" size={15} />
-        </button>
+        <div className="row-action-group">
+          <button
+            className="row-action"
+            type="button"
+            aria-label={`Edit ${student.name}`}
+            title="Edit student"
+            onClick={() => openEditForm(student)}
+          >
+            <Icon name="edit" size={14} />
+          </button>
+          <button
+            className="row-action row-action--danger"
+            type="button"
+            aria-label={`Delete ${student.name}`}
+            title="Delete student"
+            onClick={() => void handleDelete(student)}
+          >
+            <Icon name="trash" size={14} />
+          </button>
+        </div>
       ),
     },
   ]
@@ -158,11 +231,16 @@ export function Students() {
     setIsSaving(true)
 
     try {
-      const createdStudent = await getErpApi().createStudent(form)
+      const savedStudent = editingStudentId
+        ? await getErpApi().updateStudent(editingStudentId, form)
+        : await getErpApi().createStudent(form)
       await loadStudents()
-      setForm(emptyForm)
-      setIsFormOpen(false)
-      setMessage(`${createdStudent.name} was added successfully.`)
+      closeForm()
+      setMessage(
+        editingStudentId
+          ? `${savedStudent.name} was updated successfully.`
+          : `${savedStudent.name} was added successfully.`,
+      )
       setError('')
     } catch (saveError) {
       setError(getErrorMessage(saveError))
@@ -179,7 +257,7 @@ export function Students() {
           <h2>Students</h2>
           <p>Manage admission records and student information.</p>
         </div>
-        <button className="primary-button" type="button" onClick={() => setIsFormOpen(true)}>
+        <button className="primary-button" type="button" onClick={openAddForm}>
           <Icon name="plus" size={18} />
           Add Student
         </button>
@@ -245,7 +323,7 @@ export function Students() {
       </section>
 
       {isFormOpen && (
-        <div className="drawer-backdrop" role="presentation" onMouseDown={() => setIsFormOpen(false)}>
+        <div className="drawer-backdrop" role="presentation" onMouseDown={closeForm}>
           <aside
             aria-labelledby="add-student-title"
             className="form-drawer"
@@ -253,13 +331,19 @@ export function Students() {
           >
             <div className="drawer-header">
               <div>
-                <h2 id="add-student-title">Add New Student</h2>
-                <p>Enter basic admission and guardian details.</p>
+                <h2 id="add-student-title">
+                  {editingStudentId ? 'Edit Student' : 'Add New Student'}
+                </h2>
+                <p>
+                  {editingStudentId
+                    ? 'Update admission and guardian details.'
+                    : 'Enter basic admission and guardian details.'}
+                </p>
               </div>
               <button
                 className="icon-button"
                 type="button"
-                onClick={() => setIsFormOpen(false)}
+                onClick={closeForm}
                 aria-label="Close form"
               >
                 <Icon name="close" size={19} />
@@ -287,26 +371,60 @@ export function Students() {
                 <label className="form-field">
                   <span>Class *</span>
                   <select
-                    onChange={(event) => setForm({ ...form, className: event.target.value })}
+                    disabled={activeClasses.length === 0}
+                    required
+                    onChange={(event) => {
+                      const className = event.target.value
+                      const schoolClass = activeClasses.find(
+                        (item) => item.name === className,
+                      )
+                      const firstSection = sections.find(
+                        (section) =>
+                          section.status === 'Active' &&
+                          section.classId === schoolClass?.id,
+                      )
+                      setForm({
+                        ...form,
+                        className,
+                        section: firstSection?.name ?? '',
+                      })
+                    }}
                     value={form.className}
                   >
-                    {classOptions.map((className) => (
-                      <option key={className} value={className}>Class {className}</option>
+                    {activeClasses.length === 0 && (
+                      <option value="">Create classes from Settings first.</option>
+                    )}
+                    {activeClasses.map((schoolClass) => (
+                      <option key={schoolClass.id} value={schoolClass.name}>
+                        Class {schoolClass.name}
+                      </option>
                     ))}
                   </select>
                 </label>
                 <label className="form-field">
                   <span>Section</span>
                   <select
+                    disabled={availableSections.length === 0}
                     onChange={(event) => setForm({ ...form, section: event.target.value })}
                     value={form.section}
                   >
-                    {sectionOptions.map((section) => (
-                      <option key={section} value={section}>Section {section}</option>
+                    {availableSections.length === 0 && (
+                      <option value="">No sections configured</option>
+                    )}
+                    {availableSections.map((section) => (
+                      <option key={section.id} value={section.name}>
+                        Section {section.name}
+                      </option>
                     ))}
                   </select>
                 </label>
               </div>
+              {activeClasses.length === 0 && (
+                <div className="form-note form-note--warning">
+                  <Icon name="clock" size={17} />
+                  Create classes from Settings first.
+                </div>
+              )}
               <label className="form-field">
                 <span>Guardian Name</span>
                 <input
@@ -329,11 +447,19 @@ export function Students() {
                 Additional student details can be added after creating the record.
               </div>
               <div className="drawer-actions">
-                <button className="secondary-button" type="button" onClick={() => setIsFormOpen(false)}>
+                <button className="secondary-button" type="button" onClick={closeForm}>
                   Cancel
                 </button>
-                <button className="primary-button" disabled={isSaving} type="submit">
-                  {isSaving ? 'Saving...' : 'Save Student'}
+                <button
+                  className="primary-button"
+                  disabled={isSaving || activeClasses.length === 0}
+                  type="submit"
+                >
+                  {isSaving
+                    ? 'Saving...'
+                    : editingStudentId
+                      ? 'Update Student'
+                      : 'Save Student'}
                 </button>
               </div>
             </form>
