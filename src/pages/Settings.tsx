@@ -1,18 +1,79 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { Icon } from '../components/Icon'
+import { getErpApi, getErrorMessage } from '../lib/erpApi'
+import type { SaveSchoolSettingsInput } from '../types'
+
+const defaultSettings: SaveSchoolSettingsInput = {
+  schoolName: 'Vidhya Public School',
+  address: '',
+  phone: '',
+  email: '',
+  academicYear: '2026–2027',
+  receiptPrefix: 'VSE-RC',
+}
 
 export function Settings() {
-  const [schoolName, setSchoolName] = useState('Vidhya Public School')
-  const [address, setAddress] = useState('24, Knowledge Park, Indore, Madhya Pradesh – 452010')
-  const [phone, setPhone] = useState('+91 731 456 7890')
-  const [email, setEmail] = useState('office@vidhyaschool.edu.in')
-  const [academicYear, setAcademicYear] = useState('2026–2027')
-  const [receiptPrefix, setReceiptPrefix] = useState('VSE-RC')
+  const [form, setForm] = useState<SaveSchoolSettingsInput>(defaultSettings)
+  const [isLoading, setIsLoading] = useState(true)
+  const [isSaving, setIsSaving] = useState(false)
   const [message, setMessage] = useState('')
+  const [error, setError] = useState('')
 
-  const handleSubmit = (event: FormEvent) => {
+  useEffect(() => {
+    let isCurrent = true
+
+    Promise.resolve()
+      .then(() => getErpApi().getSchoolSettings())
+      .then((settings) => {
+        if (isCurrent) {
+          setForm({
+            schoolName: settings.schoolName,
+            address: settings.address,
+            phone: settings.phone,
+            email: settings.email,
+            academicYear: settings.academicYear,
+            receiptPrefix: settings.receiptPrefix,
+          })
+          setError('')
+        }
+      })
+      .catch((loadError: unknown) => {
+        if (isCurrent) {
+          setError(getErrorMessage(loadError))
+        }
+      })
+      .finally(() => {
+        if (isCurrent) {
+          setIsLoading(false)
+        }
+      })
+
+    return () => {
+      isCurrent = false
+    }
+  }, [])
+
+  const handleSubmit = async (event: FormEvent) => {
     event.preventDefault()
-    setMessage('School settings saved locally.')
+    setIsSaving(true)
+    try {
+      const settings = await getErpApi().saveSchoolSettings(form)
+      setForm({
+        schoolName: settings.schoolName,
+        address: settings.address,
+        phone: settings.phone,
+        email: settings.email,
+        academicYear: settings.academicYear,
+        receiptPrefix: settings.receiptPrefix,
+      })
+      setMessage('School settings saved locally.')
+      setError('')
+    } catch (saveError) {
+      setError(getErrorMessage(saveError))
+      setMessage('')
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   return (
@@ -34,7 +95,17 @@ export function Settings() {
         </div>
       )}
 
-      <form className="settings-layout" onSubmit={handleSubmit}>
+      {error && (
+        <div className="inline-message inline-message--error">
+          <Icon name="close" size={17} />
+          <span>{error}</span>
+          <button type="button" onClick={() => setError('')} aria-label="Dismiss error">
+            <Icon name="close" size={15} />
+          </button>
+        </div>
+      )}
+
+      <form className="settings-layout" onSubmit={(event) => void handleSubmit(event)}>
         <section className="panel settings-panel">
           <div className="panel-heading">
             <div>
@@ -48,26 +119,46 @@ export function Settings() {
             </div>
             <div>
               <strong>School Logo</strong>
-              <span>PNG or JPG, up to 2 MB</span>
+              <span>Logo storage will be added in a later phase</span>
               <button type="button" className="text-button">Choose image</button>
             </div>
           </div>
           <div className="settings-fields">
             <label className="form-field form-field--full">
               <span>School Name</span>
-              <input required value={schoolName} onChange={(event) => setSchoolName(event.target.value)} />
+              <input
+                disabled={isLoading}
+                required
+                value={form.schoolName}
+                onChange={(event) => setForm({ ...form, schoolName: event.target.value })}
+              />
             </label>
             <label className="form-field form-field--full">
               <span>Address</span>
-              <textarea required rows={3} value={address} onChange={(event) => setAddress(event.target.value)} />
+              <textarea
+                disabled={isLoading}
+                rows={3}
+                value={form.address}
+                onChange={(event) => setForm({ ...form, address: event.target.value })}
+              />
             </label>
             <label className="form-field">
               <span>Phone</span>
-              <input required type="tel" value={phone} onChange={(event) => setPhone(event.target.value)} />
+              <input
+                disabled={isLoading}
+                type="tel"
+                value={form.phone}
+                onChange={(event) => setForm({ ...form, phone: event.target.value })}
+              />
             </label>
             <label className="form-field">
               <span>Email</span>
-              <input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} />
+              <input
+                disabled={isLoading}
+                type="email"
+                value={form.email}
+                onChange={(event) => setForm({ ...form, email: event.target.value })}
+              />
             </label>
           </div>
         </section>
@@ -83,7 +174,11 @@ export function Settings() {
             <div className="settings-fields settings-fields--single">
               <label className="form-field">
                 <span>Academic Year</span>
-                <select value={academicYear} onChange={(event) => setAcademicYear(event.target.value)}>
+                <select
+                  disabled={isLoading}
+                  value={form.academicYear}
+                  onChange={(event) => setForm({ ...form, academicYear: event.target.value })}
+                >
                   <option>2025–2026</option>
                   <option>2026–2027</option>
                   <option>2027–2028</option>
@@ -91,8 +186,12 @@ export function Settings() {
               </label>
               <label className="form-field">
                 <span>Receipt Prefix</span>
-                <input value={receiptPrefix} onChange={(event) => setReceiptPrefix(event.target.value)} />
-                <small>Example: {receiptPrefix}-1048</small>
+                <input
+                  disabled={isLoading}
+                  value={form.receiptPrefix}
+                  onChange={(event) => setForm({ ...form, receiptPrefix: event.target.value })}
+                />
+                <small>Example: {form.receiptPrefix || 'VSE-RC'}-1001</small>
               </label>
             </div>
           </section>
@@ -127,10 +226,10 @@ export function Settings() {
         </div>
 
         <div className="settings-actions">
-          <span>Changes are stored locally on this device.</span>
-          <button className="primary-button" type="submit">
+          <span>Changes are stored in the local SQLite database.</span>
+          <button className="primary-button" disabled={isLoading || isSaving} type="submit">
             <Icon name="check" size={17} />
-            Save Settings
+            {isSaving ? 'Saving...' : 'Save Settings'}
           </button>
         </div>
       </form>

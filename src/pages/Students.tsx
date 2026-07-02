@@ -1,23 +1,66 @@
-import { useMemo, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { DataTable, type TableColumn } from '../components/DataTable'
 import { Icon } from '../components/Icon'
-import { classOptions, sectionOptions, students as initialStudents } from '../data/mockData'
-import type { Student } from '../types'
+import { classOptions, sectionOptions } from '../data/mockData'
+import { getErpApi, getErrorMessage } from '../lib/erpApi'
+import type { CreateStudentInput, Student } from '../types'
 
-const emptyForm = {
+const emptyForm: CreateStudentInput = {
   admissionNo: '',
   name: '',
   className: '1',
   section: 'A',
-  guardian: '',
+  guardianName: '',
   mobile: '',
 }
 
 export function Students() {
-  const [studentRows, setStudentRows] = useState(initialStudents)
+  const [studentRows, setStudentRows] = useState<Student[]>([])
   const [search, setSearch] = useState('')
   const [isFormOpen, setIsFormOpen] = useState(false)
-  const [form, setForm] = useState(emptyForm)
+  const [form, setForm] = useState<CreateStudentInput>(emptyForm)
+  const [isLoading, setIsLoading] = useState(true)
+  const [isSaving, setIsSaving] = useState(false)
+  const [message, setMessage] = useState('')
+  const [error, setError] = useState('')
+
+  const loadStudents = useCallback(async () => {
+    try {
+      setStudentRows(await getErpApi().getStudents())
+      setError('')
+    } catch (loadError) {
+      setError(getErrorMessage(loadError))
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    let isCurrent = true
+
+    Promise.resolve()
+      .then(() => getErpApi().getStudents())
+      .then((students) => {
+        if (isCurrent) {
+          setStudentRows(students)
+          setError('')
+        }
+      })
+      .catch((loadError: unknown) => {
+        if (isCurrent) {
+          setError(getErrorMessage(loadError))
+        }
+      })
+      .finally(() => {
+        if (isCurrent) {
+          setIsLoading(false)
+        }
+      })
+
+    return () => {
+      isCurrent = false
+    }
+  }, [])
 
   const filteredStudents = useMemo(() => {
     const query = search.trim().toLowerCase()
@@ -27,12 +70,31 @@ export function Students() {
       [
         student.admissionNo,
         student.name,
-        student.guardian,
+        student.guardianName,
         student.mobile,
         `${student.className}-${student.section}`,
       ].some((value) => value.toLowerCase().includes(query)),
     )
   }, [search, studentRows])
+
+  const handleDelete = async (student: Student) => {
+    if (!window.confirm(`Remove ${student.name} from the active student list?`)) {
+      return
+    }
+
+    try {
+      const result = await getErpApi().deleteStudent(student.id)
+      if (!result.success) {
+        throw new Error('The student record could not be removed.')
+      }
+      setMessage(`${student.name} was removed from the active student list.`)
+      setError('')
+      await loadStudents()
+    } catch (deleteError) {
+      setError(getErrorMessage(deleteError))
+      setMessage('')
+    }
+  }
 
   const columns: TableColumn<Student>[] = [
     {
@@ -56,14 +118,14 @@ export function Students() {
         </div>
       ),
     },
+    { key: 'class', header: 'Class', render: (student) => student.className },
+    { key: 'section', header: 'Section', render: (student) => student.section || '—' },
     {
-      key: 'class',
-      header: 'Class',
-      render: (student) => student.className,
+      key: 'guardian',
+      header: 'Guardian',
+      render: (student) => student.guardianName || '—',
     },
-    { key: 'section', header: 'Section', render: (student) => student.section },
-    { key: 'guardian', header: 'Guardian', render: (student) => student.guardian },
-    { key: 'mobile', header: 'Mobile', render: (student) => student.mobile },
+    { key: 'mobile', header: 'Mobile', render: (student) => student.mobile || '—' },
     {
       key: 'status',
       header: 'Status',
@@ -77,25 +139,37 @@ export function Students() {
       key: 'action',
       header: '',
       className: 'align-right',
-      render: () => (
-        <button className="row-action" type="button" aria-label="Open student details">
-          <Icon name="chevron" size={16} />
+      render: (student) => (
+        <button
+          className="row-action row-action--danger"
+          type="button"
+          aria-label={`Delete ${student.name}`}
+          title="Delete student"
+          onClick={() => void handleDelete(student)}
+        >
+          <Icon name="trash" size={15} />
         </button>
       ),
     },
   ]
 
-  const handleSubmit = (event: FormEvent) => {
+  const handleSubmit = async (event: FormEvent) => {
     event.preventDefault()
-    const newStudent: Student = {
-      id: `student-${Date.now()}`,
-      ...form,
-      admissionNo: form.admissionNo || `VSE-2026-${String(studentRows.length + 143).padStart(4, '0')}`,
-      status: 'Active',
+    setIsSaving(true)
+
+    try {
+      const createdStudent = await getErpApi().createStudent(form)
+      await loadStudents()
+      setForm(emptyForm)
+      setIsFormOpen(false)
+      setMessage(`${createdStudent.name} was added successfully.`)
+      setError('')
+    } catch (saveError) {
+      setError(getErrorMessage(saveError))
+      setMessage('')
+    } finally {
+      setIsSaving(false)
     }
-    setStudentRows((current) => [newStudent, ...current])
-    setForm(emptyForm)
-    setIsFormOpen(false)
   }
 
   return (
@@ -110,6 +184,26 @@ export function Students() {
           Add Student
         </button>
       </section>
+
+      {message && (
+        <div className="inline-message">
+          <Icon name="check" size={17} />
+          <span>{message}</span>
+          <button type="button" onClick={() => setMessage('')} aria-label="Dismiss message">
+            <Icon name="close" size={15} />
+          </button>
+        </div>
+      )}
+
+      {error && (
+        <div className="inline-message inline-message--error">
+          <Icon name="close" size={17} />
+          <span>{error}</span>
+          <button type="button" onClick={() => setError('')} aria-label="Dismiss error">
+            <Icon name="close" size={15} />
+          </button>
+        </div>
+      )}
 
       <section className="panel">
         <div className="list-toolbar">
@@ -130,7 +224,13 @@ export function Students() {
           columns={columns}
           getRowKey={(student) => student.id}
           rows={filteredStudents}
-          emptyMessage="No students match your search"
+          emptyMessage={
+            isLoading
+              ? 'Loading student records...'
+              : search
+                ? 'No students match your search'
+                : 'No students yet. Add the first admission record.'
+          }
         />
         <div className="table-footer">
           <span>
@@ -139,8 +239,7 @@ export function Students() {
           <div className="pagination">
             <button disabled type="button">Previous</button>
             <button className="pagination__active" type="button">1</button>
-            <button type="button">2</button>
-            <button type="button">Next</button>
+            <button disabled type="button">Next</button>
           </div>
         </div>
       </section>
@@ -166,7 +265,7 @@ export function Students() {
                 <Icon name="close" size={19} />
               </button>
             </div>
-            <form className="drawer-form" onSubmit={handleSubmit}>
+            <form className="drawer-form" onSubmit={(event) => void handleSubmit(event)}>
               <label className="form-field">
                 <span>Admission Number</span>
                 <input
@@ -197,7 +296,7 @@ export function Students() {
                   </select>
                 </label>
                 <label className="form-field">
-                  <span>Section *</span>
+                  <span>Section</span>
                   <select
                     onChange={(event) => setForm({ ...form, section: event.target.value })}
                     value={form.section}
@@ -209,20 +308,18 @@ export function Students() {
                 </label>
               </div>
               <label className="form-field">
-                <span>Guardian Name *</span>
+                <span>Guardian Name</span>
                 <input
-                  onChange={(event) => setForm({ ...form, guardian: event.target.value })}
+                  onChange={(event) => setForm({ ...form, guardianName: event.target.value })}
                   placeholder="Parent or guardian name"
-                  required
-                  value={form.guardian}
+                  value={form.guardianName}
                 />
               </label>
               <label className="form-field">
-                <span>Mobile Number *</span>
+                <span>Mobile Number</span>
                 <input
                   onChange={(event) => setForm({ ...form, mobile: event.target.value })}
                   placeholder="10-digit mobile number"
-                  required
                   type="tel"
                   value={form.mobile}
                 />
@@ -235,7 +332,9 @@ export function Students() {
                 <button className="secondary-button" type="button" onClick={() => setIsFormOpen(false)}>
                   Cancel
                 </button>
-                <button className="primary-button" type="submit">Save Student</button>
+                <button className="primary-button" disabled={isSaving} type="submit">
+                  {isSaving ? 'Saving...' : 'Save Student'}
+                </button>
               </div>
             </form>
           </aside>

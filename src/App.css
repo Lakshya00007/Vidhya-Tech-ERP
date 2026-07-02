@@ -762,6 +762,12 @@
   background: linear-gradient(180deg, #2e6fe2, #1f57c4);
 }
 
+.primary-button:disabled,
+.secondary-button:disabled {
+  opacity: 0.58;
+  cursor: not-allowed;
+}
+
 .secondary-button {
   color: #45546a;
   background: #fff;
@@ -899,6 +905,18 @@
   color: #3c69bc;
   background: #edf3ff;
   border-color: #dbe7fb;
+}
+
+.row-action--danger {
+  color: #b84a53;
+  background: #fff5f5;
+  border-color: #f1dadd;
+}
+
+.row-action--danger:hover {
+  color: #a52e39;
+  background: #ffebed;
+  border-color: #ecc5c9;
 }
 
 .table-footer {
@@ -1099,6 +1117,16 @@
 
 .inline-message span {
   flex: 1;
+}
+
+.inline-message--error {
+  color: #a3343d;
+  background: #fff1f2;
+  border-color: #f2d0d3;
+}
+
+.inline-message--error button {
+  color: #a85a61;
 }
 
 .inline-message button {

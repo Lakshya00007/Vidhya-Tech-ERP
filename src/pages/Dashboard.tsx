@@ -1,8 +1,9 @@
+import { useEffect, useMemo, useState } from 'react'
 import { DataTable, type TableColumn } from '../components/DataTable'
 import { Icon, type IconName } from '../components/Icon'
 import { StatCard } from '../components/StatCard'
-import { payments } from '../data/mockData'
-import type { PageId, Payment } from '../types'
+import { getErpApi, getErrorMessage } from '../lib/erpApi'
+import type { FeePayment, PageId, SchoolSettings, Student } from '../types'
 
 interface DashboardProps {
   onNavigate: (page: PageId) => void
@@ -15,7 +16,7 @@ const formatCurrency = (amount: number) =>
     maximumFractionDigits: 0,
   }).format(amount)
 
-const paymentColumns: TableColumn<Payment>[] = [
+const paymentColumns: TableColumn<FeePayment>[] = [
   {
     key: 'receipt',
     header: 'Receipt No.',
@@ -29,7 +30,7 @@ const paymentColumns: TableColumn<Payment>[] = [
         <span className="person-avatar">{payment.studentName.slice(0, 1)}</span>
         <div>
           <strong>{payment.studentName}</strong>
-          <span>{payment.admissionNo}</span>
+          <span>{payment.admissionNo || '—'}</span>
         </div>
       </div>
     ),
@@ -37,12 +38,12 @@ const paymentColumns: TableColumn<Payment>[] = [
   {
     key: 'class',
     header: 'Class',
-    render: (payment) => payment.className,
+    render: (payment) => payment.className || '—',
   },
   {
     key: 'type',
     header: 'Fee Type',
-    render: (payment) => payment.feeType,
+    render: (payment) => payment.feeType || '—',
   },
   {
     key: 'mode',
@@ -95,49 +96,111 @@ const quickActions: {
 ]
 
 export function Dashboard({ onNavigate }: DashboardProps) {
+  const [students, setStudents] = useState<Student[]>([])
+  const [payments, setPayments] = useState<FeePayment[]>([])
+  const [settings, setSettings] = useState<SchoolSettings | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    const loadDashboard = async () => {
+      try {
+        const [studentRows, paymentRows, schoolSettings] = await Promise.all([
+          getErpApi().getStudents(),
+          getErpApi().getFeePayments(),
+          getErpApi().getSchoolSettings(),
+        ])
+        setStudents(studentRows)
+        setPayments(paymentRows)
+        setSettings(schoolSettings)
+        setError('')
+      } catch (loadError) {
+        setError(getErrorMessage(loadError))
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    void loadDashboard()
+  }, [])
+
+  const todayPayments = useMemo(
+    () =>
+      payments.filter((payment) => {
+        const paymentDate = new Date(payment.paymentDate)
+        return (
+          !Number.isNaN(paymentDate.getTime()) &&
+          paymentDate.toDateString() === new Date().toDateString()
+        )
+      }),
+    [payments],
+  )
+
+  const todayCollection = todayPayments.reduce(
+    (total, payment) => total + payment.amount,
+    0,
+  )
+
+  const formattedDate = new Intl.DateTimeFormat('en-IN', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(new Date())
+
   return (
     <div className="page-stack">
       <section className="welcome-row">
         <div>
-          <p className="eyebrow">Friday, 3 July 2026</p>
+          <p className="eyebrow">{formattedDate}</p>
           <h2>Good morning, Administrator</h2>
-          <p>Here is today’s overview for Vidhya Public School.</p>
+          <p>Here is today’s overview for {settings?.schoolName ?? 'your school'}.</p>
         </div>
         <div className="academic-year">
           <Icon name="calendar" size={18} />
           <div>
             <span>Academic Year</span>
-            <strong>2026–2027</strong>
+            <strong>{settings?.academicYear || 'Not configured'}</strong>
           </div>
         </div>
       </section>
+
+      {error && (
+        <div className="inline-message inline-message--error">
+          <Icon name="close" size={17} />
+          <span>{error}</span>
+          <button type="button" onClick={() => setError('')} aria-label="Dismiss error">
+            <Icon name="close" size={15} />
+          </button>
+        </div>
+      )}
 
       <section className="stats-grid" aria-label="School statistics">
         <StatCard
           icon="students"
           label="Total Students"
-          meta="+18 this academic year"
+          meta={isLoading ? 'Loading local records...' : 'Active local records'}
           tone="blue"
-          value="1,248"
+          value={isLoading ? '—' : students.length.toLocaleString('en-IN')}
         />
         <StatCard
           icon="wallet"
           label="Today’s Collection"
-          meta="12 receipts collected"
+          meta={`${todayPayments.length} receipt${todayPayments.length === 1 ? '' : 's'} collected`}
           tone="green"
-          value="₹48,650"
+          value={isLoading ? '—' : formatCurrency(todayCollection)}
         />
         <StatCard
           icon="clock"
           label="Pending Fees"
-          meta="86 student accounts"
+          meta="Fee plans will be added later"
           tone="amber"
           value="₹2,84,500"
         />
         <StatCard
           icon="check"
           label="Attendance Today"
-          meta="1,193 of 1,248 present"
+          meta="Attendance summary placeholder"
           tone="violet"
           value="95.6%"
         />
@@ -148,7 +211,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
           <div className="panel-heading">
             <div>
               <h3>Recent Fee Payments</h3>
-              <p>Latest receipts recorded at the fee counter</p>
+              <p>Latest receipts recorded in the local database</p>
             </div>
             <button className="text-button" type="button" onClick={() => onNavigate('fees')}>
               View all
@@ -159,6 +222,9 @@ export function Dashboard({ onNavigate }: DashboardProps) {
             columns={paymentColumns}
             getRowKey={(payment) => payment.id}
             rows={payments.slice(0, 4)}
+            emptyMessage={
+              isLoading ? 'Loading fee payments...' : 'No fee payments recorded yet.'
+            }
           />
         </div>
 

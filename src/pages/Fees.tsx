@@ -1,8 +1,8 @@
-import { useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { DataTable, type TableColumn } from '../components/DataTable'
 import { Icon } from '../components/Icon'
-import { payments as initialPayments, students } from '../data/mockData'
-import type { Payment } from '../types'
+import { getErpApi, getErrorMessage } from '../lib/erpApi'
+import type { FeePayment, PaymentMode, Student } from '../types'
 
 const formatCurrency = (amount: number) =>
   new Intl.NumberFormat('en-IN', {
@@ -11,29 +11,85 @@ const formatCurrency = (amount: number) =>
     maximumFractionDigits: 0,
   }).format(amount)
 
+const formatPaymentDate = (value: string) => {
+  const date = new Date(value)
+  return Number.isNaN(date.getTime())
+    ? value
+    : new Intl.DateTimeFormat('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      }).format(date)
+}
+
+const formatPaymentTime = (value: string) => {
+  const date = new Date(value)
+  return Number.isNaN(date.getTime())
+    ? ''
+    : new Intl.DateTimeFormat('en-IN', {
+        hour: '2-digit',
+        minute: '2-digit',
+      }).format(date)
+}
+
 export function Fees() {
+  const [studentRows, setStudentRows] = useState<Student[]>([])
+  const [paymentRows, setPaymentRows] = useState<FeePayment[]>([])
   const [search, setSearch] = useState('')
-  const [selectedStudentId, setSelectedStudentId] = useState(students[0].id)
-  const [paymentRows, setPaymentRows] = useState(initialPayments)
-  const [amount, setAmount] = useState('12500')
+  const [selectedStudentId, setSelectedStudentId] = useState('')
+  const [amount, setAmount] = useState('')
   const [feeType, setFeeType] = useState('Tuition Fee')
-  const [paymentMode, setPaymentMode] = useState<Payment['paymentMode']>('Cash')
+  const [paymentMode, setPaymentMode] = useState<PaymentMode>('Cash')
+  const [notes, setNotes] = useState('')
+  const [isLoading, setIsLoading] = useState(true)
+  const [isSaving, setIsSaving] = useState(false)
   const [message, setMessage] = useState('')
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let isCurrent = true
+
+    Promise.resolve()
+      .then(() =>
+        Promise.all([getErpApi().getStudents(), getErpApi().getFeePayments()]),
+      )
+      .then(([students, payments]) => {
+        if (isCurrent) {
+          setStudentRows(students)
+          setPaymentRows(payments)
+          setSelectedStudentId(students[0]?.id ?? '')
+          setError('')
+        }
+      })
+      .catch((loadError: unknown) => {
+        if (isCurrent) {
+          setError(getErrorMessage(loadError))
+        }
+      })
+      .finally(() => {
+        if (isCurrent) {
+          setIsLoading(false)
+        }
+      })
+
+    return () => {
+      isCurrent = false
+    }
+  }, [])
 
   const matchingStudents = useMemo(() => {
     const query = search.trim().toLowerCase()
-    if (!query) return students.slice(0, 3)
-    return students.filter((student) =>
+    if (!query) return studentRows.slice(0, 5)
+    return studentRows.filter((student) =>
       [student.name, student.admissionNo, student.mobile].some((value) =>
         value.toLowerCase().includes(query),
       ),
     )
-  }, [search])
+  }, [search, studentRows])
 
-  const selectedStudent =
-    students.find((student) => student.id === selectedStudentId) ?? students[0]
+  const selectedStudent = studentRows.find((student) => student.id === selectedStudentId)
 
-  const columns: TableColumn<Payment>[] = [
+  const columns: TableColumn<FeePayment>[] = [
     {
       key: 'receipt',
       header: 'Receipt No.',
@@ -45,19 +101,19 @@ export function Fees() {
       render: (payment) => (
         <div>
           <strong className="table-block">{payment.studentName}</strong>
-          <span className="table-secondary">{payment.admissionNo}</span>
+          <span className="table-secondary">{payment.admissionNo || '—'}</span>
         </div>
       ),
     },
-    { key: 'class', header: 'Class', render: (payment) => payment.className },
-    { key: 'fee', header: 'Fee Type', render: (payment) => payment.feeType },
+    { key: 'class', header: 'Class', render: (payment) => payment.className || '—' },
+    { key: 'fee', header: 'Fee Type', render: (payment) => payment.feeType || '—' },
     {
       key: 'date',
       header: 'Date & Time',
       render: (payment) => (
         <div>
-          <span className="table-block">{payment.date}</span>
-          <span className="table-secondary">{payment.time}</span>
+          <span className="table-block">{formatPaymentDate(payment.paymentDate)}</span>
+          <span className="table-secondary">{formatPaymentTime(payment.paymentDate)}</span>
         </div>
       ),
     },
@@ -89,26 +145,36 @@ export function Fees() {
     },
   ]
 
-  const handlePayment = (event: FormEvent) => {
+  const handlePayment = async (event: FormEvent) => {
     event.preventDefault()
     const numericAmount = Number(amount)
-    if (!numericAmount) return
-
-    const receiptNumber = 1049 + (paymentRows.length - initialPayments.length)
-    const newPayment: Payment = {
-      id: `payment-${Date.now()}`,
-      receiptNo: `VSE-RC-${receiptNumber}`,
-      studentName: selectedStudent.name,
-      admissionNo: selectedStudent.admissionNo,
-      className: `${selectedStudent.className}-${selectedStudent.section}`,
-      feeType,
-      amount: numericAmount,
-      paymentMode,
-      date: '03 Jul 2026',
-      time: '11:10 AM',
+    if (!selectedStudent || !Number.isInteger(numericAmount) || numericAmount <= 0) {
+      setError('Select a student and enter a valid whole-number amount.')
+      return
     }
-    setPaymentRows((current) => [newPayment, ...current])
-    setMessage(`Payment recorded. Receipt ${newPayment.receiptNo} is ready.`)
+
+    setIsSaving(true)
+    try {
+      const payment = await getErpApi().createFeePayment({
+        studentId: selectedStudent.id,
+        studentName: selectedStudent.name,
+        className: `${selectedStudent.className}-${selectedStudent.section}`,
+        feeType,
+        amount: numericAmount,
+        paymentMode,
+        notes,
+      })
+      setPaymentRows(await getErpApi().getFeePayments())
+      setAmount('')
+      setNotes('')
+      setMessage(`Payment recorded. Receipt ${payment.receiptNo} is ready.`)
+      setError('')
+    } catch (saveError) {
+      setError(getErrorMessage(saveError))
+      setMessage('')
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   return (
@@ -118,7 +184,11 @@ export function Fees() {
           <h2>Fee Collection</h2>
           <p>Find a student, review dues and record a payment.</p>
         </div>
-        <button className="secondary-button" type="button" onClick={() => setMessage('Opening today’s collection summary.')}>
+        <button
+          className="secondary-button"
+          type="button"
+          onClick={() => setMessage('Today’s collection is shown on the dashboard.')}
+        >
           <Icon name="reports" size={17} />
           Today’s Summary
         </button>
@@ -129,6 +199,16 @@ export function Fees() {
           <Icon name="check" size={17} />
           <span>{message}</span>
           <button type="button" onClick={() => setMessage('')} aria-label="Dismiss message">
+            <Icon name="close" size={15} />
+          </button>
+        </div>
+      )}
+
+      {error && (
+        <div className="inline-message inline-message--error">
+          <Icon name="close" size={17} />
+          <span>{error}</span>
+          <button type="button" onClick={() => setError('')} aria-label="Dismiss error">
             <Icon name="close" size={15} />
           </button>
         </div>
@@ -154,7 +234,7 @@ export function Fees() {
           <div className="student-results">
             {matchingStudents.map((student) => (
               <button
-                className={`student-result${selectedStudent.id === student.id ? ' student-result--active' : ''}`}
+                className={`student-result${selectedStudent?.id === student.id ? ' student-result--active' : ''}`}
                 key={student.id}
                 onClick={() => setSelectedStudentId(student.id)}
                 type="button"
@@ -166,12 +246,18 @@ export function Fees() {
                   <strong>{student.name}</strong>
                   <small>{student.admissionNo} · Class {student.className}-{student.section}</small>
                 </span>
-                {selectedStudent.id === student.id && (
+                {selectedStudent?.id === student.id && (
                   <span className="selected-check"><Icon name="check" size={14} /></span>
                 )}
               </button>
             ))}
-            {matchingStudents.length === 0 && <p className="empty-result">No student found.</p>}
+            {!isLoading && matchingStudents.length === 0 && (
+              <p className="empty-result">
+                {studentRows.length === 0
+                  ? 'Add a student before recording a fee payment.'
+                  : 'No student found.'}
+              </p>
+            )}
           </div>
         </div>
 
@@ -179,12 +265,18 @@ export function Fees() {
           <div className="panel-heading">
             <div>
               <h3>Payment Entry</h3>
-              <p>Collecting for {selectedStudent.name}</p>
+              <p>
+                {selectedStudent
+                  ? `Collecting for ${selectedStudent.name}`
+                  : 'Select a student to begin'}
+              </p>
             </div>
-            <span className="active-student-badge">
-              <Icon name="user" size={15} />
-              Class {selectedStudent.className}-{selectedStudent.section}
-            </span>
+            {selectedStudent && (
+              <span className="active-student-badge">
+                <Icon name="user" size={15} />
+                Class {selectedStudent.className}-{selectedStudent.section}
+              </span>
+            )}
           </div>
           <div className="fee-summary-grid">
             <div>
@@ -200,11 +292,15 @@ export function Fees() {
               <strong className="text-danger">₹12,500</strong>
             </div>
           </div>
-          <form className="payment-form" onSubmit={handlePayment}>
+          <form className="payment-form" onSubmit={(event) => void handlePayment(event)}>
             <div className="form-row form-row--three">
               <label className="form-field">
                 <span>Fee Type</span>
-                <select value={feeType} onChange={(event) => setFeeType(event.target.value)}>
+                <select
+                  disabled={!selectedStudent}
+                  value={feeType}
+                  onChange={(event) => setFeeType(event.target.value)}
+                >
                   <option>Tuition Fee</option>
                   <option>Quarterly Fee</option>
                   <option>Transport Fee</option>
@@ -214,9 +310,12 @@ export function Fees() {
               <label className="form-field">
                 <span>Amount (₹)</span>
                 <input
+                  disabled={!selectedStudent}
                   min="1"
                   onChange={(event) => setAmount(event.target.value)}
+                  placeholder="Enter amount"
                   required
+                  step="1"
                   type="number"
                   value={amount}
                 />
@@ -224,8 +323,9 @@ export function Fees() {
               <label className="form-field">
                 <span>Payment Mode</span>
                 <select
+                  disabled={!selectedStudent}
                   value={paymentMode}
-                  onChange={(event) => setPaymentMode(event.target.value as Payment['paymentMode'])}
+                  onChange={(event) => setPaymentMode(event.target.value as PaymentMode)}
                 >
                   <option>Cash</option>
                   <option>UPI</option>
@@ -236,13 +336,22 @@ export function Fees() {
             </div>
             <label className="form-field">
               <span>Payment Note</span>
-              <input placeholder="Optional note or transaction reference" />
+              <input
+                disabled={!selectedStudent}
+                onChange={(event) => setNotes(event.target.value)}
+                placeholder="Optional note or transaction reference"
+                value={notes}
+              />
             </label>
             <div className="payment-actions">
-              <span>Receipt will be generated after payment is saved.</span>
-              <button className="primary-button" type="submit">
+              <span>Receipt number is generated automatically when payment is saved.</span>
+              <button
+                className="primary-button"
+                disabled={!selectedStudent || isSaving}
+                type="submit"
+              >
                 <Icon name="wallet" size={17} />
-                Record Payment
+                {isSaving ? 'Recording...' : 'Record Payment'}
               </button>
             </div>
           </form>
@@ -253,7 +362,7 @@ export function Fees() {
         <div className="panel-heading">
           <div>
             <h3>Recent Receipts</h3>
-            <p>Latest payments recorded in the system</p>
+            <p>Latest payments recorded in the local database</p>
           </div>
           <button className="text-button" type="button">
             View all receipts
@@ -264,6 +373,9 @@ export function Fees() {
           columns={columns}
           getRowKey={(payment) => payment.id}
           rows={paymentRows.slice(0, 5)}
+          emptyMessage={
+            isLoading ? 'Loading fee payments...' : 'No fee payments recorded yet.'
+          }
         />
       </section>
     </div>
