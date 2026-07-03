@@ -101,6 +101,22 @@ xattr -dr com.apple.quarantine "/Applications/Vidhya School ERP.app"
 Public distribution still requires a valid Apple Developer ID signing
 certificate and notarization.
 
+## Build Windows Installer with GitHub Actions
+
+The `Build Windows` workflow creates the NSIS installer and portable Windows
+application on a GitHub-hosted Windows runner.
+
+1. Push the project, including the branded `build/icon.ico`, to GitHub.
+2. Open the repository’s **Actions** tab.
+3. Select **Build Windows**.
+4. Select **Run workflow** and confirm the branch.
+5. When the run completes, download the
+   `vidhya-school-erp-windows-<run number>` artifact.
+
+The artifact contains the generated Windows `.exe` files from `release/`,
+including the installer and portable application. The workflow also runs
+automatically when a tag beginning with `v` is pushed, such as `v1.0.0`.
+
 ## Backup and restore
 
 Settings → Backup & Restore can create a validated `.db` copy using the native

@@ -1,0 +1,50 @@
+name: Build Windows
+
+on:
+  workflow_dispatch: {}
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows:
+    name: Build Windows installer
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js LTS
+        uses: actions/setup-node@v6
+        with:
+          node-version: "lts/*"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build renderer
+        run: npm run build
+
+      - name: Run lint
+        run: npm run lint
+
+      - name: Test local database and IPC
+        run: npm run test:database
+
+      - name: Build Windows installer and portable app
+        run: npm run dist:win
+
+      - name: Upload Windows release artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: vidhya-school-erp-windows-${{ github.run_number }}
+          path: |
+            release/*.exe
+            release/*.blockmap
+          if-no-files-found: error
