@@ -1,8 +1,9 @@
-import type { PageId } from '../types'
-import { Icon } from './Icon'
+import type { AuthUser, PageId } from '../types'
 
 interface TopbarProps {
   activePage: PageId
+  currentUser: AuthUser
+  onLogout: () => void
 }
 
 const pageTitles: Record<PageId, string> = {
@@ -15,7 +16,16 @@ const pageTitles: Record<PageId, string> = {
   settings: 'Settings',
 }
 
-export function Topbar({ activePage }: TopbarProps) {
+const getInitials = (name: string) =>
+  name
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => part[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase()
+
+export function Topbar({ activePage, currentUser, onLogout }: TopbarProps) {
   return (
     <header className="topbar">
       <div className="topbar-title">
@@ -30,17 +40,20 @@ export function Topbar({ activePage }: TopbarProps) {
           <span />
           Offline Ready
         </div>
-        <button className="icon-button notification-button" type="button" aria-label="Notifications">
-          <Icon name="bell" size={19} />
-          <span className="notification-dot" />
-        </button>
+        <div className="database-badge">
+          <span />
+          Database Connected
+        </div>
         <div className="admin-profile">
-          <div className="admin-avatar">AD</div>
+          <div className="admin-avatar">{getInitials(currentUser.name) || 'U'}</div>
           <div>
-            <strong>Administrator</strong>
-            <span>School Admin</span>
+            <strong>{currentUser.name}</strong>
+            <span>{currentUser.role}</span>
           </div>
         </div>
+        <button className="secondary-button topbar-logout" type="button" onClick={onLogout}>
+          Logout
+        </button>
       </div>
     </header>
   )

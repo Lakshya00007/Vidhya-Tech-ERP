@@ -13,7 +13,14 @@ const defaultSettings: SaveSchoolSettingsInput = {
   receiptPrefix: 'VSE-RC',
 }
 
-export function SchoolProfileSettings({ onNotice }: SettingsSectionProps) {
+interface SchoolProfileSettingsProps extends SettingsSectionProps {
+  readOnly?: boolean
+}
+
+export function SchoolProfileSettings({
+  onNotice,
+  readOnly = false,
+}: SchoolProfileSettingsProps) {
   const [form, setForm] = useState<SaveSchoolSettingsInput>(defaultSettings)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
@@ -53,6 +60,7 @@ export function SchoolProfileSettings({ onNotice }: SettingsSectionProps) {
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault()
+    if (readOnly) return
     setIsSaving(true)
     try {
       const settings = await getErpApi().saveSchoolSettings(form)
@@ -88,14 +96,14 @@ export function SchoolProfileSettings({ onNotice }: SettingsSectionProps) {
           <div>
             <strong>School Logo</strong>
             <span>Logo storage will be added in a later phase</span>
-            <button type="button" className="text-button">Choose image</button>
+            {!readOnly && <button type="button" className="text-button">Choose image</button>}
           </div>
         </div>
         <div className="settings-fields">
           <label className="form-field form-field--full">
             <span>School Name</span>
             <input
-              disabled={isLoading}
+              disabled={isLoading || readOnly}
               required
               value={form.schoolName}
               onChange={(event) => setForm({ ...form, schoolName: event.target.value })}
@@ -104,7 +112,7 @@ export function SchoolProfileSettings({ onNotice }: SettingsSectionProps) {
           <label className="form-field form-field--full">
             <span>Address</span>
             <textarea
-              disabled={isLoading}
+              disabled={isLoading || readOnly}
               rows={3}
               value={form.address}
               onChange={(event) => setForm({ ...form, address: event.target.value })}
@@ -113,7 +121,7 @@ export function SchoolProfileSettings({ onNotice }: SettingsSectionProps) {
           <label className="form-field">
             <span>Phone</span>
             <input
-              disabled={isLoading}
+              disabled={isLoading || readOnly}
               type="tel"
               value={form.phone}
               onChange={(event) => setForm({ ...form, phone: event.target.value })}
@@ -122,7 +130,7 @@ export function SchoolProfileSettings({ onNotice }: SettingsSectionProps) {
           <label className="form-field">
             <span>Email</span>
             <input
-              disabled={isLoading}
+              disabled={isLoading || readOnly}
               type="email"
               value={form.email}
               onChange={(event) => setForm({ ...form, email: event.target.value })}
@@ -142,7 +150,7 @@ export function SchoolProfileSettings({ onNotice }: SettingsSectionProps) {
           <label className="form-field">
             <span>Academic Year</span>
             <input
-              disabled={isLoading}
+              disabled={isLoading || readOnly}
               placeholder="Example: 2026–2027"
               value={form.academicYear}
               onChange={(event) => setForm({ ...form, academicYear: event.target.value })}
@@ -151,7 +159,7 @@ export function SchoolProfileSettings({ onNotice }: SettingsSectionProps) {
           <label className="form-field">
             <span>Receipt Prefix</span>
             <input
-              disabled={isLoading}
+              disabled={isLoading || readOnly}
               value={form.receiptPrefix}
               onChange={(event) => setForm({ ...form, receiptPrefix: event.target.value })}
             />
@@ -165,11 +173,17 @@ export function SchoolProfileSettings({ onNotice }: SettingsSectionProps) {
       </section>
 
       <div className="settings-actions">
-        <span>Changes are stored in the local SQLite database.</span>
-        <button className="primary-button" disabled={isLoading || isSaving} type="submit">
-          <Icon name="check" size={17} />
-          {isSaving ? 'Saving...' : 'Save Settings'}
-        </button>
+        <span>
+          {readOnly
+            ? 'Your role has read-only access to the school profile.'
+            : 'Changes are stored in the local SQLite database.'}
+        </span>
+        {!readOnly && (
+          <button className="primary-button" disabled={isLoading || isSaving} type="submit">
+            <Icon name="check" size={17} />
+            {isSaving ? 'Saving...' : 'Save Settings'}
+          </button>
+        )}
       </div>
     </form>
   )

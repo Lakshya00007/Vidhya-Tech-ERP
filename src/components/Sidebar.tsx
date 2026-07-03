@@ -1,9 +1,11 @@
-import type { PageId } from '../types'
+import { canAccessPage } from '../lib/permissions'
+import type { PageId, PermissionRole } from '../types'
 import { Icon, type IconName } from './Icon'
 
 interface SidebarProps {
   activePage: PageId
   onNavigate: (page: PageId) => void
+  role: PermissionRole
 }
 
 const navigation: { id: PageId; label: string; icon: IconName }[] = [
@@ -16,7 +18,7 @@ const navigation: { id: PageId; label: string; icon: IconName }[] = [
   { id: 'settings', label: 'Settings', icon: 'settings' },
 ]
 
-export function Sidebar({ activePage, onNavigate }: SidebarProps) {
+export function Sidebar({ activePage, onNavigate, role }: SidebarProps) {
   return (
     <aside className="sidebar">
       <div className="sidebar-brand">
@@ -31,7 +33,7 @@ export function Sidebar({ activePage, onNavigate }: SidebarProps) {
 
       <nav className="sidebar-nav" aria-label="Main navigation">
         <span className="nav-label">Workspace</span>
-        {navigation.map((item) => (
+        {navigation.filter((item) => canAccessPage(role, item.id)).map((item) => (
           <button
             className={`nav-item${activePage === item.id ? ' nav-item--active' : ''}`}
             key={item.id}

@@ -7,6 +7,62 @@ export type PageId =
   | 'reports'
   | 'settings'
 
+export type PermissionRole =
+  | 'Owner'
+  | 'Admin'
+  | 'Accountant'
+  | 'Teacher'
+  | 'Viewer'
+
+export interface User {
+  id: string
+  name: string
+  email: string
+  username: string
+  role: PermissionRole
+  status: MasterStatus
+  lastLoginAt: string | null
+  createdAt: string
+  updatedAt: string
+  deletedAt: string | null
+  syncStatus: SyncStatus
+}
+
+export type AuthUser = User
+
+export interface CreateFirstOwnerInput {
+  name: string
+  username: string
+  email?: string
+  password: string
+}
+
+export interface CreateUserInput {
+  name: string
+  email?: string
+  username: string
+  password: string
+  role: PermissionRole
+  status?: MasterStatus
+}
+
+export interface UpdateUserInput {
+  name?: string
+  email?: string
+  role?: PermissionRole
+  status?: MasterStatus
+}
+
+export interface AuditLog {
+  id: string
+  userId: string | null
+  userName: string
+  action: string
+  module: string
+  details: string
+  createdAt: string
+}
+
 export type StudentStatus = 'Active' | 'Inactive'
 
 export interface Student {
@@ -170,6 +226,7 @@ export interface FeePayment {
   paymentMode: PaymentMode
   paymentDate: string
   notes: string
+  cashierName: string
   createdAt: string
   updatedAt: string
   syncStatus: 'pending' | 'synced'
@@ -192,38 +249,147 @@ export interface AttendanceRecord {
   id: string
   studentId: string
   studentName: string
+  admissionNo: string
   className: string
   section: string
   attendanceDate: string
   status: AttendanceStatus
-  createdAt?: string
-  updatedAt?: string
-  syncStatus?: 'pending' | 'synced'
-  rollNo?: string
-  admissionNo?: string
+  remarks: string
+  createdAt: string
+  updatedAt: string
+  syncStatus: SyncStatus
 }
 
-export type SaveAttendanceInput = Omit<
-  AttendanceRecord,
-  'id' | 'createdAt' | 'updatedAt' | 'syncStatus' | 'rollNo' | 'admissionNo'
-> & {
-  id?: string
+export interface SaveAttendanceInput {
+  studentId: string
+  attendanceDate: string
+  status: AttendanceStatus
+  remarks?: string
 }
+
+export interface UpdateAttendanceInput {
+  status?: AttendanceStatus
+  remarks?: string
+}
+
+export interface AttendanceSummary {
+  startDate: string
+  endDate: string
+  totalMarked: number
+  present: number
+  absent: number
+  leave: number
+  percentage: number | null
+}
+
+export interface Subject {
+  id: string
+  name: string
+  code: string
+  className: string
+  maxMarks: number
+  passingMarks: number
+  status: MasterStatus
+  createdAt: string
+  updatedAt: string
+  deletedAt: string | null
+  syncStatus: SyncStatus
+}
+
+export interface CreateSubjectInput {
+  name: string
+  code?: string
+  className: string
+  maxMarks?: number
+  passingMarks?: number
+  status?: MasterStatus
+}
+
+export type UpdateSubjectInput = Partial<CreateSubjectInput>
 
 export interface Exam {
   id: string
   name: string
-  classes: string
-  startDate: string
-  endDate: string
-  status: 'Upcoming' | 'Completed' | 'In Progress'
+  className: string
+  section: string
+  academicYear: string
+  examDate: string
+  status: MasterStatus
+  createdAt: string
+  updatedAt: string
+  deletedAt: string | null
+  syncStatus: SyncStatus
 }
 
-export interface MarkEntry {
+export interface CreateExamInput {
+  name: string
+  className: string
+  section?: string
+  academicYear?: string
+  examDate: string
+  status?: MasterStatus
+}
+
+export type UpdateExamInput = Partial<CreateExamInput>
+
+export interface MarkRecord {
   id: string
-  rollNo: string
+  examId: string
+  examName: string
+  studentId: string
   studentName: string
-  maximumMarks: number
-  marksObtained: number
+  admissionNo: string
+  className: string
+  section: string
+  subjectId: string
+  subjectName: string
+  maxMarks: number
+  passingMarks: number
+  obtainedMarks: number
+  remarks: string
+  createdAt: string
+  updatedAt: string
+  syncStatus: SyncStatus
+}
+
+export interface SaveMarkInput {
+  examId: string
+  studentId: string
+  subjectId: string
+  obtainedMarks: number
+  remarks?: string
+}
+
+export interface UpdateMarkInput {
+  obtainedMarks?: number
+  remarks?: string
+}
+
+export interface MarksheetSummary {
+  totalMarks: number
+  obtainedMarks: number
+  percentage: number
+  result: 'Pass' | 'Fail'
   grade: string
+  remarks: string
+}
+
+export interface DatabaseInfo {
+  databasePath: string
+  databaseDirectory: string
+  fileSizeBytes: number
+  fileSizeLabel: string
+  lastModified: string
+  exists: boolean
+  restorePending: boolean
+  recommendation: string
+}
+
+export interface DatabaseActionResult {
+  success: boolean
+  canceled?: boolean
+  message: string
+  path?: string
+  safetyBackupPath?: string
+  requiresRestart?: boolean
 }

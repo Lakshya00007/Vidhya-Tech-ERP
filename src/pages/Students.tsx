@@ -13,7 +13,11 @@ const emptyForm: CreateStudentInput = {
   mobile: '',
 }
 
-export function Students() {
+interface StudentsProps {
+  canManage: boolean
+}
+
+export function Students({ canManage }: StudentsProps) {
   const [studentRows, setStudentRows] = useState<Student[]>([])
   const [classes, setClasses] = useState<ClassItem[]>([])
   const [sections, setSections] = useState<SectionItem[]>([])
@@ -197,7 +201,7 @@ export function Students() {
         </span>
       ),
     },
-    {
+    ...(canManage ? [{
       key: 'action',
       header: '',
       className: 'align-right',
@@ -223,7 +227,7 @@ export function Students() {
           </button>
         </div>
       ),
-    },
+    } satisfies TableColumn<Student>] : []),
   ]
 
   const handleSubmit = async (event: FormEvent) => {
@@ -257,10 +261,12 @@ export function Students() {
           <h2>Students</h2>
           <p>Manage admission records and student information.</p>
         </div>
-        <button className="primary-button" type="button" onClick={openAddForm}>
-          <Icon name="plus" size={18} />
-          Add Student
-        </button>
+        {canManage && (
+          <button className="primary-button" type="button" onClick={openAddForm}>
+            <Icon name="plus" size={18} />
+            Add Student
+          </button>
+        )}
       </section>
 
       {message && (

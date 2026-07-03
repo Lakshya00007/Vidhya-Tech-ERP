@@ -1,6 +1,29 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("erpApi", {
+  hasUsers: () => ipcRenderer.invoke("auth:has-users"),
+  createFirstOwner: (input) =>
+    ipcRenderer.invoke("auth:create-first-owner", input),
+  login: (username, password) =>
+    ipcRenderer.invoke("auth:login", username, password),
+  logout: () => ipcRenderer.invoke("auth:logout"),
+  getCurrentUser: () => ipcRenderer.invoke("auth:get-current-user"),
+  changePassword: (userId, oldPassword, newPassword) =>
+    ipcRenderer.invoke(
+      "auth:change-password",
+      userId,
+      oldPassword,
+      newPassword,
+    ),
+
+  getUsers: () => ipcRenderer.invoke("users:get-all"),
+  createUser: (input) => ipcRenderer.invoke("users:create", input),
+  updateUser: (id, input) => ipcRenderer.invoke("users:update", id, input),
+  resetUserPassword: (id, newPassword) =>
+    ipcRenderer.invoke("users:reset-password", id, newPassword),
+  deleteUser: (id) => ipcRenderer.invoke("users:delete", id),
+  getAuditLogs: (limit) => ipcRenderer.invoke("audit:get", limit),
+
   getStudents: () => ipcRenderer.invoke("students:get-all"),
   createStudent: (student) => ipcRenderer.invoke("students:create", student),
   updateStudent: (id, student) =>
@@ -16,8 +39,25 @@ contextBridge.exposeInMainWorld("erpApi", {
     ipcRenderer.invoke("fees:get-by-date-range", startDate, endDate),
   createFeePayment: (payment) => ipcRenderer.invoke("fees:create", payment),
 
-  getAttendance: () => ipcRenderer.invoke("attendance:get-all"),
+  getAttendance: () => ipcRenderer.invoke("attendance:getAll"),
+  getAttendanceByDate: (date) =>
+    ipcRenderer.invoke("attendance:getByDate", date),
+  getAttendanceByClassDate: (className, section, date) =>
+    ipcRenderer.invoke(
+      "attendance:getByClassDate",
+      className,
+      section,
+      date,
+    ),
+  getAttendanceByDateRange: (startDate, endDate) =>
+    ipcRenderer.invoke("attendance:getByDateRange", startDate, endDate),
+  getAttendanceSummary: (startDate, endDate) =>
+    ipcRenderer.invoke("attendance:getSummary", startDate, endDate),
   saveAttendance: (record) => ipcRenderer.invoke("attendance:save", record),
+  saveAttendanceBulk: (records) =>
+    ipcRenderer.invoke("attendance:saveBulk", records),
+  updateAttendance: (id, input) =>
+    ipcRenderer.invoke("attendance:update", id, input),
 
   getClasses: () => ipcRenderer.invoke("classes:get-all"),
   createClass: (input) => ipcRenderer.invoke("classes:create", input),
@@ -43,4 +83,32 @@ contextBridge.exposeInMainWorld("erpApi", {
     ipcRenderer.invoke("fee-structures:update", id, input),
   deleteFeeStructure: (id) =>
     ipcRenderer.invoke("fee-structures:delete", id),
+
+  getSubjects: () => ipcRenderer.invoke("subjects:get-all"),
+  createSubject: (input) => ipcRenderer.invoke("subjects:create", input),
+  updateSubject: (id, input) =>
+    ipcRenderer.invoke("subjects:update", id, input),
+  deleteSubject: (id) => ipcRenderer.invoke("subjects:delete", id),
+
+  getExams: () => ipcRenderer.invoke("exams:get-all"),
+  createExam: (input) => ipcRenderer.invoke("exams:create", input),
+  updateExam: (id, input) => ipcRenderer.invoke("exams:update", id, input),
+  deleteExam: (id) => ipcRenderer.invoke("exams:delete", id),
+
+  getMarks: () => ipcRenderer.invoke("marks:get-all"),
+  getMarksByExam: (examId) =>
+    ipcRenderer.invoke("marks:get-by-exam", examId),
+  getMarksByStudentExam: (studentId, examId) =>
+    ipcRenderer.invoke("marks:get-by-student-exam", studentId, examId),
+  saveMarksBulk: (records) =>
+    ipcRenderer.invoke("marks:save-bulk", records),
+  updateMark: (id, input) => ipcRenderer.invoke("marks:update", id, input),
+
+  createDatabaseBackup: () =>
+    ipcRenderer.invoke("database:create-backup"),
+  restoreDatabaseBackup: () =>
+    ipcRenderer.invoke("database:restore-backup"),
+  getDatabaseInfo: () => ipcRenderer.invoke("database:get-info"),
+  openDatabaseFolder: () => ipcRenderer.invoke("database:open-folder"),
+  restartApp: () => ipcRenderer.invoke("app:restart"),
 });

@@ -134,7 +134,7 @@ export function ReceiptPreview({
           <footer className="receipt-footer">
             <div>
               <span>Received by</span>
-              <strong>Administrator</strong>
+              <strong>{payment.cashierName || 'Administrator'}</strong>
               <small>Cashier / Admin</small>
             </div>
             <div className="receipt-signature">

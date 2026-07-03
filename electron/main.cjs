@@ -1,5 +1,10 @@
 const path = require("node:path");
 const { app, BrowserWindow } = require("electron");
+const {
+  applyPendingDatabaseRestore,
+  createBackupService,
+} = require("./backup.cjs");
+const { createAuthService } = require("./auth.cjs");
 const { createDatabase } = require("./database.cjs");
 const { registerIpcHandlers } = require("./ipc.cjs");
 
@@ -26,8 +31,20 @@ function createWindow() {
 
 app.whenReady().then(() => {
   const databasePath = path.join(app.getPath("userData"), "school-erp.db");
+  try {
+    applyPendingDatabaseRestore(databasePath);
+  } catch (error) {
+    console.error("Pending database restore could not be applied.", error);
+  }
   database = createDatabase(databasePath);
-  registerIpcHandlers(database);
+  const authService = createAuthService(database);
+  const backupService = createBackupService({
+    app,
+    databasePath,
+    getDatabase: () => database,
+    closeDatabase: () => database?.close(),
+  });
+  registerIpcHandlers(database, backupService, authService);
   createWindow();
 });
 

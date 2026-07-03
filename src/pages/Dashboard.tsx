@@ -3,9 +3,18 @@ import { DataTable, type TableColumn } from '../components/DataTable'
 import { Icon, type IconName } from '../components/Icon'
 import { StatCard } from '../components/StatCard'
 import { getErpApi, getErrorMessage } from '../lib/erpApi'
-import type { FeePayment, PageId, SchoolSettings, Student } from '../types'
+import { canAccessPage } from '../lib/permissions'
+import type {
+  AttendanceSummary,
+  AuthUser,
+  FeePayment,
+  PageId,
+  SchoolSettings,
+  Student,
+} from '../types'
 
 interface DashboardProps {
+  currentUser: AuthUser
   onNavigate: (page: PageId) => void
 }
 
@@ -106,24 +115,30 @@ const quickActions: {
   },
 ]
 
-export function Dashboard({ onNavigate }: DashboardProps) {
+export function Dashboard({ currentUser, onNavigate }: DashboardProps) {
   const [students, setStudents] = useState<Student[]>([])
   const [payments, setPayments] = useState<FeePayment[]>([])
   const [settings, setSettings] = useState<SchoolSettings | null>(null)
+  const [attendanceSummary, setAttendanceSummary] =
+    useState<AttendanceSummary | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
 
   useEffect(() => {
     const loadDashboard = async () => {
       try {
-        const [studentRows, paymentRows, schoolSettings] = await Promise.all([
-          getErpApi().getStudents(),
-          getErpApi().getFeePayments(),
-          getErpApi().getSchoolSettings(),
-        ])
+        const today = getLocalDateKey(new Date())
+        const [studentRows, paymentRows, schoolSettings, dailyAttendance] =
+          await Promise.all([
+            getErpApi().getStudents(),
+            getErpApi().getFeePayments(),
+            getErpApi().getSchoolSettings(),
+            getErpApi().getAttendanceSummary(today, today),
+          ])
         setStudents(studentRows)
         setPayments(paymentRows)
         setSettings(schoolSettings)
+        setAttendanceSummary(dailyAttendance)
         setError('')
       } catch (loadError) {
         setError(getErrorMessage(loadError))
@@ -165,7 +180,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
       <section className="welcome-row">
         <div>
           <p className="eyebrow">{formattedDate}</p>
-          <h2>Good morning, Administrator</h2>
+          <h2>Good morning, {currentUser.name}</h2>
           <p>Here is today’s overview for {settings?.schoolName ?? 'your school'}.</p>
         </div>
         <div className="academic-year">
@@ -212,9 +227,22 @@ export function Dashboard({ onNavigate }: DashboardProps) {
         <StatCard
           icon="check"
           label="Attendance Today"
-          meta="Attendance summary placeholder"
+          meta={
+            attendanceSummary?.totalMarked
+              ? `${attendanceSummary.present} of ${attendanceSummary.totalMarked} marked students present`
+              : 'No attendance records for today'
+          }
           tone="violet"
-          value="95.6%"
+          value={
+            isLoading
+              ? '—'
+              : attendanceSummary?.percentage === null ||
+                  attendanceSummary?.percentage === undefined
+                ? 'Not marked yet'
+                : `${attendanceSummary.percentage.toLocaleString('en-IN', {
+                    maximumFractionDigits: 1,
+                  })}%`
+          }
         />
       </section>
 
@@ -225,10 +253,12 @@ export function Dashboard({ onNavigate }: DashboardProps) {
               <h3>Recent Fee Payments</h3>
               <p>Latest receipts recorded in the local database</p>
             </div>
-            <button className="text-button" type="button" onClick={() => onNavigate('fees')}>
-              View all
-              <Icon name="arrow" size={16} />
-            </button>
+            {canAccessPage(currentUser.role, 'fees') && (
+              <button className="text-button" type="button" onClick={() => onNavigate('fees')}>
+                View all
+                <Icon name="arrow" size={16} />
+              </button>
+            )}
           </div>
           <DataTable
             columns={paymentColumns}
@@ -248,7 +278,9 @@ export function Dashboard({ onNavigate }: DashboardProps) {
             </div>
           </div>
           <div className="quick-action-list">
-            {quickActions.map((action) => (
+            {quickActions
+              .filter((action) => canAccessPage(currentUser.role, action.page))
+              .map((action) => (
               <button
                 className="quick-action"
                 key={action.label}
@@ -264,7 +296,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                 </span>
                 <Icon className="quick-action__arrow" name="chevron" size={17} />
               </button>
-            ))}
+              ))}
           </div>
         </div>
       </section>
