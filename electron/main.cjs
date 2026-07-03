@@ -11,9 +11,12 @@ const { registerIpcHandlers } = require("./ipc.cjs");
 app.setName("School ERP Desktop");
 
 let database;
+const isDevelopment = !app.isPackaged;
 
-function createWindow() {
+async function createWindow() {
   const win = new BrowserWindow({
+    show: false,
+    backgroundColor: "#f4f7fb",
     width: 1400,
     height: 900,
     minWidth: 1100,
@@ -26,27 +29,41 @@ function createWindow() {
     },
   });
 
-  win.loadURL("http://localhost:5173");
+  win.once("ready-to-show", () => {
+    win.show();
+  });
+
+  if (isDevelopment) {
+    await win.loadURL("http://localhost:5173");
+  } else {
+    await win.loadFile(path.join(__dirname, "../dist/index.html"));
+  }
 }
 
-app.whenReady().then(() => {
-  const databasePath = path.join(app.getPath("userData"), "school-erp.db");
-  try {
-    applyPendingDatabaseRestore(databasePath);
-  } catch (error) {
-    console.error("Pending database restore could not be applied.", error);
-  }
-  database = createDatabase(databasePath);
-  const authService = createAuthService(database);
-  const backupService = createBackupService({
-    app,
-    databasePath,
-    getDatabase: () => database,
-    closeDatabase: () => database?.close(),
+app
+  .whenReady()
+  .then(async () => {
+    const databasePath = path.join(app.getPath("userData"), "school-erp.db");
+    try {
+      applyPendingDatabaseRestore(databasePath);
+    } catch (error) {
+      console.error("Pending database restore could not be applied.", error);
+    }
+    database = createDatabase(databasePath);
+    const authService = createAuthService(database);
+    const backupService = createBackupService({
+      app,
+      databasePath,
+      getDatabase: () => database,
+      closeDatabase: () => database?.close(),
+    });
+    registerIpcHandlers(database, backupService, authService);
+    await createWindow();
+  })
+  .catch((error) => {
+    console.error("School ERP Desktop could not start.", error);
+    app.quit();
   });
-  registerIpcHandlers(database, backupService, authService);
-  createWindow();
-});
 
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {
@@ -56,7 +73,9 @@ app.on("window-all-closed", () => {
 
 app.on("activate", () => {
   if (BrowserWindow.getAllWindows().length === 0) {
-    createWindow();
+    void createWindow().catch((error) => {
+      console.error("The application window could not be opened.", error);
+    });
   }
 });
 
