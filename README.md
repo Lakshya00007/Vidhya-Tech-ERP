@@ -116,6 +116,9 @@ application on a GitHub-hosted Windows runner.
 The artifact contains the generated Windows `.exe` files from `release/`,
 including the installer and portable application. The workflow also runs
 automatically when a tag beginning with `v` is pushed, such as `v1.0.0`.
+Electron Builder publishing is explicitly disabled for this command: the
+workflow uploads build artifacts only and does not create or publish a GitHub
+Release.
 
 ## Backup and restore
 
