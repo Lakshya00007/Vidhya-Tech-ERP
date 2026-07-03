@@ -107,6 +107,8 @@ app.whenReady().then(async () => {
           "deleteUser",
           "getAuditLogs"
         ].every((method) => typeof window.erpApi[method] === "function");
+        const demoApiAvailable =
+          typeof window.erpApi.createDemoData === "function";
         const hadUsersBeforeSetup = await window.erpApi.hasUsers();
         const owner = await window.erpApi.createFirstOwner({
           name: "Smoke Test Owner",
@@ -285,6 +287,7 @@ app.whenReady().then(async () => {
 
         return {
           authApiAvailable,
+          demoApiAvailable,
           hadUsersBeforeSetup,
           ownerRole: owner.role,
           loggedInOwnerRole: loggedInOwner.role,
@@ -356,6 +359,10 @@ app.whenReady().then(async () => {
     assert(
       bridgeResult.authApiAvailable,
       "Authentication and user APIs were not exposed by the preload bridge.",
+    );
+    assert(
+      bridgeResult.demoApiAvailable,
+      "Demo data API was not exposed by the preload bridge.",
     );
     assert(
       bridgeResult.hadUsersBeforeSetup === false &&
@@ -560,6 +567,59 @@ app.whenReady().then(async () => {
       "Student soft delete failed.",
     );
     assert(database.getStudents().length === 0, "Soft-deleted student is still active.");
+    const firstDemoResult = database.createDemoData("Smoke Test Owner");
+    assert(
+      firstDemoResult.success &&
+        firstDemoResult.created.classes === 2 &&
+        firstDemoResult.created.sections === 4 &&
+        firstDemoResult.created.feeHeads === 2 &&
+        firstDemoResult.created.feeStructures === 4 &&
+        firstDemoResult.created.students === 5 &&
+        firstDemoResult.created.feePayments === 2 &&
+        firstDemoResult.created.attendance === 5 &&
+        firstDemoResult.created.subjects === 2 &&
+        firstDemoResult.created.exams === 1 &&
+        firstDemoResult.created.marks === 6,
+      "Sample demo data was not created completely.",
+    );
+    const demoCountsAfterFirstRun = {
+      classes: database.getClasses().length,
+      sections: database.getSections().length,
+      feeHeads: database.getFeeHeads().length,
+      feeStructures: database.getFeeStructures().length,
+      students: database.getStudents().length,
+      payments: database.getFeePayments().length,
+      attendance: database.getAttendance().length,
+      subjects: database.getSubjects().length,
+      exams: database.getExams().length,
+      marks: database.getMarks().length,
+    };
+    const secondDemoResult = database.createDemoData("Smoke Test Owner");
+    assert(
+      secondDemoResult.success &&
+        secondDemoResult.alreadyPresent &&
+        Object.values(secondDemoResult.created).every((count) => count === 0),
+      "Repeated demo data creation was not idempotent.",
+    );
+    assert(
+      demoCountsAfterFirstRun.classes === database.getClasses().length &&
+        demoCountsAfterFirstRun.sections === database.getSections().length &&
+        demoCountsAfterFirstRun.feeHeads === database.getFeeHeads().length &&
+        demoCountsAfterFirstRun.feeStructures ===
+          database.getFeeStructures().length &&
+        demoCountsAfterFirstRun.students === database.getStudents().length &&
+        demoCountsAfterFirstRun.payments === database.getFeePayments().length &&
+        demoCountsAfterFirstRun.attendance === database.getAttendance().length &&
+        demoCountsAfterFirstRun.subjects === database.getSubjects().length &&
+        demoCountsAfterFirstRun.exams === database.getExams().length &&
+        demoCountsAfterFirstRun.marks === database.getMarks().length,
+      "Repeated demo data creation changed the sample dataset.",
+    );
+    assert(
+      database.getClasses().some((item) => item.name === "10") &&
+        database.getFeeHeads().some((item) => item.name === "Tuition Fee"),
+      "Demo data creation removed or replaced existing master data.",
+    );
     database.close();
 
     console.log("Database and IPC smoke test passed.");

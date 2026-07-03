@@ -94,7 +94,7 @@ function ReportDocumentHeader({
           <Icon name="school" size={24} />
         </span>
         <div>
-          <h2>{settings?.schoolName || 'School ERP Desktop'}</h2>
+          <h2>{settings?.schoolName || 'Vidhya School ERP'}</h2>
           {settings?.address && <p>{settings.address}</p>}
           {(settings?.phone || settings?.email) && (
             <span>

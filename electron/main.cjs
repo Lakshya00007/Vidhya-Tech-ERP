@@ -8,7 +8,12 @@ const { createAuthService } = require("./auth.cjs");
 const { createDatabase } = require("./database.cjs");
 const { registerIpcHandlers } = require("./ipc.cjs");
 
-app.setName("School ERP Desktop");
+const existingUserDataPath = path.join(
+  app.getPath("appData"),
+  "School ERP Desktop",
+);
+app.setName("Vidhya School ERP");
+app.setPath("userData", existingUserDataPath);
 
 let database;
 const isDevelopment = !app.isPackaged;
@@ -21,7 +26,7 @@ async function createWindow() {
     height: 900,
     minWidth: 1100,
     minHeight: 700,
-    title: "School ERP Desktop",
+    title: "Vidhya School ERP",
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
       contextIsolation: true,
@@ -61,7 +66,7 @@ app
     await createWindow();
   })
   .catch((error) => {
-    console.error("School ERP Desktop could not start.", error);
+    console.error("Vidhya School ERP could not start.", error);
     app.quit();
   });
 

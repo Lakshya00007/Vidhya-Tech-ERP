@@ -1,4 +1,6 @@
-# School ERP Desktop
+# Vidhya School ERP
+
+Current release: **1.0.0**
 
 Offline-first school administration software built with Electron, React,
 TypeScript, Vite, and SQLite.
@@ -82,6 +84,40 @@ The unpacked application uses the production code path and loads
 `dist/index.html`. It keeps the same staged restore, authentication, preload,
 IPC, and `app.getPath("userData")` database behavior as development.
 
+To create the macOS DMG and ZIP release directly:
+
+```bash
+npm run dist:mac
+```
+
+Unsigned macOS applications can trigger Gatekeeper. For a local trusted build,
+right-click the app and select **Open**. If macOS still blocks a locally built
+copy, remove its quarantine attribute only after verifying its source:
+
+```bash
+xattr -dr com.apple.quarantine "/Applications/Vidhya School ERP.app"
+```
+
+Public distribution still requires a valid Apple Developer ID signing
+certificate and notarization.
+
+## Backup and restore
+
+Settings → Backup & Restore can create a validated `.db` copy using the native
+save dialog. Restore validates the selected SQLite database, creates a safety
+backup of the current database, and stages the replacement. The staged restore
+is applied before SQLite opens on the next application restart.
+
+Backups should be stored outside the application folder. Installing or
+replacing the application does not delete the database in Electron `userData`.
+
+## Demo data
+
+Owners can use Settings → Demo Tools to create an idempotent sample dataset.
+Demo records use stable identifiers such as `DEMO-001`; running the tool again
+creates only missing sample records. The utility never clears or deletes
+existing data. Create a backup before using demo tools with production data.
+
 ## Application icons
 
 Local packaging currently falls back to Electron's default icon. Before a
@@ -91,3 +127,12 @@ signed public release, add the branded files documented in
 - `build/icon.icns`
 - `build/icon.ico`
 - `build/icon.png`
+
+Branded icons and a production signing certificate are required before public
+distribution.
+
+## License and support
+
+Vidhya School ERP 1.0 is built by Vidhya Tech. See
+[`LICENSE.md`](LICENSE.md) for demo release terms. Support placeholder:
+support@vidhyatech.in.

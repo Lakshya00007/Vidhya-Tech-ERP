@@ -23,6 +23,7 @@ contextBridge.exposeInMainWorld("erpApi", {
     ipcRenderer.invoke("users:reset-password", id, newPassword),
   deleteUser: (id) => ipcRenderer.invoke("users:delete", id),
   getAuditLogs: (limit) => ipcRenderer.invoke("audit:get", limit),
+  createDemoData: () => ipcRenderer.invoke("demo:create-data"),
 
   getStudents: () => ipcRenderer.invoke("students:get-all"),
   createStudent: (student) => ipcRenderer.invoke("students:create", student),

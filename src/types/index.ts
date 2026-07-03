@@ -393,3 +393,23 @@ export interface DatabaseActionResult {
   safetyBackupPath?: string
   requiresRestart?: boolean
 }
+
+export interface DemoDataCreatedCounts {
+  classes: number
+  sections: number
+  feeHeads: number
+  feeStructures: number
+  students: number
+  feePayments: number
+  attendance: number
+  subjects: number
+  exams: number
+  marks: number
+}
+
+export interface DemoDataResult {
+  success: boolean
+  alreadyPresent: boolean
+  message: string
+  created: DemoDataCreatedCounts
+}

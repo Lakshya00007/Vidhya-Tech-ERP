@@ -16,6 +16,7 @@ import type {
   CreateUserInput,
   DatabaseActionResult,
   DatabaseInfo,
+  DemoDataResult,
   Exam,
   FeeHead,
   FeePayment,
@@ -62,6 +63,7 @@ export interface ErpApi {
   ) => Promise<{ success: boolean }>
   deleteUser: (id: string) => Promise<{ success: boolean }>
   getAuditLogs: (limit?: number) => Promise<AuditLog[]>
+  createDemoData: () => Promise<DemoDataResult>
 
   getStudents: () => Promise<Student[]>
   createStudent: (student: CreateStudentInput) => Promise<Student>

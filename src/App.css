@@ -2579,6 +2579,7 @@
 
 .settings-tabs {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 4px;
   padding: 5px;
@@ -3285,6 +3286,233 @@
 .row-action:disabled {
   opacity: 0.42;
   cursor: not-allowed;
+}
+
+.about-settings-layout {
+  display: grid;
+  grid-template-columns: minmax(300px, 0.75fr) minmax(420px, 1.25fr);
+  align-items: start;
+  gap: 15px;
+}
+
+.about-product-card {
+  grid-row: span 2;
+  padding: 24px;
+}
+
+.about-product-identity {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.about-product-mark {
+  width: 56px;
+  height: 56px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  color: white;
+  background: linear-gradient(145deg, #4487f4, #245dcc);
+  border-radius: 15px;
+  box-shadow: 0 8px 18px rgba(37, 99, 216, 0.2);
+}
+
+.about-product-identity h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 18px;
+}
+
+.about-product-identity > div > span {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.about-product-description {
+  margin: 22px 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.7;
+}
+
+.about-status-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.about-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+}
+
+.about-detail-grid > div {
+  min-width: 0;
+  padding: 13px 17px;
+  border-right: 1px solid #eef1f5;
+  border-bottom: 1px solid #eef1f5;
+}
+
+.about-detail-grid > div:nth-child(2n) {
+  border-right: 0;
+}
+
+.about-detail-grid dt {
+  color: #8792a3;
+  font-size: 7.5px;
+  font-weight: 650;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.about-detail-grid dd {
+  margin: 5px 0 0;
+  color: #304057;
+  font-size: 9.5px;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+.about-module-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 16px 18px;
+}
+
+.about-module-list > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 9px;
+  color: #315d9c;
+  background: #edf4ff;
+  border: 1px solid #dbe7f8;
+  border-radius: 7px;
+  font-size: 8.5px;
+  font-weight: 600;
+}
+
+.about-support-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0 18px 18px;
+  padding: 12px;
+  color: #596980;
+  background: #f8fafc;
+  border: 1px solid #e6ebf2;
+  border-radius: 8px;
+}
+
+.about-support-note > svg {
+  flex: 0 0 auto;
+  color: var(--primary);
+}
+
+.about-support-note strong {
+  color: #334158;
+  font-size: 9px;
+}
+
+.about-support-note p {
+  margin: 4px 0 0;
+  font-size: 8.5px;
+  line-height: 1.5;
+}
+
+.demo-tools-layout {
+  display: grid;
+  gap: 15px;
+}
+
+.demo-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  margin: 17px;
+  padding: 13px;
+  color: #8e580e;
+  background: var(--warning-soft);
+  border: 1px solid #eeddbb;
+  border-radius: 9px;
+}
+
+.demo-warning > svg {
+  flex: 0 0 auto;
+}
+
+.demo-warning strong {
+  font-size: 9.5px;
+}
+
+.demo-warning p {
+  margin: 4px 0 0;
+  font-size: 8.5px;
+  line-height: 1.5;
+}
+
+.demo-tools-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 30px;
+  padding: 4px 18px 19px;
+}
+
+.demo-tools-content h4 {
+  margin: 0;
+  color: var(--text);
+  font-size: 12px;
+}
+
+.demo-tools-content p {
+  max-width: 650px;
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.55;
+}
+
+.demo-tools-content ul {
+  margin: 11px 0 0;
+  padding-left: 17px;
+  color: #788397;
+  font-size: 8.5px;
+  line-height: 1.8;
+}
+
+.demo-result-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.demo-result-grid > div {
+  display: flex;
+  flex-direction: column;
+  padding: 13px 16px;
+  border-right: 1px solid #eef1f5;
+  border-bottom: 1px solid #eef1f5;
+}
+
+.demo-result-grid > div:nth-child(5n) {
+  border-right: 0;
+}
+
+.demo-result-grid span {
+  color: #8792a3;
+  font-size: 7.5px;
+  text-transform: uppercase;
+}
+
+.demo-result-grid strong {
+  margin-top: 5px;
+  color: var(--text);
+  font-size: 15px;
 }
 
 @media print {

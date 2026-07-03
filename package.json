@@ -4,7 +4,7 @@
   "description": "Offline desktop ERP system for school administration.",
   "author": "Vidhya Tech",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
@@ -61,6 +61,7 @@
       "dist/**/*",
       "electron/**/*.cjs",
       "!electron/database-smoke.cjs",
+      "LICENSE.md",
       "package.json"
     ],
     "mac": {

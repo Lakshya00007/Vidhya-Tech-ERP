@@ -2414,6 +2414,351 @@ function createDatabase(databasePath) {
       return markFromRow(db.prepare("SELECT * FROM marks WHERE id = ?").get(markId));
     },
 
+    createDemoData(cashierName = "Demo Administrator") {
+      const created = {
+        classes: 0,
+        sections: 0,
+        feeHeads: 0,
+        feeStructures: 0,
+        students: 0,
+        feePayments: 0,
+        attendance: 0,
+        subjects: 0,
+        exams: 0,
+        marks: 0,
+      };
+      const todayDate = new Date();
+      const today = [
+        todayDate.getFullYear(),
+        String(todayDate.getMonth() + 1).padStart(2, "0"),
+        String(todayDate.getDate()).padStart(2, "0"),
+      ].join("-");
+      const settings = this.getSchoolSettings();
+      const academicYear =
+        optionalText(settings.academicYear) ||
+        `${todayDate.getFullYear()}–${todayDate.getFullYear() + 1}`;
+
+      const ensureClass = (name, order) => {
+        const existing = db
+          .prepare(`
+            SELECT * FROM classes
+            WHERE name = ? COLLATE NOCASE AND deleted_at IS NULL
+          `)
+          .get(name);
+        if (existing) return classFromRow(existing);
+        created.classes += 1;
+        return this.createClass({
+          name,
+          displayOrder: order,
+          status: "Active",
+        });
+      };
+
+      const ensureSection = (schoolClass, name) => {
+        const existing = db
+          .prepare(`
+            SELECT * FROM sections
+            WHERE class_id = ?
+              AND name = ? COLLATE NOCASE
+              AND deleted_at IS NULL
+          `)
+          .get(schoolClass.id, name);
+        if (existing) return sectionFromRow(existing);
+        created.sections += 1;
+        return this.createSection({
+          classId: schoolClass.id,
+          name,
+          status: "Active",
+        });
+      };
+
+      const ensureFeeHead = (name, description, frequency) => {
+        const existing = db
+          .prepare(`
+            SELECT * FROM fee_heads
+            WHERE name = ? COLLATE NOCASE AND deleted_at IS NULL
+          `)
+          .get(name);
+        if (existing) return feeHeadFromRow(existing);
+        created.feeHeads += 1;
+        return this.createFeeHead({
+          name,
+          description,
+          frequency,
+          status: "Active",
+        });
+      };
+
+      const ensureFeeStructure = (schoolClass, feeHead, amount) => {
+        const existing = db
+          .prepare(`
+            SELECT *
+            FROM fee_structures
+            WHERE class_name = ? COLLATE NOCASE
+              AND fee_head_id = ?
+              AND academic_year = ?
+              AND deleted_at IS NULL
+          `)
+          .get(schoolClass.name, feeHead.id, academicYear);
+        if (existing) return feeStructureFromRow(existing);
+        created.feeStructures += 1;
+        return this.createFeeStructure({
+          className: schoolClass.name,
+          feeHeadId: feeHead.id,
+          amount,
+          academicYear,
+          status: "Active",
+        });
+      };
+
+      const ensureStudent = (input) => {
+        const existing = db
+          .prepare("SELECT * FROM students WHERE admission_no = ?")
+          .get(input.admissionNo);
+        if (existing) {
+          return existing.deleted_at ? null : studentFromRow(existing);
+        }
+        created.students += 1;
+        return this.createStudent(input);
+      };
+
+      const ensureSubject = (input) => {
+        const existing = db
+          .prepare(`
+            SELECT *
+            FROM subjects
+            WHERE name = ? COLLATE NOCASE
+              AND class_name = ? COLLATE NOCASE
+              AND deleted_at IS NULL
+          `)
+          .get(input.name, input.className);
+        if (existing) return subjectFromRow(existing);
+        created.subjects += 1;
+        return this.createSubject(input);
+      };
+
+      const demoClassNine = ensureClass("Demo Class 9", 900);
+      const demoClassTen = ensureClass("Demo Class 10", 1000);
+      ensureSection(demoClassNine, "A");
+      ensureSection(demoClassNine, "B");
+      ensureSection(demoClassTen, "A");
+      ensureSection(demoClassTen, "B");
+
+      const tuitionHead = ensureFeeHead(
+        "Demo Tuition Fee",
+        "Sample monthly tuition fee for demo records.",
+        "Monthly",
+      );
+      const admissionHead = ensureFeeHead(
+        "Demo Admission Fee",
+        "Sample one-time admission fee for demo records.",
+        "One-Time",
+      );
+      ensureFeeStructure(demoClassNine, tuitionHead, 2200);
+      ensureFeeStructure(demoClassNine, admissionHead, 5000);
+      ensureFeeStructure(demoClassTen, tuitionHead, 2500);
+      ensureFeeStructure(demoClassTen, admissionHead, 5500);
+
+      const demoStudentInputs = [
+        {
+          admissionNo: "DEMO-001",
+          name: "Aarav Sharma",
+          className: demoClassTen.name,
+          section: "A",
+          guardianName: "Rakesh Sharma",
+          mobile: "9000000001",
+        },
+        {
+          admissionNo: "DEMO-002",
+          name: "Diya Patel",
+          className: demoClassTen.name,
+          section: "A",
+          guardianName: "Mehul Patel",
+          mobile: "9000000002",
+        },
+        {
+          admissionNo: "DEMO-003",
+          name: "Kabir Verma",
+          className: demoClassTen.name,
+          section: "A",
+          guardianName: "Sanjay Verma",
+          mobile: "9000000003",
+        },
+        {
+          admissionNo: "DEMO-004",
+          name: "Meera Singh",
+          className: demoClassNine.name,
+          section: "B",
+          guardianName: "Anita Singh",
+          mobile: "9000000004",
+        },
+        {
+          admissionNo: "DEMO-005",
+          name: "Vivaan Rao",
+          className: demoClassNine.name,
+          section: "B",
+          guardianName: "Kiran Rao",
+          mobile: "9000000005",
+        },
+      ];
+      const demoStudents = demoStudentInputs
+        .map((input) =>
+          ensureStudent({
+            ...input,
+            status: "Active",
+            address: "Demo address",
+            admissionDate: today,
+          }),
+        )
+        .filter(Boolean);
+
+      [
+        {
+          marker: "[DEMO:RECEIPT-001]",
+          student: demoStudents.find(
+            (student) => student.admissionNo === "DEMO-001",
+          ),
+          amount: 2500,
+          paymentMode: "Cash",
+        },
+        {
+          marker: "[DEMO:RECEIPT-002]",
+          student: demoStudents.find(
+            (student) => student.admissionNo === "DEMO-002",
+          ),
+          amount: 2500,
+          paymentMode: "UPI",
+        },
+      ].forEach(({ marker, student, amount, paymentMode }) => {
+        if (!student) return;
+        const existing = db
+          .prepare("SELECT id FROM fee_payments WHERE notes = ?")
+          .get(marker);
+        if (existing) return;
+        this.createFeePayment({
+          studentId: student.id,
+          feeType: tuitionHead.name,
+          amount,
+          paymentMode,
+          paymentDate: today,
+          notes: marker,
+          cashierName: optionalText(cashierName) || "Demo Administrator",
+        });
+        created.feePayments += 1;
+      });
+
+      const attendanceInputs = demoStudents
+        .filter(
+          (student) =>
+            !db
+              .prepare(`
+                SELECT id FROM attendance
+                WHERE student_id = ? AND attendance_date = ?
+              `)
+              .get(student.id, today),
+        )
+        .map((student, index) => ({
+          studentId: student.id,
+          attendanceDate: today,
+          status: index === demoStudents.length - 1 ? "Absent" : "Present",
+          remarks: "Sample demo attendance",
+        }));
+      if (attendanceInputs.length > 0) {
+        this.saveAttendanceBulk(attendanceInputs);
+        created.attendance += attendanceInputs.length;
+      }
+
+      const mathematics = ensureSubject({
+        name: "Demo Mathematics",
+        code: "D-MATH",
+        className: demoClassTen.name,
+        maxMarks: 100,
+        passingMarks: 33,
+        status: "Active",
+      });
+      const science = ensureSubject({
+        name: "Demo Science",
+        code: "D-SCI",
+        className: demoClassTen.name,
+        maxMarks: 100,
+        passingMarks: 33,
+        status: "Active",
+      });
+      const examRow = db
+        .prepare(`
+          SELECT *
+          FROM exams
+          WHERE name = ? COLLATE NOCASE
+            AND class_name = ? COLLATE NOCASE
+            AND section = ?
+            AND academic_year = ?
+            AND deleted_at IS NULL
+        `)
+        .get(
+          "Demo Term Examination",
+          demoClassTen.name,
+          "A",
+          academicYear,
+        );
+      const demoExam = examRow
+        ? examFromRow(examRow)
+        : this.createExam({
+            name: "Demo Term Examination",
+            className: demoClassTen.name,
+            section: "A",
+            academicYear,
+            examDate: today,
+            status: "Active",
+          });
+      if (!examRow) created.exams += 1;
+
+      const marksInputs = [];
+      demoStudents
+        .filter(
+          (student) =>
+            student.className === demoClassTen.name &&
+            student.section === "A",
+        )
+        .forEach((student, studentIndex) => {
+          [mathematics, science].forEach((subject, subjectIndex) => {
+            const existing = db
+              .prepare(`
+                SELECT id
+                FROM marks
+                WHERE exam_id = ? AND student_id = ? AND subject_id = ?
+              `)
+              .get(demoExam.id, student.id, subject.id);
+            if (!existing) {
+              marksInputs.push({
+                examId: demoExam.id,
+                studentId: student.id,
+                subjectId: subject.id,
+                obtainedMarks: 72 + studentIndex * 5 + subjectIndex * 3,
+                remarks: "Sample demo marks",
+              });
+            }
+          });
+        });
+      if (marksInputs.length > 0) {
+        this.saveMarksBulk(marksInputs);
+        created.marks += marksInputs.length;
+      }
+
+      const totalCreated = Object.values(created).reduce(
+        (total, count) => total + count,
+        0,
+      );
+      return {
+        success: true,
+        alreadyPresent: totalCreated === 0,
+        message:
+          totalCreated === 0
+            ? "Sample demo data already exists. No duplicate records were created."
+            : `Created ${totalCreated} sample demo record(s).`,
+        created,
+      };
+    },
+
     getUserCount() {
       return Number(
         db

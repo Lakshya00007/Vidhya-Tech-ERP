@@ -13,6 +13,7 @@ const channels = [
   "users:reset-password",
   "users:delete",
   "audit:get",
+  "demo:create-data",
   "students:get-all",
   "students:create",
   "students:update",
@@ -152,6 +153,20 @@ function registerIpcHandlers(database, backupService, authService) {
     authenticated((_event, settings) => {
       requireRoles(["Owner", "Admin"]);
       return database.saveSchoolSettings(settings);
+    }),
+  );
+  ipcMain.handle(
+    "demo:create-data",
+    authenticated(() => {
+      const actor = requireRoles(["Owner"]);
+      const result = database.createDemoData(actor?.name);
+      authService?.audit(
+        "Sample demo data created",
+        "Settings",
+        result.message,
+        actor,
+      );
+      return result;
     }),
   );
 

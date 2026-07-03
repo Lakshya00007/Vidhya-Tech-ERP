@@ -1,4 +1,5 @@
 import type { AuthUser, PageId } from '../types'
+import { APP_VERSION } from '../lib/appInfo'
 
 interface TopbarProps {
   activePage: PageId
@@ -29,7 +30,7 @@ export function Topbar({ activePage, currentUser, onLogout }: TopbarProps) {
   return (
     <header className="topbar">
       <div className="topbar-title">
-        <span>School ERP Desktop</span>
+        <span>Vidhya School ERP · v{APP_VERSION}</span>
         <div>
           <h1>{pageTitles[activePage]}</h1>
           <span className="breadcrumb">Vidhya Public School / {pageTitles[activePage]}</span>

@@ -6,6 +6,8 @@ import { FeeStructureSettings } from './settings/FeeStructureSettings'
 import { SchoolProfileSettings } from './settings/SchoolProfileSettings'
 import { BackupRestoreSettings } from './settings/BackupRestoreSettings'
 import { UsersRolesSettings } from './settings/UsersRolesSettings'
+import { AboutSettings } from './settings/AboutSettings'
+import { DemoToolsSettings } from './settings/DemoToolsSettings'
 import type { AuthUser } from '../types'
 
 export type SettingsNotice = {
@@ -24,6 +26,8 @@ type SettingsTab =
   | 'fee-structure'
   | 'users'
   | 'backup'
+  | 'demo'
+  | 'about'
 
 const tabs: { id: SettingsTab; label: string; icon: IconName }[] = [
   { id: 'profile', label: 'School Profile', icon: 'school' },
@@ -32,6 +36,8 @@ const tabs: { id: SettingsTab; label: string; icon: IconName }[] = [
   { id: 'fee-structure', label: 'Fee Structure', icon: 'fees' },
   { id: 'users', label: 'Users & Roles', icon: 'user' },
   { id: 'backup', label: 'Backup & Restore', icon: 'download' },
+  { id: 'demo', label: 'Demo Tools', icon: 'settings' },
+  { id: 'about', label: 'About', icon: 'school' },
 ]
 
 interface SettingsProps {
@@ -49,8 +55,8 @@ export function Settings({ currentUser }: SettingsProps) {
 
   const visibleTabs =
     currentUser.role === 'Accountant'
-      ? tabs.filter((tab) => tab.id === 'profile')
-      : tabs
+      ? tabs.filter((tab) => tab.id === 'profile' || tab.id === 'about')
+      : tabs.filter((tab) => tab.id !== 'demo' || currentUser.role === 'Owner')
 
   return (
     <div className="page-stack">
@@ -105,6 +111,10 @@ export function Settings({ currentUser }: SettingsProps) {
           onNotice={setNotice}
         />
       )}
+      {activeTab === 'demo' && currentUser.role === 'Owner' && (
+        <DemoToolsSettings onNotice={setNotice} />
+      )}
+      {activeTab === 'about' && <AboutSettings />}
     </div>
   )
 }

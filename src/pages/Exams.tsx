@@ -26,7 +26,7 @@ const tabs: { id: ExamTab; label: string; icon: IconName }[] = [
 
 const fallbackSettings: SchoolSettings = {
   id: 'school-profile',
-  schoolName: 'School ERP Desktop',
+  schoolName: 'Vidhya School ERP',
   address: '',
   phone: '',
   email: '',

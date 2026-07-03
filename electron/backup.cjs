@@ -398,7 +398,7 @@ function createBackupService({
       }, 150);
       return {
         success: true,
-        message: "Restarting School ERP Desktop...",
+        message: "Restarting Vidhya School ERP...",
       };
     },
   };

@@ -23,7 +23,7 @@ export function AuthShell({
           </span>
           <div>
             <strong>Vidhya School ERP</strong>
-            <span>Local desktop administration</span>
+            <span>Offline School Management System</span>
           </div>
         </div>
         <div className="auth-brand-copy">
@@ -37,7 +37,7 @@ export function AuthShell({
             SQLite database.
           </p>
         </div>
-        <small>School ERP Desktop · Local desktop ERP system</small>
+        <small>Vidhya School ERP · Local desktop ERP system</small>
       </section>
 
       <section className="auth-form-panel">
