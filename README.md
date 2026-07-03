@@ -120,15 +120,16 @@ existing data. Create a backup before using demo tools with production data.
 
 ## Application icons
 
-Local packaging currently falls back to Electron's default icon. Before a
-signed public release, add the branded files documented in
+Electron Builder uses the branded files documented in
 [`build/README.md`](build/README.md):
 
 - `build/icon.icns`
 - `build/icon.ico`
 - `build/icon.png`
+- `build/source-icon.png`
 
-Branded icons and a production signing certificate are required before public
+The source artwork is retained separately from the platform-specific build
+assets. A production signing certificate is still required before public
 distribution.
 
 ## License and support

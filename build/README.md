@@ -1,13 +1,11 @@
 # Application icons
 
-Electron Builder uses its default Electron icon until production artwork is
-provided. Add the final branded icons here before a signed public release:
+Electron Builder uses the branded platform icons stored in this directory:
 
 - `build/icon.icns` for macOS
 - `build/icon.ico` for Windows
-- `build/icon.png` for Linux and as a high-resolution general source
+- `build/icon.png` for Linux and general use
+- `build/source-icon.png` as the high-resolution source artwork
 
-These are Electron Builder's standard icon locations. Builder discovers them
-when they exist. The packaging configuration intentionally does not reference
-missing files, so local unpacked builds and installers continue to work with
-the default Electron icon.
+The macOS and Windows paths are configured explicitly in `package.json`. Do not
+replace or regenerate these assets during normal application builds.
