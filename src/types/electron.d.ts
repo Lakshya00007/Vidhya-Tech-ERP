@@ -1,4 +1,6 @@
 import type {
+  AccountCategory,
+  AccountTransaction,
   AuditLog,
   AttendanceRecord,
   AttendanceSummary,
@@ -6,6 +8,8 @@ import type {
   ClassItem,
   CertificateTemplate,
   CreateCertificateTemplateInput,
+  CreateAccountCategoryInput,
+  CreateAccountTransactionInput,
   CreateClassInput,
   CreateEmployeeInput,
   CreateExamInput,
@@ -45,6 +49,8 @@ import type {
   User,
   UpdateClassInput,
   UpdateCertificateTemplateInput,
+  UpdateAccountCategoryInput,
+  UpdateAccountTransactionInput,
   UpdateEmployeeInput,
   UpdateAttendanceInput,
   UpdateExamInput,
@@ -119,6 +125,29 @@ export interface ErpApi {
     input: UpdateSalaryPaymentInput,
   ) => Promise<SalaryPayment>
   deleteSalaryPayment: (id: string) => Promise<{ success: boolean }>
+
+  getAccountCategories: () => Promise<AccountCategory[]>
+  createAccountCategory: (
+    input: CreateAccountCategoryInput,
+  ) => Promise<AccountCategory>
+  updateAccountCategory: (
+    id: string,
+    input: UpdateAccountCategoryInput,
+  ) => Promise<AccountCategory>
+  deleteAccountCategory: (id: string) => Promise<{ success: boolean }>
+  getAccountTransactions: () => Promise<AccountTransaction[]>
+  getAccountTransactionsByDateRange: (
+    startDate: string,
+    endDate: string,
+  ) => Promise<AccountTransaction[]>
+  createAccountTransaction: (
+    input: CreateAccountTransactionInput,
+  ) => Promise<AccountTransaction>
+  updateAccountTransaction: (
+    id: string,
+    input: UpdateAccountTransactionInput,
+  ) => Promise<AccountTransaction>
+  deleteAccountTransaction: (id: string) => Promise<{ success: boolean }>
 
   getSchoolSettings: () => Promise<SchoolSettings>
   saveSchoolSettings: (settings: SaveSchoolSettingsInput) => Promise<SchoolSettings>

@@ -9,6 +9,7 @@ export type PageId =
   | 'documents'
   | 'employees'
   | 'salary'
+  | 'accounts'
   | 'placeholder'
 
 export interface ModulePlaceholderInfo {
@@ -238,6 +239,67 @@ export interface CreateSalaryPaymentInput {
 }
 
 export type UpdateSalaryPaymentInput = Partial<CreateSalaryPaymentInput>
+
+export type AccountType = 'Income' | 'Expense'
+
+export interface AccountCategory {
+  id: string
+  name: string
+  type: AccountType
+  description: string
+  status: MasterStatus
+  createdAt: string
+  updatedAt: string
+  deletedAt: string | null
+  syncStatus: SyncStatus
+}
+
+export interface CreateAccountCategoryInput {
+  name: string
+  type: AccountType
+  description?: string
+  status?: MasterStatus
+}
+
+export type UpdateAccountCategoryInput =
+  Partial<CreateAccountCategoryInput>
+
+export interface AccountTransaction {
+  id: string
+  transactionNo: string
+  type: AccountType
+  categoryId: string
+  categoryName: string
+  title: string
+  amount: number
+  paymentMode: PaymentMode
+  transactionDate: string
+  referenceNo: string
+  linkedModule: string
+  linkedRecordId: string
+  notes: string
+  createdBy: string
+  createdAt: string
+  updatedAt: string
+  deletedAt: string | null
+  syncStatus: SyncStatus
+}
+
+export interface CreateAccountTransactionInput {
+  type: AccountType
+  categoryId: string
+  title: string
+  amount: number
+  paymentMode: PaymentMode
+  transactionDate: string
+  referenceNo?: string
+  notes?: string
+  linkedModule?: string
+  linkedRecordId?: string
+}
+
+export type UpdateAccountTransactionInput =
+  Partial<CreateAccountTransactionInput>
 
 export type StudentImportMode = 'skip' | 'update'
 

@@ -11,6 +11,7 @@ import {
 import { canAccessPage, canManageStudents } from './lib/permissions'
 import type { NavigationTarget } from './lib/navigation'
 import { Attendance } from './pages/Attendance'
+import { Accounts } from './pages/Accounts'
 import { CreateOwner } from './pages/CreateOwner'
 import { Dashboard } from './pages/Dashboard'
 import { Exams } from './pages/Exams'
@@ -30,6 +31,7 @@ import type {
   PageId,
 } from './types'
 import type { ExamTab } from './pages/Exams'
+import type { AccountsView } from './pages/Accounts'
 import type { EmployeesView } from './pages/Employees'
 import type { ReportTab } from './pages/Reports'
 import type { SettingsTab } from './pages/Settings'
@@ -222,6 +224,13 @@ function App() {
           <Salary
             initialView={(activeView || 'pay') as SalaryView}
             key={`salary-${activeView}-${navigationRevision}`}
+          />
+        )
+      case 'accounts':
+        return (
+          <Accounts
+            initialView={(activeView || 'chart') as AccountsView}
+            key={`accounts-${activeView}-${navigationRevision}`}
           />
         )
       case 'dashboard':

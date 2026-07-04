@@ -283,6 +283,17 @@ app.whenReady().then(async () => {
           "updateSalaryPayment",
           "deleteSalaryPayment"
         ].every((method) => typeof window.erpApi[method] === "function");
+        const accountsApiAvailable = [
+          "getAccountCategories",
+          "createAccountCategory",
+          "updateAccountCategory",
+          "deleteAccountCategory",
+          "getAccountTransactions",
+          "getAccountTransactionsByDateRange",
+          "createAccountTransaction",
+          "updateAccountTransaction",
+          "deleteAccountTransaction"
+        ].every((method) => typeof window.erpApi[method] === "function");
         const licenseApiAvailable = [
           "getDeviceId",
           "getLicenseStatus",
@@ -368,6 +379,61 @@ app.whenReady().then(async () => {
           academicYear: "2026–2027",
           receiptPrefix: "TEST-RC"
         });
+        const defaultAccountCategories =
+          await window.erpApi.getAccountCategories();
+        const customIncomeCategory =
+          await window.erpApi.createAccountCategory({
+            name: "Transport Income",
+            type: "Income",
+            description: "Manual transport collections",
+            status: "Active"
+          });
+        const updatedIncomeCategory =
+          await window.erpApi.updateAccountCategory(
+            customIncomeCategory.id,
+            { description: "Updated transport collections" }
+          );
+        const customExpenseCategory =
+          await window.erpApi.createAccountCategory({
+            name: "Travel Expense",
+            type: "Expense",
+            description: "Official travel expenses",
+            status: "Active"
+          });
+        const manualIncomeTransaction =
+          await window.erpApi.createAccountTransaction({
+            type: "Income",
+            categoryId: customIncomeCategory.id,
+            title: "Transport collection",
+            amount: 6000,
+            paymentMode: "UPI",
+            transactionDate: "2026-07-02",
+            referenceNo: "UPI-ACC-001",
+            notes: "Manual income smoke test"
+          });
+        const updatedManualIncome =
+          await window.erpApi.updateAccountTransaction(
+            manualIncomeTransaction.id,
+            {
+              title: "Updated transport collection",
+              amount: 6500
+            }
+          );
+        const manualExpenseTransaction =
+          await window.erpApi.createAccountTransaction({
+            type: "Expense",
+            categoryId: customExpenseCategory.id,
+            title: "Official travel",
+            amount: 1800,
+            paymentMode: "Cash",
+            transactionDate: "2026-07-02",
+            referenceNo: "TRAVEL-001",
+            notes: "Manual expense smoke test"
+          });
+        const deletedAccountCategory =
+          await window.erpApi.deleteAccountCategory(
+            customIncomeCategory.id
+          );
         const employee = await window.erpApi.createEmployee({
           employeeNo: "EMP-001",
           name: "Smoke Test Employee",
@@ -571,6 +637,19 @@ app.whenReady().then(async () => {
           );
         const databaseInfo = await window.erpApi.getDatabaseInfo();
         const safeUsers = await window.erpApi.getUsers();
+        const accountTransactions =
+          await window.erpApi.getAccountTransactions();
+        const accountTransactionsInRange =
+          await window.erpApi.getAccountTransactionsByDateRange(
+            "2026-07-01",
+            "2026-07-31"
+          );
+        const feeAccountTransactions = accountTransactions.filter(
+          (transaction) => transaction.linkedModule === "Fees"
+        );
+        const salaryAccountTransactions = accountTransactions.filter(
+          (transaction) => transaction.linkedModule === "Salary"
+        );
         const auditLogs = await window.erpApi.getAuditLogs(100);
 
         return {
@@ -580,6 +659,7 @@ app.whenReady().then(async () => {
           certificateApiAvailable,
           employeeApiAvailable,
           salaryApiAvailable,
+          accountsApiAvailable,
           licenseApiAvailable,
           deviceId,
           licenseBeforeActivation,
@@ -632,6 +712,38 @@ app.whenReady().then(async () => {
           salaryDeleteWorked:
             deletedSalaryResult.success &&
             (await window.erpApi.getSalaryPayments()).length === 1,
+          defaultAccountCategoryCount: defaultAccountCategories.length,
+          accountCategoryUpdated:
+            updatedIncomeCategory.description ===
+            "Updated transport collections",
+          accountCategorySoftDeleted:
+            deletedAccountCategory.success &&
+            !(await window.erpApi.getAccountCategories()).some(
+              (category) => category.id === customIncomeCategory.id
+            ),
+          manualIncomeTransactionNo:
+            manualIncomeTransaction.transactionNo,
+          manualExpenseTransactionNo:
+            manualExpenseTransaction.transactionNo,
+          manualIncomeUpdated:
+            updatedManualIncome.title ===
+              "Updated transport collection" &&
+            updatedManualIncome.amount === 6500,
+          accountTransactionCount: accountTransactions.length,
+          accountRangeCount: accountTransactionsInRange.length,
+          feeAccountCount: feeAccountTransactions.length,
+          feeAccountLinked:
+            feeAccountTransactions.every(
+              (transaction) =>
+                transaction.type === "Income" &&
+                transaction.linkedRecordId
+            ),
+          salaryAccountCount: salaryAccountTransactions.length,
+          salaryAccountSynced:
+            salaryAccountTransactions[0]?.type === "Expense" &&
+            salaryAccountTransactions[0]?.amount === 49500 &&
+            salaryAccountTransactions[0]?.paymentMode === "Cheque",
+          manualExpenseId: manualExpenseTransaction.id,
           attendanceApiAvailable,
           backupApiAvailable,
           classAttendanceIsArray: Array.isArray(classAttendance),
@@ -717,6 +829,10 @@ app.whenReady().then(async () => {
     assert(
       bridgeResult.salaryApiAvailable,
       "Salary APIs were not exposed by the preload bridge.",
+    );
+    assert(
+      bridgeResult.accountsApiAvailable,
+      "Accounts APIs were not exposed by the preload bridge.",
     );
     assert(
       bridgeResult.licenseApiAvailable &&
@@ -860,6 +976,27 @@ app.whenReady().then(async () => {
       "Salary update, employee/date query, or soft delete failed.",
     );
     assert(
+      bridgeResult.defaultAccountCategoryCount === 10 &&
+        bridgeResult.accountCategoryUpdated &&
+        bridgeResult.accountCategorySoftDeleted,
+      "Default account categories or category update/delete failed.",
+    );
+    assert(
+      bridgeResult.manualIncomeTransactionNo === "ACC-2026-0001" &&
+        bridgeResult.manualExpenseTransactionNo === "ACC-2026-0002" &&
+        bridgeResult.manualIncomeUpdated,
+      "Manual account transactions or account numbering failed.",
+    );
+    assert(
+      bridgeResult.accountTransactionCount === 5 &&
+        bridgeResult.accountRangeCount === 5 &&
+        bridgeResult.feeAccountCount === 2 &&
+        bridgeResult.feeAccountLinked &&
+        bridgeResult.salaryAccountCount === 1 &&
+        bridgeResult.salaryAccountSynced,
+      "Account date queries or automatic fee/salary ledger links failed.",
+    );
+    assert(
       bridgeResult.attendanceCount === 1,
       "Attendance upsert created a duplicate.",
     );
@@ -992,6 +1129,21 @@ app.whenReady().then(async () => {
         database.getSalaryPayments()[0].id === bridgeResult.salaryPaymentId &&
         database.getSalaryPayments()[0].netSalary === 49500,
       "Salary payment did not persist.",
+    );
+    assert(
+      database.getAccountTransactions().length === 5 &&
+        database
+          .getAccountTransactions()
+          .some(
+            (transaction) =>
+              transaction.id === bridgeResult.manualExpenseId &&
+              transaction.type === "Expense",
+          ) &&
+        database
+          .getAccountTransactions()
+          .filter((transaction) => transaction.linkedModule === "Fees")
+          .length === 2,
+      "Account transactions did not persist.",
     );
     assert(
       database.getMarksByExam(bridgeResult.examId).length === 1,

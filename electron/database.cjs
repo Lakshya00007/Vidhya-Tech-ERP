@@ -39,6 +39,7 @@ const CERTIFICATE_TYPES = new Set([
   "Admission",
   "Custom",
 ]);
+const ACCOUNT_TYPES = new Set(["Income", "Expense"]);
 const STUDENT_IMPORT_TEMPLATE_COLUMNS = [
   "Admission No",
   "Student Name",
@@ -198,6 +199,43 @@ function salaryPaymentFromRow(row) {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at ?? null,
+    syncStatus: row.sync_status,
+  };
+}
+
+function accountCategoryFromRow(row) {
+  return {
+    id: row.id,
+    name: row.name,
+    type: row.type,
+    description: row.description ?? "",
+    status: row.status,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at,
+    syncStatus: row.sync_status,
+  };
+}
+
+function accountTransactionFromRow(row) {
+  return {
+    id: row.id,
+    transactionNo: row.transaction_no,
+    type: row.type,
+    categoryId: row.category_id ?? "",
+    categoryName: row.category_name,
+    title: row.title,
+    amount: Number(row.amount),
+    paymentMode: row.payment_mode ?? "Cash",
+    transactionDate: row.transaction_date,
+    referenceNo: row.reference_no ?? "",
+    linkedModule: row.linked_module ?? "Manual",
+    linkedRecordId: row.linked_record_id ?? "",
+    notes: row.notes ?? "",
+    createdBy: row.created_by ?? "",
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at,
     syncStatus: row.sync_status,
   };
 }
@@ -585,6 +623,40 @@ function createDatabase(databasePath) {
       FOREIGN KEY (employee_id) REFERENCES employees(id)
     );
 
+    CREATE TABLE IF NOT EXISTS account_categories (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      type TEXT NOT NULL CHECK (type IN ('Income', 'Expense')),
+      description TEXT,
+      status TEXT DEFAULT 'Active' CHECK (status IN ('Active', 'Inactive')),
+      created_at TEXT,
+      updated_at TEXT,
+      deleted_at TEXT,
+      sync_status TEXT DEFAULT 'pending'
+    );
+
+    CREATE TABLE IF NOT EXISTS account_transactions (
+      id TEXT PRIMARY KEY,
+      transaction_no TEXT UNIQUE NOT NULL,
+      type TEXT NOT NULL CHECK (type IN ('Income', 'Expense')),
+      category_id TEXT,
+      category_name TEXT NOT NULL,
+      title TEXT NOT NULL,
+      amount INTEGER NOT NULL,
+      payment_mode TEXT,
+      transaction_date TEXT NOT NULL,
+      reference_no TEXT,
+      linked_module TEXT,
+      linked_record_id TEXT,
+      notes TEXT,
+      created_by TEXT,
+      created_at TEXT,
+      updated_at TEXT,
+      deleted_at TEXT,
+      sync_status TEXT DEFAULT 'pending',
+      FOREIGN KEY (category_id) REFERENCES account_categories(id)
+    );
+
     CREATE TABLE IF NOT EXISTS fee_payments (
       id TEXT PRIMARY KEY,
       receipt_no TEXT UNIQUE NOT NULL,
@@ -864,6 +936,15 @@ function createDatabase(databasePath) {
       WHERE deleted_at IS NULL;
     CREATE INDEX IF NOT EXISTS idx_salary_payments_date
       ON salary_payments(payment_date, deleted_at);
+    CREATE INDEX IF NOT EXISTS idx_account_categories_active
+      ON account_categories(type, status, deleted_at, name);
+    CREATE INDEX IF NOT EXISTS idx_account_transactions_date
+      ON account_transactions(transaction_date, type, deleted_at);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_account_linked_record_active
+      ON account_transactions(linked_module, linked_record_id, type)
+      WHERE deleted_at IS NULL
+        AND linked_record_id IS NOT NULL
+        AND trim(linked_record_id) <> '';
   `);
 
   const timestamp = now();
@@ -922,6 +1003,38 @@ function createDatabase(databasePath) {
   for (const template of defaultCertificateTemplates) {
     insertDefaultTemplate.run({
       ...template,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    });
+  }
+
+  const insertDefaultAccountCategory = db.prepare(`
+    INSERT OR IGNORE INTO account_categories (
+      id, name, type, description, status, created_at, updated_at,
+      deleted_at, sync_status
+    ) VALUES (
+      @id, @name, @type, @description, 'Active', @createdAt, @updatedAt,
+      NULL, 'pending'
+    )
+  `);
+  const defaultAccountCategories = [
+    ["default-income-tuition-fee", "Tuition Fee Income", "Income"],
+    ["default-income-admission-fee", "Admission Fee Income", "Income"],
+    ["default-income-exam-fee", "Exam Fee Income", "Income"],
+    ["default-income-other", "Other Income", "Income"],
+    ["default-expense-salary", "Salary Expense", "Expense"],
+    ["default-expense-rent", "Rent", "Expense"],
+    ["default-expense-electricity", "Electricity", "Expense"],
+    ["default-expense-stationery", "Stationery", "Expense"],
+    ["default-expense-maintenance", "Maintenance", "Expense"],
+    ["default-expense-other", "Other Expense", "Expense"],
+  ];
+  for (const [id, name, type] of defaultAccountCategories) {
+    insertDefaultAccountCategory.run({
+      id,
+      name,
+      type,
+      description: `Default ${type.toLowerCase()} category`,
       createdAt: timestamp,
       updatedAt: timestamp,
     });
@@ -1147,6 +1260,191 @@ function createDatabase(databasePath) {
       .get(salaryStem, salaryStem, salaryStem);
     const nextSequence = Number(sequence?.last_sequence ?? 0) + 1;
     return `${salaryStem}${String(nextSequence).padStart(4, "0")}`;
+  }
+
+  function generateAccountTransactionNumber(transactionDate) {
+    const year = normalizeDate(
+      transactionDate,
+      "Transaction date",
+    ).slice(0, 4);
+    const transactionStem = `ACC-${year}-`;
+    const sequence = db
+      .prepare(`
+        SELECT MAX(
+          CAST(substr(transaction_no, length(?) + 1) AS INTEGER)
+        ) AS last_sequence
+        FROM account_transactions
+        WHERE substr(transaction_no, 1, length(?)) = ?
+      `)
+      .get(transactionStem, transactionStem, transactionStem);
+    const nextSequence = Number(sequence?.last_sequence ?? 0) + 1;
+    return `${transactionStem}${String(nextSequence).padStart(4, "0")}`;
+  }
+
+  function getActiveAccountCategory(type, names) {
+    for (const name of names) {
+      const category = db
+        .prepare(`
+          SELECT *
+          FROM account_categories
+          WHERE type = ?
+            AND name = ? COLLATE NOCASE
+            AND status = 'Active'
+            AND deleted_at IS NULL
+        `)
+        .get(type, name);
+      if (category) return category;
+    }
+    return null;
+  }
+
+  function resolveFeeIncomeCategory(feeType) {
+    const normalizedFeeType = requiredText(feeType, "Fee type");
+    const candidates = [`${normalizedFeeType} Income`];
+    if (/admission/i.test(normalizedFeeType)) {
+      candidates.push("Admission Fee Income");
+    } else if (/exam/i.test(normalizedFeeType)) {
+      candidates.push("Exam Fee Income");
+    } else if (/tuition/i.test(normalizedFeeType)) {
+      candidates.push("Tuition Fee Income");
+    }
+    candidates.push("Tuition Fee Income", "Other Income");
+    return getActiveAccountCategory("Income", [...new Set(candidates)]);
+  }
+
+  function createLinkedAccountTransaction(input) {
+    const linkedModule = requiredText(input?.linkedModule, "Linked module");
+    const linkedRecordId = requiredText(
+      input?.linkedRecordId,
+      "Linked record id",
+    );
+    const existing = db
+      .prepare(`
+        SELECT *
+        FROM account_transactions
+        WHERE linked_module = ?
+          AND linked_record_id = ?
+          AND type = ?
+          AND deleted_at IS NULL
+      `)
+      .get(linkedModule, linkedRecordId, input.type);
+    if (existing) return accountTransactionFromRow(existing);
+
+    const category = input.category;
+    if (!category) {
+      throw new Error(`An active ${input.type.toLowerCase()} account category is required.`);
+    }
+    const amount = wholeNumber(input.amount, "Account amount", 1);
+    const transactionDate = normalizeDate(
+      input.transactionDate,
+      "Transaction date",
+    );
+    const paymentMode = requiredText(input.paymentMode, "Payment mode");
+    if (!PAYMENT_MODES.has(paymentMode)) {
+      throw new Error("Account payment mode is invalid.");
+    }
+    const id = crypto.randomUUID();
+    const timestamp = now();
+    db.prepare(`
+      INSERT INTO account_transactions (
+        id, transaction_no, type, category_id, category_name, title, amount,
+        payment_mode, transaction_date, reference_no, linked_module,
+        linked_record_id, notes, created_by, created_at, updated_at,
+        deleted_at, sync_status
+      ) VALUES (
+        @id, @transactionNo, @type, @categoryId, @categoryName, @title,
+        @amount, @paymentMode, @transactionDate, @referenceNo, @linkedModule,
+        @linkedRecordId, @notes, @createdBy, @createdAt, @updatedAt,
+        NULL, 'pending'
+      )
+    `).run({
+      id,
+      transactionNo: generateAccountTransactionNumber(transactionDate),
+      type: input.type,
+      categoryId: category.id,
+      categoryName: category.name,
+      title: requiredText(input.title, "Account title"),
+      amount,
+      paymentMode,
+      transactionDate,
+      referenceNo: optionalText(input.referenceNo),
+      linkedModule,
+      linkedRecordId,
+      notes: optionalText(input.notes),
+      createdBy: optionalText(input.createdBy),
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    });
+    return accountTransactionFromRow(
+      db.prepare("SELECT * FROM account_transactions WHERE id = ?").get(id),
+    );
+  }
+
+  function syncSalaryAccountTransaction(salaryPayment) {
+    const category = getActiveAccountCategory("Expense", [
+      "Salary Expense",
+      "Other Expense",
+    ]);
+    if (!category) {
+      throw new Error("Create an active Salary Expense account category first.");
+    }
+    const existing = db
+      .prepare(`
+        SELECT *
+        FROM account_transactions
+        WHERE linked_module = 'Salary'
+          AND linked_record_id = ?
+          AND type = 'Expense'
+          AND deleted_at IS NULL
+      `)
+      .get(salaryPayment.id);
+    if (!existing) {
+      return createLinkedAccountTransaction({
+        type: "Expense",
+        category,
+        title: `Salary - ${salaryPayment.employeeName} (${salaryPayment.salaryMonth})`,
+        amount: salaryPayment.netSalary,
+        paymentMode: salaryPayment.paymentMode,
+        transactionDate: salaryPayment.paymentDate,
+        referenceNo: salaryPayment.salaryNo,
+        linkedModule: "Salary",
+        linkedRecordId: salaryPayment.id,
+        notes: salaryPayment.notes,
+        createdBy: salaryPayment.paidBy,
+      });
+    }
+    db.prepare(`
+      UPDATE account_transactions
+      SET category_id = @categoryId,
+          category_name = @categoryName,
+          title = @title,
+          amount = @amount,
+          payment_mode = @paymentMode,
+          transaction_date = @transactionDate,
+          reference_no = @referenceNo,
+          notes = @notes,
+          created_by = @createdBy,
+          updated_at = @updatedAt,
+          sync_status = 'pending'
+      WHERE id = @id AND deleted_at IS NULL
+    `).run({
+      id: existing.id,
+      categoryId: category.id,
+      categoryName: category.name,
+      title: `Salary - ${salaryPayment.employeeName} (${salaryPayment.salaryMonth})`,
+      amount: salaryPayment.netSalary,
+      paymentMode: salaryPayment.paymentMode,
+      transactionDate: salaryPayment.paymentDate,
+      referenceNo: salaryPayment.salaryNo,
+      notes: salaryPayment.notes,
+      createdBy: salaryPayment.paidBy,
+      updatedAt: now(),
+    });
+    return accountTransactionFromRow(
+      db
+        .prepare("SELECT * FROM account_transactions WHERE id = ?")
+        .get(existing.id),
+    );
   }
 
   function formatDocumentDate(value) {
@@ -1797,6 +2095,8 @@ function createDatabase(databasePath) {
       );
       const id = crypto.randomUUID();
       db.transaction(() => {
+        const receiptNo = generateReceiptNumber(paymentDate);
+        const cashierName = optionalText(input?.cashierName);
         db.prepare(`
           INSERT INTO fee_payments (
             id, receipt_no, student_id, student_name, admission_no, class_name,
@@ -1811,7 +2111,7 @@ function createDatabase(databasePath) {
           )
         `).run({
           id,
-          receiptNo: generateReceiptNumber(paymentDate),
+          receiptNo,
           studentId,
           studentName: student.name,
           admissionNo: student.admission_no,
@@ -1824,9 +2124,22 @@ function createDatabase(databasePath) {
           paymentMode,
           paymentDate,
           notes: optionalText(input?.notes),
-          cashierName: optionalText(input?.cashierName),
+          cashierName,
           createdAt: timestamp,
           updatedAt: timestamp,
+        });
+        createLinkedAccountTransaction({
+          type: "Income",
+          category: resolveFeeIncomeCategory(feeType),
+          title: `${feeType} - ${student.name}`,
+          amount,
+          paymentMode,
+          transactionDate: paymentDate,
+          referenceNo: receiptNo,
+          linkedModule: "Fees",
+          linkedRecordId: id,
+          notes: optionalText(input?.notes),
+          createdBy: cashierName,
         });
       })();
 
@@ -3928,6 +4241,11 @@ function createDatabase(databasePath) {
           createdAt: timestamp,
           updatedAt: timestamp,
         });
+        syncSalaryAccountTransaction(
+          salaryPaymentFromRow(
+            db.prepare("SELECT * FROM salary_payments WHERE id = ?").get(id),
+          ),
+        );
       })();
       return salaryPaymentFromRow(
         db.prepare("SELECT * FROM salary_payments WHERE id = ?").get(id),
@@ -4005,67 +4323,478 @@ function createDatabase(databasePath) {
           ? existing.payment_date
           : normalizeDate(input.paymentDate, "Payment date");
 
-      db.prepare(`
-        UPDATE salary_payments
-        SET employee_id = @employeeId,
-            employee_no = @employeeNo,
-            employee_name = @employeeName,
-            designation = @designation,
-            department = @department,
-            salary_month = @salaryMonth,
-            base_salary = @baseSalary,
-            allowances = @allowances,
-            deductions = @deductions,
-            net_salary = @netSalary,
-            payment_mode = @paymentMode,
-            payment_date = @paymentDate,
-            notes = @notes,
-            paid_by = @paidBy,
-            updated_at = @updatedAt,
-            sync_status = 'pending'
-        WHERE id = @id AND deleted_at IS NULL
-      `).run({
-        id: paymentId,
-        employeeId,
-        employeeNo: employee.employee_no,
-        employeeName: employee.name,
-        designation: employee.designation ?? "",
-        department: employee.department ?? "",
-        salaryMonth,
-        baseSalary,
-        allowances,
-        deductions,
-        netSalary,
-        paymentMode,
-        paymentDate,
-        notes:
-          input?.notes === undefined
-            ? existing.notes ?? ""
-            : optionalText(input.notes),
-        paidBy:
-          input?.paidBy === undefined
-            ? existing.paid_by ?? ""
-            : optionalText(input.paidBy),
-        updatedAt: now(),
-      });
-      return salaryPaymentFromRow(
-        db
-          .prepare("SELECT * FROM salary_payments WHERE id = ?")
-          .get(paymentId),
-      );
+      let updatedPayment;
+      db.transaction(() => {
+        db.prepare(`
+          UPDATE salary_payments
+          SET employee_id = @employeeId,
+              employee_no = @employeeNo,
+              employee_name = @employeeName,
+              designation = @designation,
+              department = @department,
+              salary_month = @salaryMonth,
+              base_salary = @baseSalary,
+              allowances = @allowances,
+              deductions = @deductions,
+              net_salary = @netSalary,
+              payment_mode = @paymentMode,
+              payment_date = @paymentDate,
+              notes = @notes,
+              paid_by = @paidBy,
+              updated_at = @updatedAt,
+              sync_status = 'pending'
+          WHERE id = @id AND deleted_at IS NULL
+        `).run({
+          id: paymentId,
+          employeeId,
+          employeeNo: employee.employee_no,
+          employeeName: employee.name,
+          designation: employee.designation ?? "",
+          department: employee.department ?? "",
+          salaryMonth,
+          baseSalary,
+          allowances,
+          deductions,
+          netSalary,
+          paymentMode,
+          paymentDate,
+          notes:
+            input?.notes === undefined
+              ? existing.notes ?? ""
+              : optionalText(input.notes),
+          paidBy:
+            input?.paidBy === undefined
+              ? existing.paid_by ?? ""
+              : optionalText(input.paidBy),
+          updatedAt: now(),
+        });
+        updatedPayment = salaryPaymentFromRow(
+          db
+            .prepare("SELECT * FROM salary_payments WHERE id = ?")
+            .get(paymentId),
+        );
+        syncSalaryAccountTransaction(updatedPayment);
+      })();
+      return updatedPayment;
     },
 
     deleteSalaryPayment(id) {
       const timestamp = now();
+      const paymentId = requiredText(id, "Salary payment id");
+      let result;
+      db.transaction(() => {
+        result = db
+          .prepare(`
+            UPDATE salary_payments
+            SET deleted_at = ?,
+                updated_at = ?,
+                sync_status = 'pending'
+            WHERE id = ? AND deleted_at IS NULL
+          `)
+          .run(timestamp, timestamp, paymentId);
+        if (result.changes === 1) {
+          db.prepare(`
+            UPDATE account_transactions
+            SET deleted_at = ?,
+                updated_at = ?,
+                sync_status = 'pending'
+            WHERE linked_module = 'Salary'
+              AND linked_record_id = ?
+              AND type = 'Expense'
+              AND deleted_at IS NULL
+          `).run(timestamp, timestamp, paymentId);
+        }
+      })();
+      return { success: result.changes === 1 };
+    },
+
+    getAccountCategories() {
+      return db
+        .prepare(`
+          SELECT *
+          FROM account_categories
+          WHERE deleted_at IS NULL
+          ORDER BY
+            CASE type WHEN 'Income' THEN 0 ELSE 1 END,
+            CASE status WHEN 'Active' THEN 0 ELSE 1 END,
+            name COLLATE NOCASE
+        `)
+        .all()
+        .map(accountCategoryFromRow);
+    },
+
+    createAccountCategory(input) {
+      const name = requiredText(input?.name, "Category name");
+      const type = requiredText(input?.type, "Account type");
+      if (!ACCOUNT_TYPES.has(type)) {
+        throw new Error("Account type must be Income or Expense.");
+      }
+      const duplicate = db
+        .prepare(`
+          SELECT id
+          FROM account_categories
+          WHERE type = ?
+            AND name = ? COLLATE NOCASE
+            AND deleted_at IS NULL
+        `)
+        .get(type, name);
+      if (duplicate) {
+        throw new Error("An active account category with this name already exists.");
+      }
+      const id = crypto.randomUUID();
+      const timestamp = now();
+      db.prepare(`
+        INSERT INTO account_categories (
+          id, name, type, description, status, created_at, updated_at,
+          deleted_at, sync_status
+        ) VALUES (
+          @id, @name, @type, @description, @status, @createdAt, @updatedAt,
+          NULL, 'pending'
+        )
+      `).run({
+        id,
+        name,
+        type,
+        description: optionalText(input?.description),
+        status: masterStatus(input?.status),
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+      return accountCategoryFromRow(
+        db.prepare("SELECT * FROM account_categories WHERE id = ?").get(id),
+      );
+    },
+
+    updateAccountCategory(id, input) {
+      const categoryId = requiredText(id, "Category id");
+      const existing = db
+        .prepare(`
+          SELECT *
+          FROM account_categories
+          WHERE id = ? AND deleted_at IS NULL
+        `)
+        .get(categoryId);
+      if (!existing) {
+        throw new Error("Account category was not found.");
+      }
+      const name =
+        input?.name === undefined
+          ? existing.name
+          : requiredText(input.name, "Category name");
+      const type =
+        input?.type === undefined
+          ? existing.type
+          : requiredText(input.type, "Account type");
+      if (!ACCOUNT_TYPES.has(type)) {
+        throw new Error("Account type must be Income or Expense.");
+      }
+      const duplicate = db
+        .prepare(`
+          SELECT id
+          FROM account_categories
+          WHERE type = ?
+            AND name = ? COLLATE NOCASE
+            AND id <> ?
+            AND deleted_at IS NULL
+        `)
+        .get(type, name, categoryId);
+      if (duplicate) {
+        throw new Error("An active account category with this name already exists.");
+      }
+      db.prepare(`
+        UPDATE account_categories
+        SET name = @name,
+            type = @type,
+            description = @description,
+            status = @status,
+            updated_at = @updatedAt,
+            sync_status = 'pending'
+        WHERE id = @id AND deleted_at IS NULL
+      `).run({
+        id: categoryId,
+        name,
+        type,
+        description:
+          input?.description === undefined
+            ? existing.description ?? ""
+            : optionalText(input.description),
+        status: masterStatus(input?.status, existing.status),
+        updatedAt: now(),
+      });
+      return accountCategoryFromRow(
+        db
+          .prepare("SELECT * FROM account_categories WHERE id = ?")
+          .get(categoryId),
+      );
+    },
+
+    deleteAccountCategory(id) {
+      const timestamp = now();
       const result = db
         .prepare(`
-          UPDATE salary_payments
+          UPDATE account_categories
           SET deleted_at = ?,
               updated_at = ?,
               sync_status = 'pending'
           WHERE id = ? AND deleted_at IS NULL
         `)
-        .run(timestamp, timestamp, requiredText(id, "Salary payment id"));
+        .run(timestamp, timestamp, requiredText(id, "Category id"));
+      return { success: result.changes === 1 };
+    },
+
+    getAccountTransactions() {
+      return db
+        .prepare(`
+          SELECT *
+          FROM account_transactions
+          WHERE deleted_at IS NULL
+          ORDER BY transaction_date DESC, created_at DESC
+        `)
+        .all()
+        .map(accountTransactionFromRow);
+    },
+
+    getAccountTransactionsByDateRange(startDate, endDate) {
+      const normalizedStart = normalizeDate(startDate, "Start date");
+      const normalizedEnd = normalizeDate(endDate, "End date");
+      if (normalizedStart > normalizedEnd) {
+        throw new Error("Start date must be before or equal to end date.");
+      }
+      return db
+        .prepare(`
+          SELECT *
+          FROM account_transactions
+          WHERE deleted_at IS NULL
+            AND date(transaction_date) BETWEEN date(?) AND date(?)
+          ORDER BY transaction_date DESC, created_at DESC
+        `)
+        .all(normalizedStart, normalizedEnd)
+        .map(accountTransactionFromRow);
+    },
+
+    getAccountTransactionByLink(linkedModule, linkedRecordId) {
+      const row = db
+        .prepare(`
+          SELECT *
+          FROM account_transactions
+          WHERE linked_module = ?
+            AND linked_record_id = ?
+            AND deleted_at IS NULL
+          ORDER BY created_at DESC
+          LIMIT 1
+        `)
+        .get(
+          requiredText(linkedModule, "Linked module"),
+          requiredText(linkedRecordId, "Linked record id"),
+        );
+      return row ? accountTransactionFromRow(row) : null;
+    },
+
+    createAccountTransaction(input) {
+      const type = requiredText(input?.type, "Account type");
+      if (!ACCOUNT_TYPES.has(type)) {
+        throw new Error("Account type must be Income or Expense.");
+      }
+      const categoryId = requiredText(input?.categoryId, "Account category");
+      const category = db
+        .prepare(`
+          SELECT *
+          FROM account_categories
+          WHERE id = ?
+            AND type = ?
+            AND status = 'Active'
+            AND deleted_at IS NULL
+        `)
+        .get(categoryId, type);
+      if (!category) {
+        throw new Error(`Select an active ${type.toLowerCase()} category.`);
+      }
+      const amount = wholeNumber(input?.amount, "Account amount", 1);
+      const paymentMode = requiredText(input?.paymentMode, "Payment mode");
+      if (!PAYMENT_MODES.has(paymentMode)) {
+        throw new Error("Account payment mode is invalid.");
+      }
+      const transactionDate = normalizeDate(
+        optionalText(input?.transactionDate) || now().slice(0, 10),
+        "Transaction date",
+      );
+      const linkedModule = optionalText(input?.linkedModule) || "Manual";
+      const linkedRecordId = optionalText(input?.linkedRecordId);
+      if (linkedRecordId) {
+        const existing = db
+          .prepare(`
+            SELECT id
+            FROM account_transactions
+            WHERE linked_module = ?
+              AND linked_record_id = ?
+              AND type = ?
+              AND deleted_at IS NULL
+          `)
+          .get(linkedModule, linkedRecordId, type);
+        if (existing) {
+          throw new Error("An account transaction already exists for this linked record.");
+        }
+      }
+      const id = crypto.randomUUID();
+      const timestamp = now();
+      db.prepare(`
+        INSERT INTO account_transactions (
+          id, transaction_no, type, category_id, category_name, title, amount,
+          payment_mode, transaction_date, reference_no, linked_module,
+          linked_record_id, notes, created_by, created_at, updated_at,
+          deleted_at, sync_status
+        ) VALUES (
+          @id, @transactionNo, @type, @categoryId, @categoryName, @title,
+          @amount, @paymentMode, @transactionDate, @referenceNo, @linkedModule,
+          @linkedRecordId, @notes, @createdBy, @createdAt, @updatedAt,
+          NULL, 'pending'
+        )
+      `).run({
+        id,
+        transactionNo: generateAccountTransactionNumber(transactionDate),
+        type,
+        categoryId,
+        categoryName: category.name,
+        title: requiredText(input?.title, "Transaction title"),
+        amount,
+        paymentMode,
+        transactionDate,
+        referenceNo: optionalText(input?.referenceNo),
+        linkedModule,
+        linkedRecordId: linkedRecordId || null,
+        notes: optionalText(input?.notes),
+        createdBy: optionalText(input?.createdBy),
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+      return accountTransactionFromRow(
+        db.prepare("SELECT * FROM account_transactions WHERE id = ?").get(id),
+      );
+    },
+
+    updateAccountTransaction(id, input) {
+      const transactionId = requiredText(id, "Account transaction id");
+      const existing = db
+        .prepare(`
+          SELECT *
+          FROM account_transactions
+          WHERE id = ? AND deleted_at IS NULL
+        `)
+        .get(transactionId);
+      if (!existing) {
+        throw new Error("Account transaction was not found.");
+      }
+      if ((existing.linked_module ?? "Manual") !== "Manual") {
+        throw new Error("Linked account transactions are managed by their source module.");
+      }
+      const type =
+        input?.type === undefined
+          ? existing.type
+          : requiredText(input.type, "Account type");
+      if (!ACCOUNT_TYPES.has(type)) {
+        throw new Error("Account type must be Income or Expense.");
+      }
+      const categoryId =
+        input?.categoryId === undefined
+          ? existing.category_id
+          : requiredText(input.categoryId, "Account category");
+      const category = db
+        .prepare(`
+          SELECT *
+          FROM account_categories
+          WHERE id = ?
+            AND type = ?
+            AND status = 'Active'
+            AND deleted_at IS NULL
+        `)
+        .get(categoryId, type);
+      if (!category) {
+        throw new Error(`Select an active ${type.toLowerCase()} category.`);
+      }
+      const paymentMode =
+        input?.paymentMode === undefined
+          ? existing.payment_mode
+          : requiredText(input.paymentMode, "Payment mode");
+      if (!PAYMENT_MODES.has(paymentMode)) {
+        throw new Error("Account payment mode is invalid.");
+      }
+      db.prepare(`
+        UPDATE account_transactions
+        SET type = @type,
+            category_id = @categoryId,
+            category_name = @categoryName,
+            title = @title,
+            amount = @amount,
+            payment_mode = @paymentMode,
+            transaction_date = @transactionDate,
+            reference_no = @referenceNo,
+            notes = @notes,
+            created_by = @createdBy,
+            updated_at = @updatedAt,
+            sync_status = 'pending'
+        WHERE id = @id AND deleted_at IS NULL
+      `).run({
+        id: transactionId,
+        type,
+        categoryId,
+        categoryName: category.name,
+        title:
+          input?.title === undefined
+            ? existing.title
+            : requiredText(input.title, "Transaction title"),
+        amount:
+          input?.amount === undefined
+            ? Number(existing.amount)
+            : wholeNumber(input.amount, "Account amount", 1),
+        paymentMode,
+        transactionDate:
+          input?.transactionDate === undefined
+            ? existing.transaction_date
+            : normalizeDate(input.transactionDate, "Transaction date"),
+        referenceNo:
+          input?.referenceNo === undefined
+            ? existing.reference_no ?? ""
+            : optionalText(input.referenceNo),
+        notes:
+          input?.notes === undefined
+            ? existing.notes ?? ""
+            : optionalText(input.notes),
+        createdBy:
+          input?.createdBy === undefined
+            ? existing.created_by ?? ""
+            : optionalText(input.createdBy),
+        updatedAt: now(),
+      });
+      return accountTransactionFromRow(
+        db
+          .prepare("SELECT * FROM account_transactions WHERE id = ?")
+          .get(transactionId),
+      );
+    },
+
+    deleteAccountTransaction(id) {
+      const transactionId = requiredText(id, "Account transaction id");
+      const existing = db
+        .prepare(`
+          SELECT *
+          FROM account_transactions
+          WHERE id = ? AND deleted_at IS NULL
+        `)
+        .get(transactionId);
+      if (!existing) return { success: false };
+      if ((existing.linked_module ?? "Manual") !== "Manual") {
+        throw new Error("Linked account transactions are managed by their source module.");
+      }
+      const timestamp = now();
+      const result = db
+        .prepare(`
+          UPDATE account_transactions
+          SET deleted_at = ?,
+              updated_at = ?,
+              sync_status = 'pending'
+          WHERE id = ? AND deleted_at IS NULL
+        `)
+        .run(timestamp, timestamp, transactionId);
       return { success: result.changes === 1 };
     },
 

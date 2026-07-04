@@ -12,6 +12,7 @@ const pagePermissions: Record<PermissionRole, readonly PageId[]> = {
     'documents',
     'employees',
     'salary',
+    'accounts',
     'placeholder',
   ],
   Admin: [
@@ -25,6 +26,7 @@ const pagePermissions: Record<PermissionRole, readonly PageId[]> = {
     'documents',
     'employees',
     'salary',
+    'accounts',
     'placeholder',
   ],
   Accountant: [
@@ -34,6 +36,7 @@ const pagePermissions: Record<PermissionRole, readonly PageId[]> = {
     'reports',
     'settings',
     'salary',
+    'accounts',
     'placeholder',
   ],
   Teacher: ['dashboard', 'students', 'attendance', 'exams', 'placeholder'],

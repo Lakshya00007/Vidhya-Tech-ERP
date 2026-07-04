@@ -61,6 +61,29 @@ contextBridge.exposeInMainWorld("erpApi", {
   deleteSalaryPayment: (id) =>
     ipcRenderer.invoke("salary:delete", id),
 
+  getAccountCategories: () =>
+    ipcRenderer.invoke("accounts:categories:get-all"),
+  createAccountCategory: (input) =>
+    ipcRenderer.invoke("accounts:categories:create", input),
+  updateAccountCategory: (id, input) =>
+    ipcRenderer.invoke("accounts:categories:update", id, input),
+  deleteAccountCategory: (id) =>
+    ipcRenderer.invoke("accounts:categories:delete", id),
+  getAccountTransactions: () =>
+    ipcRenderer.invoke("accounts:transactions:get-all"),
+  getAccountTransactionsByDateRange: (startDate, endDate) =>
+    ipcRenderer.invoke(
+      "accounts:transactions:get-by-date-range",
+      startDate,
+      endDate,
+    ),
+  createAccountTransaction: (input) =>
+    ipcRenderer.invoke("accounts:transactions:create", input),
+  updateAccountTransaction: (id, input) =>
+    ipcRenderer.invoke("accounts:transactions:update", id, input),
+  deleteAccountTransaction: (id) =>
+    ipcRenderer.invoke("accounts:transactions:delete", id),
+
   getSchoolSettings: () => ipcRenderer.invoke("settings:get"),
   saveSchoolSettings: (settings) =>
     ipcRenderer.invoke("settings:save", settings),

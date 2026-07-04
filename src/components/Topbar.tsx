@@ -21,6 +21,7 @@ const pageTitles: Record<PageId, string> = {
   documents: 'Student Documents',
   employees: 'Employee Management',
   salary: 'Salary & Payroll',
+  accounts: 'Accounts',
   placeholder: 'Advanced Module',
 }
 

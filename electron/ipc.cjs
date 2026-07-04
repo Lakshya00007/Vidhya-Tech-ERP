@@ -36,6 +36,15 @@ const channels = [
   "salary:create",
   "salary:update",
   "salary:delete",
+  "accounts:categories:get-all",
+  "accounts:categories:create",
+  "accounts:categories:update",
+  "accounts:categories:delete",
+  "accounts:transactions:get-all",
+  "accounts:transactions:get-by-date-range",
+  "accounts:transactions:create",
+  "accounts:transactions:update",
+  "accounts:transactions:delete",
   "settings:get",
   "settings:save",
   "fees:get-all",
@@ -339,6 +348,18 @@ function registerIpcHandlers(
         `Created ${created.salaryNo} for ${created.employeeName} (${created.salaryMonth}).`,
         actor,
       );
+      const accountTransaction = database.getAccountTransactionByLink(
+        "Salary",
+        created.id,
+      );
+      if (accountTransaction) {
+        authService?.audit(
+          "Automatic salary expense transaction created",
+          "Accounts",
+          `Created ${accountTransaction.transactionNo} from ${created.salaryNo}.`,
+          actor,
+        );
+      }
       return created;
     }),
   );
@@ -374,6 +395,134 @@ function registerIpcHandlers(
           payment
             ? `Soft-deleted ${payment.salaryNo} for ${payment.employeeName}.`
             : "Soft-deleted a salary payment.",
+          actor,
+        );
+      }
+      return result;
+    }),
+  );
+
+  ipcMain.handle(
+    "accounts:categories:get-all",
+    authenticated(() => {
+      requireRoles(["Owner", "Admin", "Accountant"]);
+      return database.getAccountCategories();
+    }),
+  );
+  ipcMain.handle(
+    "accounts:categories:create",
+    authenticated((_event, input) => {
+      const actor = requireRoles(["Owner", "Admin", "Accountant"]);
+      const created = database.createAccountCategory(input);
+      authService?.audit(
+        "Account category created",
+        "Accounts",
+        `Created ${created.type.toLowerCase()} category "${created.name}".`,
+        actor,
+      );
+      return created;
+    }),
+  );
+  ipcMain.handle(
+    "accounts:categories:update",
+    authenticated((_event, id, input) => {
+      const actor = requireRoles(["Owner", "Admin", "Accountant"]);
+      const updated = database.updateAccountCategory(id, input);
+      authService?.audit(
+        "Account category updated",
+        "Accounts",
+        `Updated ${updated.type.toLowerCase()} category "${updated.name}".`,
+        actor,
+      );
+      return updated;
+    }),
+  );
+  ipcMain.handle(
+    "accounts:categories:delete",
+    authenticated((_event, id) => {
+      const actor = requireRoles(["Owner", "Admin", "Accountant"]);
+      const category = database
+        .getAccountCategories()
+        .find((item) => item.id === id);
+      const result = database.deleteAccountCategory(id);
+      if (result.success) {
+        authService?.audit(
+          "Account category deleted",
+          "Accounts",
+          category
+            ? `Soft-deleted category "${category.name}".`
+            : "Soft-deleted an account category.",
+          actor,
+        );
+      }
+      return result;
+    }),
+  );
+  ipcMain.handle(
+    "accounts:transactions:get-all",
+    authenticated(() => {
+      requireRoles(["Owner", "Admin", "Accountant"]);
+      return database.getAccountTransactions();
+    }),
+  );
+  ipcMain.handle(
+    "accounts:transactions:get-by-date-range",
+    authenticated((_event, startDate, endDate) => {
+      requireRoles(["Owner", "Admin", "Accountant"]);
+      return database.getAccountTransactionsByDateRange(startDate, endDate);
+    }),
+  );
+  ipcMain.handle(
+    "accounts:transactions:create",
+    authenticated((_event, input) => {
+      const actor = requireRoles(["Owner", "Admin", "Accountant"]);
+      const created = database.createAccountTransaction({
+        ...input,
+        linkedModule: "Manual",
+        linkedRecordId: "",
+        createdBy: actor?.name ?? "",
+      });
+      authService?.audit(
+        `${created.type} transaction created`,
+        "Accounts",
+        `Created ${created.transactionNo}: ${created.title}.`,
+        actor,
+      );
+      return created;
+    }),
+  );
+  ipcMain.handle(
+    "accounts:transactions:update",
+    authenticated((_event, id, input) => {
+      const actor = requireRoles(["Owner", "Admin", "Accountant"]);
+      const updated = database.updateAccountTransaction(id, {
+        ...input,
+        createdBy: actor?.name ?? "",
+      });
+      authService?.audit(
+        "Account transaction updated",
+        "Accounts",
+        `Updated ${updated.transactionNo}: ${updated.title}.`,
+        actor,
+      );
+      return updated;
+    }),
+  );
+  ipcMain.handle(
+    "accounts:transactions:delete",
+    authenticated((_event, id) => {
+      const actor = requireRoles(["Owner", "Admin", "Accountant"]);
+      const transaction = database
+        .getAccountTransactions()
+        .find((item) => item.id === id);
+      const result = database.deleteAccountTransaction(id);
+      if (result.success) {
+        authService?.audit(
+          "Account transaction deleted",
+          "Accounts",
+          transaction
+            ? `Soft-deleted ${transaction.transactionNo}: ${transaction.title}.`
+            : "Soft-deleted an account transaction.",
           actor,
         );
       }
@@ -431,6 +580,18 @@ function registerIpcHandlers(
         `Created receipt ${created.receiptNo} for ${created.studentName}.`,
         actor,
       );
+      const accountTransaction = database.getAccountTransactionByLink(
+        "Fees",
+        created.id,
+      );
+      if (accountTransaction) {
+        authService?.audit(
+          "Automatic fee income transaction created",
+          "Accounts",
+          `Created ${accountTransaction.transactionNo} from ${created.receiptNo}.`,
+          actor,
+        );
+      }
       return created;
     }),
   );

@@ -137,10 +137,10 @@ export const erpNavigation: ErpMenuGroup[] = [
     icon: 'wallet',
     roles: finance,
     items: [
-      placeholder('chart-of-account', 'Chart Of Account'),
-      placeholder('add-income', 'Add Income'),
-      placeholder('add-expense', 'Add Expense'),
-      placeholder('account-statement', 'Account Statement'),
+      { id: 'chart-of-account', label: 'Chart Of Account', target: { page: 'accounts', view: 'chart' } },
+      { id: 'add-income', label: 'Add Income', target: { page: 'accounts', view: 'income' } },
+      { id: 'add-expense', label: 'Add Expense', target: { page: 'accounts', view: 'expense' } },
+      { id: 'account-statement', label: 'Account Statement', target: { page: 'accounts', view: 'statement' } },
     ],
   },
   {
@@ -319,7 +319,7 @@ export const erpNavigation: ErpMenuGroup[] = [
       placeholder('staff-monthly-attendance', 'Staff Monthly Attendance Report', { locked: true, feature: 'advanced-reports' }),
       { id: 'fee-collection-report', label: 'Fee Collection Report', target: { page: 'reports', view: 'monthly' } },
       placeholder('student-progress-report', 'Student Progress Report', { locked: true, feature: 'advanced-reports' }),
-      placeholder('accounts-report', 'Accounts Report', { locked: true, feature: 'advanced-reports' }),
+      { id: 'accounts-report', label: 'Accounts Report', target: { page: 'accounts', view: 'report' }, roles: finance },
       placeholder('customised-reports', 'Customised Reports', { locked: true, feature: 'advanced-reports' }),
     ],
   },

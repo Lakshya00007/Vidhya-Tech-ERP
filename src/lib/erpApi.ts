@@ -21,6 +21,9 @@ export const EMPLOYEES_API_UNAVAILABLE_MESSAGE =
 export const SALARY_API_UNAVAILABLE_MESSAGE =
   'Salary management is available only inside the Electron desktop app.'
 
+export const ACCOUNTS_API_UNAVAILABLE_MESSAGE =
+  'Accounts management is available only inside the Electron desktop app.'
+
 const licenseApiMethods = [
   'getDeviceId',
   'getLicenseStatus',
@@ -80,6 +83,18 @@ const salaryApiMethods = [
   'createSalaryPayment',
   'updateSalaryPayment',
   'deleteSalaryPayment',
+] as const satisfies ReadonlyArray<keyof ErpApi>
+
+const accountApiMethods = [
+  'getAccountCategories',
+  'createAccountCategory',
+  'updateAccountCategory',
+  'deleteAccountCategory',
+  'getAccountTransactions',
+  'getAccountTransactionsByDateRange',
+  'createAccountTransaction',
+  'updateAccountTransaction',
+  'deleteAccountTransaction',
 ] as const satisfies ReadonlyArray<keyof ErpApi>
 
 export function getErpApi(): ErpApi {
@@ -159,6 +174,17 @@ export function getSalaryErpApi(): ErpApi {
     salaryApiMethods.some((method) => typeof api[method] !== 'function')
   ) {
     throw new Error(SALARY_API_UNAVAILABLE_MESSAGE)
+  }
+  return api
+}
+
+export function getAccountsErpApi(): ErpApi {
+  const api = window.erpApi
+  if (
+    !api ||
+    accountApiMethods.some((method) => typeof api[method] !== 'function')
+  ) {
+    throw new Error(ACCOUNTS_API_UNAVAILABLE_MESSAGE)
   }
   return api
 }
