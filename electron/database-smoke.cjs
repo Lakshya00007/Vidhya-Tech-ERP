@@ -1,6 +1,7 @@
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
+const crypto = require("node:crypto");
 const Database = require("better-sqlite3");
 const { app, BrowserWindow } = require("electron");
 const {
@@ -12,6 +13,13 @@ const {
 const { createAuthService } = require("./auth.cjs");
 const { createDatabase } = require("./database.cjs");
 const { registerIpcHandlers } = require("./ipc.cjs");
+const {
+  createDeviceIdService,
+  createLicenseService,
+} = require("./license.cjs");
+const {
+  createLicenseKey,
+} = require("../scripts/generate-license.cjs");
 
 function assert(condition, message) {
   if (!condition) {
@@ -60,6 +68,143 @@ app.whenReady().then(async () => {
     legacyDatabase.close();
 
     let database = createDatabase(databasePath);
+    const installationDirectory = path.join(
+      temporaryDirectory,
+      "device-identity",
+    );
+    const deviceIdService = createDeviceIdService({
+      userDataPath: installationDirectory,
+      platform: "test",
+    });
+    const firstDeviceId = deviceIdService.getDeviceId();
+    const secondDeviceId = deviceIdService.getDeviceId();
+    const restartedDeviceId = createDeviceIdService({
+      userDataPath: installationDirectory,
+      platform: "test",
+    }).getDeviceId();
+    assert(
+      /^VSE-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}$/.test(firstDeviceId) &&
+        firstDeviceId === secondDeviceId &&
+        firstDeviceId === restartedDeviceId,
+      "Device ID generation was not stable.",
+    );
+
+    const { privateKey: testPrivateKey, publicKey: testPublicKey } =
+      crypto.generateKeyPairSync("ed25519");
+    const testPublicKeyPath = path.join(
+      temporaryDirectory,
+      "test-license-public-key.pem",
+    );
+    fs.writeFileSync(
+      testPublicKeyPath,
+      testPublicKey.export({ type: "spki", format: "pem" }),
+    );
+    const testNow = new Date("2026-07-03T12:00:00.000Z");
+    const licenseService = createLicenseService({
+      database,
+      deviceIdService,
+      publicKeyPath: testPublicKeyPath,
+      now: () => new Date(testNow),
+    });
+    assert(
+      licenseService.getLicenseStatus().status === "missing",
+      "Fresh database did not report a missing license.",
+    );
+    const validLicenseKey = createLicenseKey(
+      {
+        licenseId: "LIC-SMOKE-001",
+        schoolName: "Persistence Test School",
+        deviceId: firstDeviceId,
+        plan: "Test",
+        issuedAt: "2026-07-01T00:00:00.000Z",
+        expiresAt: "2027-07-03T23:59:59.999Z",
+        maintenanceUntil: "2027-07-03T23:59:59.999Z",
+        maxUsers: 10,
+        features: ["all"],
+      },
+      testPrivateKey,
+    );
+    const expiredLicenseKey = createLicenseKey(
+      {
+        licenseId: "LIC-SMOKE-EXPIRED",
+        schoolName: "Expired Test School",
+        deviceId: firstDeviceId,
+        plan: "Test",
+        issuedAt: "2025-07-01T00:00:00.000Z",
+        expiresAt: "2026-07-02T23:59:59.999Z",
+        maintenanceUntil: "2026-07-02T23:59:59.999Z",
+        maxUsers: 10,
+        features: ["all"],
+      },
+      testPrivateKey,
+    );
+    const maintenanceExpiredLicenseKey = createLicenseKey(
+      {
+        licenseId: "LIC-SMOKE-MAINTENANCE",
+        schoolName: "Maintenance Test School",
+        deviceId: firstDeviceId,
+        plan: "Perpetual",
+        issuedAt: "2025-07-01T00:00:00.000Z",
+        expiresAt: "2027-07-03T23:59:59.999Z",
+        maintenanceUntil: "2026-07-02T23:59:59.999Z",
+        maxUsers: 10,
+        features: ["all"],
+      },
+      testPrivateKey,
+    );
+    const maintenanceStatus = licenseService.verifyLicenseKey(
+      maintenanceExpiredLicenseKey,
+    );
+    assert(
+      maintenanceStatus.isValid &&
+        maintenanceStatus.status === "maintenance-expired",
+      "Expired maintenance incorrectly blocked a valid license.",
+    );
+    const wrongDeviceLicenseKey = createLicenseKey(
+      {
+        licenseId: "LIC-SMOKE-OTHER-DEVICE",
+        schoolName: "Other Device School",
+        deviceId: "VSE-0000-0000-0000",
+        plan: "Test",
+        issuedAt: "2026-07-01T00:00:00.000Z",
+        expiresAt: "2027-07-03T23:59:59.999Z",
+        maintenanceUntil: "2027-07-03T23:59:59.999Z",
+        maxUsers: 10,
+        features: ["all"],
+      },
+      testPrivateKey,
+    );
+    let wrongDeviceLicenseRejected = false;
+    try {
+      licenseService.activateLicense(wrongDeviceLicenseKey);
+    } catch {
+      wrongDeviceLicenseRejected = true;
+    }
+    assert(
+      wrongDeviceLicenseRejected,
+      "A license for another device was accepted.",
+    );
+    let invalidLicenseRejected = false;
+    try {
+      const licenseParts = validLicenseKey.split(".");
+      const signature = licenseParts[2];
+      const replacementCharacter = signature.startsWith("A") ? "B" : "A";
+      licenseParts[2] = `${replacementCharacter}${signature.slice(1)}`;
+      licenseService.activateLicense(
+        licenseParts.join("."),
+      );
+    } catch {
+      invalidLicenseRejected = true;
+    }
+    assert(invalidLicenseRejected, "Invalid license signature was accepted.");
+    let expiredLicenseRejected = false;
+    try {
+      licenseService.activateLicense(expiredLicenseKey);
+    } catch {
+      expiredLicenseRejected = true;
+    }
+    assert(expiredLicenseRejected, "Expired license was accepted.");
+
     const authService = createAuthService(database);
     const backupService = createBackupService({
       app,
@@ -71,6 +216,7 @@ app.whenReady().then(async () => {
       database,
       backupService,
       authService,
+      licenseService,
     );
     const window = new BrowserWindow({
       show: false,
@@ -109,6 +255,32 @@ app.whenReady().then(async () => {
         ].every((method) => typeof window.erpApi[method] === "function");
         const demoApiAvailable =
           typeof window.erpApi.createDemoData === "function";
+        const studentImportApiAvailable = [
+          "importStudentsBulk",
+          "getStudentImportTemplate"
+        ].every((method) => typeof window.erpApi[method] === "function");
+        const certificateApiAvailable = [
+          "getCertificateTemplates",
+          "createCertificateTemplate",
+          "updateCertificateTemplate",
+          "deleteCertificateTemplate",
+          "issueCertificate",
+          "getIssuedCertificates",
+          "getIssuedCertificatesByStudent"
+        ].every((method) => typeof window.erpApi[method] === "function");
+        const licenseApiAvailable = [
+          "getDeviceId",
+          "getLicenseStatus",
+          "activateLicense",
+          "deactivateLicense",
+          "getLicenseInfo"
+        ].every((method) => typeof window.erpApi[method] === "function");
+        const deviceId = await window.erpApi.getDeviceId();
+        const licenseBeforeActivation =
+          await window.erpApi.getLicenseStatus();
+        const activatedLicense =
+          await window.erpApi.activateLicense(${JSON.stringify(validLicenseKey)});
+        const readableLicense = await window.erpApi.getLicenseInfo();
         const hadUsersBeforeSetup = await window.erpApi.hasUsers();
         const owner = await window.erpApi.createFirstOwner({
           name: "Smoke Test Owner",
@@ -181,6 +353,35 @@ app.whenReady().then(async () => {
           academicYear: "2026–2027",
           receiptPrefix: "TEST-RC"
         });
+        const certificateTemplate =
+          await window.erpApi.createCertificateTemplate({
+            name: "Smoke Test Admission Certificate",
+            type: "Admission",
+            bodyTemplate:
+              "This certifies {{studentName}} ({{admissionNo}}) of Class {{className}} at {{schoolName}} for {{academicYear}}, issued {{date}}.",
+            status: "Active"
+          });
+        const updatedCertificateTemplate =
+          await window.erpApi.updateCertificateTemplate(
+            certificateTemplate.id,
+            {
+              bodyTemplate:
+                "This certifies {{studentName}} ({{admissionNo}}), Class {{className}} / {{section}}, at {{schoolName}} for {{academicYear}}, issued {{date}}."
+            }
+          );
+        const issuedCertificate = await window.erpApi.issueCertificate({
+          studentId: student.id,
+          templateId: certificateTemplate.id,
+          issuedDate: "2026-07-04"
+        });
+        const issuedCertificatesByStudent =
+          await window.erpApi.getIssuedCertificatesByStudent(student.id);
+        const templateDeleteResult =
+          await window.erpApi.deleteCertificateTemplate(
+            certificateTemplate.id
+          );
+        const certificateTemplatesAfterDelete =
+          await window.erpApi.getCertificateTemplates();
         const subject = await window.erpApi.createSubject({
           name: "Mathematics",
           code: "MATH",
@@ -288,12 +489,36 @@ app.whenReady().then(async () => {
         return {
           authApiAvailable,
           demoApiAvailable,
+          studentImportApiAvailable,
+          certificateApiAvailable,
+          licenseApiAvailable,
+          deviceId,
+          licenseBeforeActivation,
+          activatedLicense,
+          readableLicense,
           hadUsersBeforeSetup,
           ownerRole: owner.role,
           loggedInOwnerRole: loggedInOwner.role,
           resetPasswordLoginRole: resetPasswordLogin.role,
           safeUsers,
           auditLogCount: auditLogs.length,
+          certificateNo: issuedCertificate.certificateNo,
+          certificateBody: issuedCertificate.body,
+          certificateIssuedBy: issuedCertificate.issuedBy,
+          issuedCertificateCount: (
+            await window.erpApi.getIssuedCertificates()
+          ).length,
+          issuedCertificateStudentCount:
+            issuedCertificatesByStudent.length,
+          certificateTemplateUpdated:
+            updatedCertificateTemplate.bodyTemplate.includes("{{section}}"),
+          certificateTemplateSoftDeleted:
+            templateDeleteResult.success &&
+            !certificateTemplatesAfterDelete.some(
+              (template) => template.id === certificateTemplate.id
+            ),
+          defaultCertificateTemplateCount:
+            certificateTemplatesAfterDelete.length,
           attendanceApiAvailable,
           backupApiAvailable,
           classAttendanceIsArray: Array.isArray(classAttendance),
@@ -365,6 +590,26 @@ app.whenReady().then(async () => {
       "Demo data API was not exposed by the preload bridge.",
     );
     assert(
+      bridgeResult.studentImportApiAvailable,
+      "Student import APIs were not exposed by the preload bridge.",
+    );
+    assert(
+      bridgeResult.certificateApiAvailable,
+      "Certificate APIs were not exposed by the preload bridge.",
+    );
+    assert(
+      bridgeResult.licenseApiAvailable &&
+        bridgeResult.deviceId === firstDeviceId,
+      "License APIs or device ID bridge failed.",
+    );
+    assert(
+      bridgeResult.licenseBeforeActivation.status === "missing" &&
+        bridgeResult.activatedLicense.isValid &&
+        bridgeResult.activatedLicense.status === "active" &&
+        bridgeResult.readableLicense.license.licenseId === "LIC-SMOKE-001",
+      "Valid license activation or status read failed.",
+    );
+    assert(
       bridgeResult.hadUsersBeforeSetup === false &&
         bridgeResult.ownerRole === "Owner" &&
         bridgeResult.loggedInOwnerRole === "Owner",
@@ -429,6 +674,28 @@ app.whenReady().then(async () => {
       "Logged-in cashier name was not saved on the receipt.",
     );
     assert(bridgeResult.secondPaymentMode === "Cheque", "Cheque mode was not saved.");
+    assert(
+      bridgeResult.certificateNo === "CERT-2026-0001",
+      "Certificate number was not generated with the yearly sequence.",
+    );
+    assert(
+      bridgeResult.certificateBody.includes("Database Test Student") &&
+        bridgeResult.certificateBody.includes("Persistence Test School") &&
+        !bridgeResult.certificateBody.includes("{{"),
+      "Certificate template variables were not rendered.",
+    );
+    assert(
+      bridgeResult.certificateIssuedBy === "Smoke Test Owner" &&
+        bridgeResult.issuedCertificateCount === 1 &&
+        bridgeResult.issuedCertificateStudentCount === 1,
+      "Certificate issue or student history query failed.",
+    );
+    assert(
+      bridgeResult.certificateTemplateUpdated &&
+        bridgeResult.certificateTemplateSoftDeleted &&
+        bridgeResult.defaultCertificateTemplateCount === 3,
+      "Certificate template update, defaults, or soft delete failed.",
+    );
     assert(
       bridgeResult.attendanceCount === 1,
       "Attendance upsert created a duplicate.",
@@ -531,6 +798,10 @@ app.whenReady().then(async () => {
       "Staged restore files were not cleaned after a successful restore.",
     );
     database = createDatabase(databasePath);
+    assert(
+      database.getLicenseActivationRecord()?.licenseId === "LIC-SMOKE-001",
+      "License activation did not persist through backup and restore.",
+    );
     assert(database.getStudents().length === 1, "Student did not persist.");
     assert(
       database.getSchoolSettings().schoolName === "Persistence Test School",
@@ -542,6 +813,12 @@ app.whenReady().then(async () => {
     assert(database.getExams().length === 1, "Exam did not persist.");
     assert(database.getMarks().length === 1, "Marks did not persist.");
     assert(
+      database.getIssuedCertificates().length === 1 &&
+        database.getIssuedCertificates()[0].certificateNo ===
+          "CERT-2026-0001",
+      "Issued certificate did not persist.",
+    );
+    assert(
       database.getMarksByExam(bridgeResult.examId).length === 1,
       "Marks by exam did not persist.",
     );
@@ -551,6 +828,123 @@ app.whenReady().then(async () => {
     assert(
       database.getFeeStructures().length === 1,
       "Fee structure did not persist.",
+    );
+    const importTemplate = database.getStudentImportTemplate();
+    assert(
+      importTemplate.columns.includes("Admission No") &&
+        importTemplate.columns.includes("Student Name") &&
+        importTemplate.filename.endsWith(".xlsx"),
+      "Student import template metadata is incomplete.",
+    );
+    const skipImportResult = database.importStudentsBulk(
+      [
+        {
+          rowNumber: 2,
+          admissionNo: "IMP-001",
+          name: "Imported Student",
+          className: "10",
+          section: "A",
+          guardianName: "Imported Guardian",
+          mobile: "0123456789",
+          fatherName: "Imported Father",
+          motherName: "Imported Mother",
+          email: "imported@example.com",
+          gender: "Female",
+          bloodGroup: "O+",
+          aadharNo: "001122334455",
+          previousSchool: "Previous Test School",
+          notes: "Imported from spreadsheet smoke test",
+          status: "Active",
+        },
+        {
+          rowNumber: 3,
+          admissionNo: "SMOKE-001",
+          name: "Duplicate Student",
+          className: "10",
+          section: "A",
+          guardianName: "Duplicate Guardian",
+          mobile: "9999999999",
+          status: "Active",
+        },
+      ],
+      { mode: "skip", autoCreateMasters: false },
+    );
+    assert(
+      skipImportResult.imported === 1 &&
+        skipImportResult.inserted === 1 &&
+        skipImportResult.skipped === 1 &&
+        skipImportResult.duplicates === 1,
+      "Student import did not insert a valid row and skip a duplicate.",
+    );
+    assert(
+      (() => {
+        const importedStudent = database
+          .getStudents()
+          .find((student) => student.admissionNo === "IMP-001");
+        return (
+          importedStudent?.mobile === "0123456789" &&
+          importedStudent.fatherName === "Imported Father" &&
+          importedStudent.motherName === "Imported Mother" &&
+          importedStudent.email === "imported@example.com" &&
+          importedStudent.aadharNo === "001122334455"
+        );
+      })(),
+      "Imported text or optional student fields were not preserved.",
+    );
+    const updateImportResult = database.importStudentsBulk(
+      [
+        {
+          rowNumber: 2,
+          admissionNo: "SMOKE-001",
+          name: "Updated Imported Student",
+          className: "10",
+          section: "A",
+          guardianName: "Updated Guardian",
+          mobile: "9777777777",
+          status: "Active",
+        },
+      ],
+      { mode: "update", autoCreateMasters: false },
+    );
+    assert(
+      updateImportResult.imported === 1 &&
+        updateImportResult.updated === 1 &&
+        database.getUserCount() === 2 &&
+        database
+          .getStudents()
+          .find((student) => student.admissionNo === "SMOKE-001")?.name ===
+          "Updated Imported Student",
+      "Update duplicate import mode failed.",
+    );
+    const autoCreateImportResult = database.importStudentsBulk(
+      [
+        {
+          rowNumber: 2,
+          admissionNo: "IMP-002",
+          name: "Auto Master Student",
+          className: "Imported Class",
+          section: "Z",
+          guardianName: "Auto Guardian",
+          mobile: "9666666666",
+          status: "Active",
+        },
+      ],
+      { mode: "skip", autoCreateMasters: true },
+    );
+    assert(
+      autoCreateImportResult.imported === 1 &&
+        autoCreateImportResult.classesCreated === 1 &&
+        autoCreateImportResult.sectionsCreated === 1 &&
+        database
+          .getClasses()
+          .some((item) => item.name === "Imported Class") &&
+        database
+          .getSections()
+          .some(
+            (item) =>
+              item.className === "Imported Class" && item.name === "Z",
+          ),
+      "Student import did not auto-create the class and section.",
     );
     assert(
       database.deleteSubject(bridgeResult.subjectId).success,
@@ -566,7 +960,12 @@ app.whenReady().then(async () => {
       database.deleteStudent(bridgeResult.studentId).success,
       "Student soft delete failed.",
     );
-    assert(database.getStudents().length === 0, "Soft-deleted student is still active.");
+    assert(
+      !database
+        .getStudents()
+        .some((student) => student.id === bridgeResult.studentId),
+      "Soft-deleted student is still active.",
+    );
     const firstDemoResult = database.createDemoData("Smoke Test Owner");
     assert(
       firstDemoResult.success &&

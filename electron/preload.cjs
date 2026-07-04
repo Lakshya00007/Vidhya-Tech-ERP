@@ -1,6 +1,13 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("erpApi", {
+  getDeviceId: () => ipcRenderer.invoke("license:get-device-id"),
+  getLicenseStatus: () => ipcRenderer.invoke("license:get-status"),
+  activateLicense: (licenseKey) =>
+    ipcRenderer.invoke("license:activate", licenseKey),
+  deactivateLicense: () => ipcRenderer.invoke("license:deactivate"),
+  getLicenseInfo: () => ipcRenderer.invoke("license:get-info"),
+
   hasUsers: () => ipcRenderer.invoke("auth:has-users"),
   createFirstOwner: (input) =>
     ipcRenderer.invoke("auth:create-first-owner", input),
@@ -30,6 +37,10 @@ contextBridge.exposeInMainWorld("erpApi", {
   updateStudent: (id, student) =>
     ipcRenderer.invoke("students:update", id, student),
   deleteStudent: (id) => ipcRenderer.invoke("students:delete", id),
+  importStudentsBulk: (rows, options) =>
+    ipcRenderer.invoke("students:import-bulk", rows, options),
+  getStudentImportTemplate: () =>
+    ipcRenderer.invoke("students:import-template"),
 
   getSchoolSettings: () => ipcRenderer.invoke("settings:get"),
   saveSchoolSettings: (settings) =>
@@ -104,6 +115,21 @@ contextBridge.exposeInMainWorld("erpApi", {
   saveMarksBulk: (records) =>
     ipcRenderer.invoke("marks:save-bulk", records),
   updateMark: (id, input) => ipcRenderer.invoke("marks:update", id, input),
+
+  getCertificateTemplates: () =>
+    ipcRenderer.invoke("certificates:templates:get-all"),
+  createCertificateTemplate: (input) =>
+    ipcRenderer.invoke("certificates:templates:create", input),
+  updateCertificateTemplate: (id, input) =>
+    ipcRenderer.invoke("certificates:templates:update", id, input),
+  deleteCertificateTemplate: (id) =>
+    ipcRenderer.invoke("certificates:templates:delete", id),
+  issueCertificate: (input) =>
+    ipcRenderer.invoke("certificates:issue", input),
+  getIssuedCertificates: () =>
+    ipcRenderer.invoke("certificates:get-issued"),
+  getIssuedCertificatesByStudent: (studentId) =>
+    ipcRenderer.invoke("certificates:get-issued-by-student", studentId),
 
   createDatabaseBackup: () =>
     ipcRenderer.invoke("database:create-backup"),

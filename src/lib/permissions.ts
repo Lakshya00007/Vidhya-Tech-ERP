@@ -9,6 +9,8 @@ const pagePermissions: Record<PermissionRole, readonly PageId[]> = {
     'exams',
     'reports',
     'settings',
+    'documents',
+    'placeholder',
   ],
   Admin: [
     'dashboard',
@@ -18,10 +20,19 @@ const pagePermissions: Record<PermissionRole, readonly PageId[]> = {
     'exams',
     'reports',
     'settings',
+    'documents',
+    'placeholder',
   ],
-  Accountant: ['dashboard', 'students', 'fees', 'reports', 'settings'],
-  Teacher: ['dashboard', 'students', 'attendance', 'exams'],
-  Viewer: ['dashboard', 'students', 'reports'],
+  Accountant: [
+    'dashboard',
+    'students',
+    'fees',
+    'reports',
+    'settings',
+    'placeholder',
+  ],
+  Teacher: ['dashboard', 'students', 'attendance', 'exams', 'placeholder'],
+  Viewer: ['dashboard', 'students', 'reports', 'placeholder'],
 }
 
 export function canAccessPage(role: PermissionRole, page: PageId) {

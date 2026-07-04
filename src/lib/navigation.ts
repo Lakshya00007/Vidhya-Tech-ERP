@@ -1,0 +1,340 @@
+import type { IconName } from '../components/Icon'
+import type { PageId, PermissionRole } from '../types'
+
+export interface NavigationTarget {
+  page: PageId
+  view?: string
+}
+
+export interface ErpMenuItem {
+  id: string
+  label: string
+  target?: NavigationTarget
+  locked?: boolean
+  feature?: string
+  roles?: PermissionRole[]
+}
+
+export interface ErpMenuGroup {
+  id: string
+  label: string
+  icon: IconName
+  target?: NavigationTarget
+  roles?: PermissionRole[]
+  items?: ErpMenuItem[]
+}
+
+const owners: PermissionRole[] = ['Owner', 'Admin']
+const finance: PermissionRole[] = ['Owner', 'Admin', 'Accountant']
+const academic: PermissionRole[] = ['Owner', 'Admin', 'Teacher']
+const studentReaders: PermissionRole[] = [
+  'Owner',
+  'Admin',
+  'Accountant',
+  'Teacher',
+  'Viewer',
+]
+const reportReaders: PermissionRole[] = [
+  'Owner',
+  'Admin',
+  'Accountant',
+  'Viewer',
+]
+
+const placeholder = (id: string, label: string, options?: Partial<ErpMenuItem>) => ({
+  id,
+  label,
+  ...options,
+})
+
+export const erpNavigation: ErpMenuGroup[] = [
+  {
+    id: 'dashboard',
+    label: 'Dashboard',
+    icon: 'dashboard',
+    target: { page: 'dashboard' },
+    roles: studentReaders,
+  },
+  {
+    id: 'general-settings',
+    label: 'General Settings',
+    icon: 'settings',
+    roles: finance,
+    items: [
+      { id: 'institute-profile', label: 'Institute Profile', target: { page: 'settings', view: 'profile' } },
+      { id: 'fees-particulars', label: 'Fees Particulars', target: { page: 'settings', view: 'fee-heads' }, roles: owners },
+      { id: 'fees-structure', label: 'Fees Structure', target: { page: 'settings', view: 'fee-structure' }, roles: owners },
+      placeholder('discount-type', 'Discount Type', { roles: owners }),
+      placeholder('accounts-fees-invoice', 'Accounts For Fees Invoice', { roles: finance }),
+      placeholder('rules-regulations', 'Rules & Regulations', { roles: owners }),
+      placeholder('marks-grading', 'Marks Grading', { roles: owners }),
+      placeholder('theme-language', 'Theme & Language', { roles: owners }),
+      placeholder('account-settings', 'Account Settings', { roles: owners }),
+      { id: 'users-roles', label: 'Users & Roles', target: { page: 'settings', view: 'users' }, roles: owners },
+      { id: 'license', label: 'License', target: { page: 'settings', view: 'license' } },
+      { id: 'backup-restore', label: 'Backup & Restore', target: { page: 'settings', view: 'backup' }, roles: owners },
+      { id: 'about', label: 'About', target: { page: 'settings', view: 'about' } },
+      { id: 'logout', label: 'Log out' },
+    ],
+  },
+  {
+    id: 'classes',
+    label: 'Classes',
+    icon: 'building',
+    roles: owners,
+    items: [
+      { id: 'all-classes', label: 'All Classes', target: { page: 'settings', view: 'classes' } },
+      { id: 'new-class', label: 'New Class', target: { page: 'settings', view: 'classes' } },
+    ],
+  },
+  {
+    id: 'subjects',
+    label: 'Subjects',
+    icon: 'exams',
+    roles: academic,
+    items: [
+      { id: 'classes-with-subjects', label: 'Classes With Subjects', target: { page: 'exams', view: 'subjects' } },
+      { id: 'assign-subjects', label: 'Assign Subjects', target: { page: 'exams', view: 'subjects' } },
+    ],
+  },
+  {
+    id: 'students',
+    label: 'Students',
+    icon: 'students',
+    roles: studentReaders,
+    items: [
+      { id: 'all-students', label: 'All Students', target: { page: 'students' } },
+      { id: 'add-student', label: 'Add New', target: { page: 'students', view: 'add' }, roles: owners },
+      { id: 'import-students', label: 'Import Students', target: { page: 'students', view: 'import' }, roles: owners },
+      placeholder('manage-families', 'Manage Families', { locked: true, feature: 'student-families', roles: owners }),
+      placeholder('student-active-inactive', 'Active / Inactive'),
+      { id: 'admission-letter', label: 'Admission Letter', target: { page: 'documents', view: 'admission-letter' }, roles: owners },
+      { id: 'student-id-cards', label: 'Student ID Cards', target: { page: 'documents', view: 'id-cards' }, roles: owners },
+      { id: 'student-basic-list', label: 'Print Basic List', target: { page: 'reports', view: 'students' }, roles: reportReaders },
+      placeholder('student-login', 'Manage Login', { roles: owners }),
+      placeholder('promote-students', 'Promote Students', { roles: owners }),
+    ],
+  },
+  {
+    id: 'employees',
+    label: 'Employees',
+    icon: 'user',
+    roles: owners,
+    items: [
+      placeholder('all-employees', 'All Employees'),
+      placeholder('add-employee', 'Add New'),
+      placeholder('staff-id-cards', 'Staff ID Cards', { locked: true, feature: 'staff-id-cards' }),
+      placeholder('job-letter', 'Job Letter'),
+      placeholder('employee-login', 'Manage Login'),
+    ],
+  },
+  {
+    id: 'accounts',
+    label: 'Accounts',
+    icon: 'wallet',
+    roles: finance,
+    items: [
+      placeholder('chart-of-account', 'Chart Of Account'),
+      placeholder('add-income', 'Add Income'),
+      placeholder('add-expense', 'Add Expense'),
+      placeholder('account-statement', 'Account Statement'),
+    ],
+  },
+  {
+    id: 'fees',
+    label: 'Fees',
+    icon: 'fees',
+    roles: finance,
+    items: [
+      placeholder('generate-fees-invoice', 'Generate Fees Invoice'),
+      { id: 'collect-fees', label: 'Collect Fees', target: { page: 'fees' } },
+      { id: 'fees-paid-slip', label: 'Fees Paid Slip', target: { page: 'fees' } },
+      { id: 'fees-defaulters', label: 'Fees Defaulters', target: { page: 'reports', view: 'fee-due' } },
+      { id: 'fees-report', label: 'Fees Report', target: { page: 'reports', view: 'daily' } },
+      placeholder('delete-fees', 'Delete Fees', { locked: true, feature: 'delete-fees', roles: owners }),
+    ],
+  },
+  {
+    id: 'salary',
+    label: 'Salary',
+    icon: 'wallet',
+    roles: finance,
+    items: [
+      placeholder('pay-salary', 'Pay Salary'),
+      placeholder('salary-paid-slip', 'Salary Paid Slip'),
+      placeholder('salary-sheet', 'Salary Sheet', { locked: true, feature: 'salary-advanced' }),
+      placeholder('salary-report', 'Salary Report', { locked: true, feature: 'salary-advanced' }),
+    ],
+  },
+  {
+    id: 'attendance',
+    label: 'Attendance',
+    icon: 'attendance',
+    roles: academic,
+    items: [
+      { id: 'students-attendance', label: 'Students Attendance', target: { page: 'attendance' } },
+      placeholder('employees-attendance', 'Employees Attendance', { roles: owners }),
+      { id: 'class-attendance-report', label: 'Class wise Report', target: { page: 'reports', view: 'attendance' }, roles: owners },
+      { id: 'students-attendance-report', label: 'Students Attendance Report', target: { page: 'reports', view: 'attendance' }, roles: owners },
+      placeholder('employees-attendance-report', 'Employees Attendance Report', { roles: owners }),
+    ],
+  },
+  {
+    id: 'timetable',
+    label: 'Timetable',
+    icon: 'calendar',
+    roles: academic,
+    items: [
+      placeholder('weekdays', 'Weekdays', { locked: true, feature: 'timetable' }),
+      placeholder('time-periods', 'Time Periods', { locked: true, feature: 'timetable' }),
+      placeholder('class-rooms', 'Class Rooms', { locked: true, feature: 'timetable' }),
+      placeholder('create-timetable', 'Create Timetable', { locked: true, feature: 'timetable' }),
+      placeholder('timetable-class', 'Generate For Class', { locked: true, feature: 'timetable' }),
+      placeholder('timetable-teacher', 'Generate For Teacher', { locked: true, feature: 'timetable' }),
+    ],
+  },
+  {
+    id: 'homework',
+    label: 'Homework',
+    icon: 'edit',
+    roles: academic,
+    items: [
+      placeholder('homework-dashboard', 'Homework Dashboard', { locked: true, feature: 'homework' }),
+      placeholder('assign-homework', 'Assign Homework', { locked: true, feature: 'homework' }),
+      placeholder('homework-report', 'Homework Report', { locked: true, feature: 'homework' }),
+    ],
+  },
+  {
+    id: 'behaviour-skills',
+    label: 'Behaviour & Skills',
+    icon: 'check',
+    roles: academic,
+    items: [
+      placeholder('rate-behaviours', 'Rate Behaviours', { locked: true, feature: 'behaviour-skills' }),
+      placeholder('rate-skills', 'Rate Skills', { locked: true, feature: 'behaviour-skills' }),
+      placeholder('observations', 'Observations', { locked: true, feature: 'behaviour-skills' }),
+      placeholder('affective-domain-report', 'Affective Domain Rating Report', { locked: true, feature: 'behaviour-skills' }),
+      placeholder('psychomotor-domain-report', 'Psychomotor Domain Rating Report', { locked: true, feature: 'behaviour-skills' }),
+    ],
+  },
+  {
+    id: 'store-pos',
+    label: 'Online Store & POS',
+    icon: 'wallet',
+    roles: finance,
+    items: [
+      placeholder('store-analytics', 'Store Analytics', { locked: true, feature: 'store-pos' }),
+      placeholder('product-categories', 'Product Categories', { locked: true, feature: 'store-pos' }),
+      placeholder('product-tax', 'Product Tax', { locked: true, feature: 'store-pos' }),
+      placeholder('products', 'Products', { locked: true, feature: 'store-pos' }),
+      placeholder('new-order', 'New Order', { locked: true, feature: 'store-pos' }),
+      placeholder('all-orders', 'All Orders', { locked: true, feature: 'store-pos' }),
+    ],
+  },
+  {
+    id: 'whatsapp',
+    label: 'WhatsApp',
+    icon: 'bell',
+    roles: owners,
+    items: [
+      placeholder('whatsapp-services', 'WhatsApp Services', { locked: true, feature: 'whatsapp' }),
+    ],
+  },
+  {
+    id: 'messaging',
+    label: 'Messaging',
+    icon: 'bell',
+    roles: ['Owner', 'Admin', 'Accountant', 'Teacher'],
+    items: [placeholder('message-center', 'Message Center')],
+  },
+  {
+    id: 'sms-services',
+    label: 'SMS Services',
+    icon: 'bell',
+    roles: owners,
+    items: [
+      placeholder('free-sms-gateway', 'Free SMS Gateway'),
+      placeholder('branded-sms', 'Branded SMS', { locked: true, feature: 'branded-sms' }),
+      placeholder('sms-templates', 'SMS Templates', { locked: true, feature: 'branded-sms' }),
+    ],
+  },
+  {
+    id: 'live-class',
+    label: 'Live Class',
+    icon: 'school',
+    roles: academic,
+    items: [
+      placeholder('live-class-services', 'Live Class', { locked: true, feature: 'live-class' }),
+    ],
+  },
+  {
+    id: 'question-paper',
+    label: 'Question Paper',
+    icon: 'exams',
+    roles: academic,
+    items: [
+      placeholder('subject-chapters', 'Subject Chapters', { locked: true, feature: 'question-paper' }),
+      placeholder('question-bank', 'Question Bank', { locked: true, feature: 'question-paper' }),
+      placeholder('create-question-paper', 'Create Question Paper', { locked: true, feature: 'question-paper' }),
+    ],
+  },
+  {
+    id: 'exams',
+    label: 'Exams',
+    icon: 'exams',
+    roles: academic,
+    items: [
+      { id: 'create-exam', label: 'Create New Exam', target: { page: 'exams', view: 'exams' } },
+      { id: 'exam-marks', label: 'Add / Update Exam Marks', target: { page: 'exams', view: 'marks' } },
+      { id: 'result-card', label: 'Result Card', target: { page: 'exams', view: 'marksheet' } },
+      placeholder('result-sheet', 'Result Sheet', { locked: true, feature: 'exam-advanced' }),
+      placeholder('exam-schedule', 'Exam Schedule', { locked: true, feature: 'exam-advanced' }),
+      placeholder('date-sheet', 'Date Sheet', { locked: true, feature: 'exam-advanced' }),
+      placeholder('blank-award-list', 'Blank Award List', { locked: true, feature: 'exam-advanced' }),
+    ],
+  },
+  {
+    id: 'class-tests',
+    label: 'Class Tests',
+    icon: 'edit',
+    roles: academic,
+    items: [
+      placeholder('manage-test-marks', 'Manage Test Marks'),
+      placeholder('test-result', 'Test Result'),
+    ],
+  },
+  {
+    id: 'reports',
+    label: 'Reports',
+    icon: 'reports',
+    roles: reportReaders,
+    items: [
+      placeholder('students-report-card', 'Students Report Card'),
+      { id: 'students-info-report', label: 'Students Info Report', target: { page: 'reports', view: 'students' } },
+      placeholder('parents-info-report', 'Parents Info Report'),
+      placeholder('students-monthly-attendance', 'Students Monthly Attendance Report', { locked: true, feature: 'advanced-reports' }),
+      placeholder('staff-monthly-attendance', 'Staff Monthly Attendance Report', { locked: true, feature: 'advanced-reports' }),
+      { id: 'fee-collection-report', label: 'Fee Collection Report', target: { page: 'reports', view: 'monthly' } },
+      placeholder('student-progress-report', 'Student Progress Report', { locked: true, feature: 'advanced-reports' }),
+      placeholder('accounts-report', 'Accounts Report', { locked: true, feature: 'advanced-reports' }),
+      placeholder('customised-reports', 'Customised Reports', { locked: true, feature: 'advanced-reports' }),
+    ],
+  },
+  {
+    id: 'certificates',
+    label: 'Certificates',
+    icon: 'reports',
+    roles: owners,
+    items: [
+      { id: 'generate-certificate', label: 'Generate Certificate', target: { page: 'documents', view: 'certificates' } },
+      { id: 'certificate-templates', label: 'Certificate Templates', target: { page: 'documents', view: 'templates' } },
+    ],
+  },
+]
+
+export function canSeeNavigationEntry(
+  role: PermissionRole,
+  roles?: PermissionRole[],
+) {
+  return !roles || roles.includes(role)
+}

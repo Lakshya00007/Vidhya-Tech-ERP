@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { DataTable, type TableColumn } from '../components/DataTable'
 import { Icon } from '../components/Icon'
+import { StudentImportDialog } from '../components/StudentImportDialog'
 import { getErpApi, getErrorMessage } from '../lib/erpApi'
+import { downloadStudentImportTemplate } from '../lib/studentImport'
 import type { ClassItem, CreateStudentInput, SectionItem, Student } from '../types'
 
 const emptyForm: CreateStudentInput = {
@@ -15,18 +17,23 @@ const emptyForm: CreateStudentInput = {
 
 interface StudentsProps {
   canManage: boolean
+  initialAction?: 'add' | 'import'
 }
 
-export function Students({ canManage }: StudentsProps) {
+export function Students({ canManage, initialAction }: StudentsProps) {
   const [studentRows, setStudentRows] = useState<Student[]>([])
   const [classes, setClasses] = useState<ClassItem[]>([])
   const [sections, setSections] = useState<SectionItem[]>([])
   const [search, setSearch] = useState('')
   const [isFormOpen, setIsFormOpen] = useState(false)
+  const [isImportOpen, setIsImportOpen] = useState(
+    canManage && initialAction === 'import',
+  )
   const [editingStudentId, setEditingStudentId] = useState<string | null>(null)
   const [form, setForm] = useState<CreateStudentInput>(emptyForm)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
+  const [isTemplateDownloading, setIsTemplateDownloading] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
 
@@ -39,6 +46,18 @@ export function Students({ canManage }: StudentsProps) {
     } finally {
       setIsLoading(false)
     }
+  }, [])
+
+  const refreshImportedData = useCallback(async () => {
+    const [students, classRows, sectionRows] = await Promise.all([
+      getErpApi().getStudents(),
+      getErpApi().getClasses(),
+      getErpApi().getSections(),
+    ])
+    setStudentRows(students)
+    setClasses(classRows)
+    setSections(sectionRows)
+    setError('')
   }, [])
 
   useEffect(() => {
@@ -58,6 +77,21 @@ export function Students({ canManage }: StudentsProps) {
           setClasses(classRows)
           setSections(sectionRows)
           setError('')
+          if (canManage && initialAction === 'add') {
+            const firstClass = classRows.find((item) => item.status === 'Active')
+            const firstSection = sectionRows.find(
+              (section) =>
+                section.status === 'Active' &&
+                section.classId === firstClass?.id,
+            )
+            setEditingStudentId(null)
+            setForm({
+              ...emptyForm,
+              className: firstClass?.name ?? '',
+              section: firstSection?.name ?? '',
+            })
+            setIsFormOpen(true)
+          }
         }
       })
       .catch((loadError: unknown) => {
@@ -74,7 +108,7 @@ export function Students({ canManage }: StudentsProps) {
     return () => {
       isCurrent = false
     }
-  }, [])
+  }, [canManage, initialAction])
 
   const activeClasses = useMemo(
     () => classes.filter((item) => item.status === 'Active'),
@@ -254,6 +288,21 @@ export function Students({ canManage }: StudentsProps) {
     }
   }
 
+  const downloadTemplate = async () => {
+    setIsTemplateDownloading(true)
+    try {
+      const template = await getErpApi().getStudentImportTemplate()
+      await downloadStudentImportTemplate(template)
+      setMessage('Student import template downloaded.')
+      setError('')
+    } catch (downloadError) {
+      setError(getErrorMessage(downloadError))
+      setMessage('')
+    } finally {
+      setIsTemplateDownloading(false)
+    }
+  }
+
   return (
     <div className="page-stack">
       <section className="page-header">
@@ -262,10 +311,29 @@ export function Students({ canManage }: StudentsProps) {
           <p>Manage admission records and student information.</p>
         </div>
         {canManage && (
-          <button className="primary-button" type="button" onClick={openAddForm}>
-            <Icon name="plus" size={18} />
-            Add Student
-          </button>
+          <div className="page-header-actions">
+            <button
+              className="secondary-button"
+              disabled={isTemplateDownloading}
+              onClick={() => void downloadTemplate()}
+              type="button"
+            >
+              <Icon name="download" size={17} />
+              {isTemplateDownloading ? 'Preparing...' : 'Download Excel Template'}
+            </button>
+            <button
+              className="secondary-button"
+              onClick={() => setIsImportOpen(true)}
+              type="button"
+            >
+              <Icon name="students" size={17} />
+              Import Students
+            </button>
+            <button className="primary-button" type="button" onClick={openAddForm}>
+              <Icon name="plus" size={18} />
+              Add Student
+            </button>
+          </div>
         )}
       </section>
 
@@ -471,6 +539,16 @@ export function Students({ canManage }: StudentsProps) {
             </form>
           </aside>
         </div>
+      )}
+
+      {isImportOpen && (
+        <StudentImportDialog
+          classes={classes}
+          onClose={() => setIsImportOpen(false)}
+          onImported={refreshImportedData}
+          sections={sections}
+          students={studentRows}
+        />
       )}
     </div>
   )

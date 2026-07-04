@@ -130,6 +130,40 @@ is applied before SQLite opens on the next application restart.
 Backups should be stored outside the application folder. Installing or
 replacing the application does not delete the database in Electron `userData`.
 
+## Offline license activation
+
+Vidhya School ERP verifies a signed, device-bound license before showing owner
+setup or login. License signatures are verified in Electron's main process with
+`electron/license-public-key.pem`. The private signing key is never included in
+the renderer or packaged application.
+
+Generate the signing keypair once on a secured development machine:
+
+```bash
+npm run license:keys
+```
+
+This creates the ignored `license-private-key.pem` and the distributable
+`electron/license-public-key.pem`. Back up the private key offline. Losing it
+prevents issuing renewals compatible with that public key; exposing it allows
+unauthorized licenses to be created.
+
+Generate a license for the Device ID shown on the activation screen:
+
+```bash
+npm run license:generate -- \
+  --schoolName "Vidhya Public School" \
+  --deviceId "VSE-ABCD-1234-EF56" \
+  --plan "Annual" \
+  --expiresAt "2027-07-03" \
+  --maintenanceUntil "2027-07-03" \
+  --maxUsers 10
+```
+
+The command prints a signed `VSE1` license key. License activation and expiry
+checks work offline. Expired licenses block ERP access; expired maintenance
+shows a warning but does not block an otherwise active license.
+
 ## Demo data
 
 Owners can use Settings → Demo Tools to create an idempotent sample dataset.

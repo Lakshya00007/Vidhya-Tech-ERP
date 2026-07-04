@@ -9,6 +9,20 @@ export const BACKUP_API_UNAVAILABLE_MESSAGE =
 export const AUTH_API_UNAVAILABLE_MESSAGE =
   'Login is available only inside the Electron desktop app.'
 
+export const LICENSE_API_UNAVAILABLE_MESSAGE =
+  'License activation is available only inside the Electron desktop app.'
+
+export const DOCUMENTS_API_UNAVAILABLE_MESSAGE =
+  'Student documents are available only inside the Electron desktop app.'
+
+const licenseApiMethods = [
+  'getDeviceId',
+  'getLicenseStatus',
+  'activateLicense',
+  'deactivateLicense',
+  'getLicenseInfo',
+] as const satisfies ReadonlyArray<keyof ErpApi>
+
 const authApiMethods = [
   'hasUsers',
   'createFirstOwner',
@@ -35,6 +49,16 @@ const backupApiMethods = [
   'restartApp',
 ] as const satisfies ReadonlyArray<keyof ErpApi>
 
+const documentApiMethods = [
+  'getCertificateTemplates',
+  'createCertificateTemplate',
+  'updateCertificateTemplate',
+  'deleteCertificateTemplate',
+  'issueCertificate',
+  'getIssuedCertificates',
+  'getIssuedCertificatesByStudent',
+] as const satisfies ReadonlyArray<keyof ErpApi>
+
 export function getErpApi(): ErpApi {
   if (!window.erpApi) {
     throw new Error('The local database is available only inside the Electron desktop app.')
@@ -46,6 +70,17 @@ export function getAuthErpApi(): ErpApi {
   const api = window.erpApi
   if (!api || authApiMethods.some((method) => typeof api[method] !== 'function')) {
     throw new Error(AUTH_API_UNAVAILABLE_MESSAGE)
+  }
+  return api
+}
+
+export function getLicenseErpApi(): ErpApi {
+  const api = window.erpApi
+  if (
+    !api ||
+    licenseApiMethods.some((method) => typeof api[method] !== 'function')
+  ) {
+    throw new Error(LICENSE_API_UNAVAILABLE_MESSAGE)
   }
   return api
 }
@@ -68,6 +103,17 @@ export function getBackupErpApi(): ErpApi {
     backupApiMethods.some((method) => typeof api[method] !== 'function')
   ) {
     throw new Error(BACKUP_API_UNAVAILABLE_MESSAGE)
+  }
+  return api
+}
+
+export function getDocumentsErpApi(): ErpApi {
+  const api = window.erpApi
+  if (
+    !api ||
+    documentApiMethods.some((method) => typeof api[method] !== 'function')
+  ) {
+    throw new Error(DOCUMENTS_API_UNAVAILABLE_MESSAGE)
   }
   return api
 }

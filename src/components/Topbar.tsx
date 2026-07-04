@@ -1,9 +1,12 @@
-import type { AuthUser, PageId } from '../types'
+import type { AuthUser, LicenseStatus, PageId } from '../types'
 import { APP_VERSION } from '../lib/appInfo'
+import { licenseStatusLabels } from '../lib/license'
 
 interface TopbarProps {
   activePage: PageId
+  activeTitle?: string
   currentUser: AuthUser
+  licenseStatus: LicenseStatus
   onLogout: () => void
 }
 
@@ -15,6 +18,8 @@ const pageTitles: Record<PageId, string> = {
   exams: 'Examinations',
   reports: 'Reports',
   settings: 'Settings',
+  documents: 'Student Documents',
+  placeholder: 'Advanced Module',
 }
 
 const getInitials = (name: string) =>
@@ -26,17 +31,28 @@ const getInitials = (name: string) =>
     .slice(0, 2)
     .toUpperCase()
 
-export function Topbar({ activePage, currentUser, onLogout }: TopbarProps) {
+export function Topbar({
+  activePage,
+  activeTitle,
+  currentUser,
+  licenseStatus,
+  onLogout,
+}: TopbarProps) {
+  const pageTitle = activeTitle || pageTitles[activePage]
+
   return (
     <header className="topbar">
       <div className="topbar-title">
         <span>Vidhya School ERP · v{APP_VERSION}</span>
         <div>
-          <h1>{pageTitles[activePage]}</h1>
-          <span className="breadcrumb">Vidhya Public School / {pageTitles[activePage]}</span>
+          <h1>{pageTitle}</h1>
+          <span className="breadcrumb">Vidhya Public School / {pageTitle}</span>
         </div>
       </div>
       <div className="topbar-actions">
+        <div className={`license-badge license-badge--${licenseStatus.status}`}>
+          {licenseStatusLabels[licenseStatus.status]}
+        </div>
         <div className="offline-badge">
           <span />
           Offline Ready

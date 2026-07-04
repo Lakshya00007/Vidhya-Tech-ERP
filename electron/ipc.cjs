@@ -1,6 +1,11 @@
 const { ipcMain } = require("electron");
 
 const channels = [
+  "license:get-device-id",
+  "license:get-status",
+  "license:activate",
+  "license:deactivate",
+  "license:get-info",
   "auth:has-users",
   "auth:create-first-owner",
   "auth:login",
@@ -18,6 +23,8 @@ const channels = [
   "students:create",
   "students:update",
   "students:delete",
+  "students:import-bulk",
+  "students:import-template",
   "settings:get",
   "settings:save",
   "fees:get-all",
@@ -60,6 +67,13 @@ const channels = [
   "marks:get-by-student-exam",
   "marks:save-bulk",
   "marks:update",
+  "certificates:templates:get-all",
+  "certificates:templates:create",
+  "certificates:templates:update",
+  "certificates:templates:delete",
+  "certificates:issue",
+  "certificates:get-issued",
+  "certificates:get-issued-by-student",
   "database:create-backup",
   "database:restore-backup",
   "database:get-info",
@@ -67,48 +81,100 @@ const channels = [
   "app:restart",
 ];
 
-function registerIpcHandlers(database, backupService, authService) {
+function registerIpcHandlers(
+  database,
+  backupService,
+  authService,
+  licenseService,
+) {
+  const requireValidLicense = () =>
+    licenseService?.requireValidLicense();
   const requireAuthenticated = () => authService?.requireAuthenticated();
   const requireRoles = (roles) => authService?.requireRoles(roles);
   const authenticated = (handler) => (event, ...args) => {
+    requireValidLicense();
     requireAuthenticated();
     return handler(event, ...args);
   };
 
+  if (licenseService) {
+    ipcMain.handle("license:get-device-id", () =>
+      licenseService.getDeviceId(),
+    );
+    ipcMain.handle("license:get-status", () =>
+      licenseService.getLicenseStatus(),
+    );
+    ipcMain.handle("license:activate", (_event, licenseKey) =>
+      licenseService.activateLicense(licenseKey),
+    );
+    ipcMain.handle("license:get-info", () =>
+      licenseService.getLicenseInfo(),
+    );
+    ipcMain.handle("license:deactivate", () => {
+      requireValidLicense();
+      const actor = requireRoles(["Owner"]);
+      authService?.audit(
+        "License deactivated",
+        "License",
+        "The local license activation was removed.",
+        actor,
+      );
+      const result = licenseService.deactivateLicense();
+      authService?.logout();
+      return result;
+    });
+  }
+
   if (authService) {
-    ipcMain.handle("auth:has-users", () => authService.hasUsers());
-    ipcMain.handle("auth:create-first-owner", (_event, input) =>
-      authService.createFirstOwner(input),
-    );
-    ipcMain.handle("auth:login", (_event, username, password) =>
-      authService.login(username, password),
-    );
+    ipcMain.handle("auth:has-users", () => {
+      requireValidLicense();
+      return authService.hasUsers();
+    });
+    ipcMain.handle("auth:create-first-owner", (_event, input) => {
+      requireValidLicense();
+      return authService.createFirstOwner(input);
+    });
+    ipcMain.handle("auth:login", (_event, username, password) => {
+      requireValidLicense();
+      return authService.login(username, password);
+    });
     ipcMain.handle("auth:logout", () => authService.logout());
-    ipcMain.handle("auth:get-current-user", () =>
-      authService.getCurrentUser(),
-    );
+    ipcMain.handle("auth:get-current-user", () => {
+      requireValidLicense();
+      return authService.getCurrentUser();
+    });
     ipcMain.handle(
       "auth:change-password",
-      (_event, userId, oldPassword, newPassword) =>
-        authService.changePassword(userId, oldPassword, newPassword),
+      (_event, userId, oldPassword, newPassword) => {
+        requireValidLicense();
+        return authService.changePassword(userId, oldPassword, newPassword);
+      },
     );
 
-    ipcMain.handle("users:get-all", () => authService.getUsers());
-    ipcMain.handle("users:create", (_event, input) =>
-      authService.createUser(input),
-    );
-    ipcMain.handle("users:update", (_event, id, input) =>
-      authService.updateUser(id, input),
-    );
-    ipcMain.handle("users:reset-password", (_event, id, newPassword) =>
-      authService.resetUserPassword(id, newPassword),
-    );
-    ipcMain.handle("users:delete", (_event, id) =>
-      authService.deleteUser(id),
-    );
-    ipcMain.handle("audit:get", (_event, limit) =>
-      authService.getAuditLogs(limit),
-    );
+    ipcMain.handle("users:get-all", () => {
+      requireValidLicense();
+      return authService.getUsers();
+    });
+    ipcMain.handle("users:create", (_event, input) => {
+      requireValidLicense();
+      return authService.createUser(input);
+    });
+    ipcMain.handle("users:update", (_event, id, input) => {
+      requireValidLicense();
+      return authService.updateUser(id, input);
+    });
+    ipcMain.handle("users:reset-password", (_event, id, newPassword) => {
+      requireValidLicense();
+      return authService.resetUserPassword(id, newPassword);
+    });
+    ipcMain.handle("users:delete", (_event, id) => {
+      requireValidLicense();
+      return authService.deleteUser(id);
+    });
+    ipcMain.handle("audit:get", (_event, limit) => {
+      requireValidLicense();
+      return authService.getAuditLogs(limit);
+    });
   }
 
   ipcMain.handle(
@@ -141,6 +207,27 @@ function registerIpcHandlers(database, backupService, authService) {
     authenticated((_event, id) => {
       requireRoles(["Owner", "Admin"]);
       return database.deleteStudent(id);
+    }),
+  );
+  ipcMain.handle(
+    "students:import-template",
+    authenticated(() => {
+      requireRoles(["Owner", "Admin"]);
+      return database.getStudentImportTemplate();
+    }),
+  );
+  ipcMain.handle(
+    "students:import-bulk",
+    authenticated((_event, rows, options) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      const result = database.importStudentsBulk(rows, options);
+      authService?.audit(
+        "Students imported",
+        "Students",
+        `Processed ${result.totalRows} row(s): ${result.inserted} inserted, ${result.updated} updated, ${result.skipped} skipped.`,
+        actor,
+      );
+      return result;
     }),
   );
 
@@ -446,6 +533,89 @@ function registerIpcHandlers(database, backupService, authService) {
     authenticated((_event, id, input) => {
       requireRoles(["Owner", "Admin", "Teacher"]);
       return database.updateMark(id, input);
+    }),
+  );
+
+  ipcMain.handle(
+    "certificates:templates:get-all",
+    authenticated(() => {
+      requireRoles(["Owner", "Admin"]);
+      return database.getCertificateTemplates();
+    }),
+  );
+  ipcMain.handle(
+    "certificates:templates:create",
+    authenticated((_event, input) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      const created = database.createCertificateTemplate(input);
+      authService?.audit(
+        "Certificate template created",
+        "Certificates",
+        `Created template "${created.name}" (${created.type}).`,
+        actor,
+      );
+      return created;
+    }),
+  );
+  ipcMain.handle(
+    "certificates:templates:update",
+    authenticated((_event, id, input) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      const updated = database.updateCertificateTemplate(id, input);
+      authService?.audit(
+        "Certificate template updated",
+        "Certificates",
+        `Updated template "${updated.name}".`,
+        actor,
+      );
+      return updated;
+    }),
+  );
+  ipcMain.handle(
+    "certificates:templates:delete",
+    authenticated((_event, id) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      const result = database.deleteCertificateTemplate(id);
+      if (result.success) {
+        authService?.audit(
+          "Certificate template deleted",
+          "Certificates",
+          "Soft-deleted a certificate template.",
+          actor,
+        );
+      }
+      return result;
+    }),
+  );
+  ipcMain.handle(
+    "certificates:issue",
+    authenticated((_event, input) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      const issued = database.issueCertificate({
+        ...input,
+        issuedBy: actor?.name ?? "",
+      });
+      authService?.audit(
+        "Certificate issued",
+        "Certificates",
+        `Issued ${issued.certificateNo} to ${issued.studentName}.`,
+        actor,
+      );
+      return issued;
+    }),
+  );
+  ipcMain.handle(
+    "certificates:get-issued",
+    authenticated(() => {
+      requireRoles(["Owner", "Admin"]);
+      return database.getIssuedCertificates();
+    }),
+  );
+  ipcMain.handle(
+    "certificates:get-issued-by-student",
+    authenticated((_event, studentId) => {
+      requireRoles(["Owner", "Admin"]);
+      return database.getIssuedCertificatesByStudent(studentId);
     }),
   );
 

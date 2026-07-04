@@ -26,6 +26,27 @@ const FEE_FREQUENCIES = new Set([
   "Yearly",
   "One-Time",
 ]);
+const CERTIFICATE_TYPES = new Set([
+  "Bonafide",
+  "Character",
+  "Transfer",
+  "Admission",
+  "Custom",
+]);
+const STUDENT_IMPORT_TEMPLATE_COLUMNS = [
+  "Admission No",
+  "Student Name",
+  "Class",
+  "Section",
+  "Guardian Name",
+  "Mobile",
+  "Address",
+  "Date of Birth",
+  "Admission Date",
+  "Status",
+];
+
+class StudentImportValidationError extends Error {}
 
 function now() {
   return new Date().toISOString();
@@ -67,6 +88,36 @@ function normalizeDate(value, fieldName) {
   return dateOnly;
 }
 
+function normalizeOptionalImportDate(value, fieldName) {
+  const text = optionalText(value);
+  if (!text) return "";
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) {
+    throw new StudentImportValidationError(
+      `${fieldName} must use YYYY-MM-DD format.`,
+    );
+  }
+  try {
+    return normalizeDate(text, fieldName);
+  } catch (error) {
+    throw new StudentImportValidationError(
+      error instanceof Error ? error.message : `${fieldName} is invalid.`,
+    );
+  }
+}
+
+function importText(value, fieldName, maximumLength, required = false) {
+  const text = optionalText(value);
+  if (required && !text) {
+    throw new StudentImportValidationError(`${fieldName} is required.`);
+  }
+  if (text.length > maximumLength) {
+    throw new StudentImportValidationError(
+      `${fieldName} must not exceed ${maximumLength} characters.`,
+    );
+  }
+  return text;
+}
+
 function studentFromRow(row) {
   return {
     id: row.id,
@@ -76,6 +127,14 @@ function studentFromRow(row) {
     section: row.section ?? "",
     guardianName: row.guardian_name ?? "",
     mobile: row.mobile ?? "",
+    fatherName: row.father_name ?? "",
+    motherName: row.mother_name ?? "",
+    email: row.email ?? "",
+    gender: row.gender ?? "",
+    bloodGroup: row.blood_group ?? "",
+    aadharNo: row.aadhar_no ?? "",
+    previousSchool: row.previous_school ?? "",
+    notes: row.notes ?? "",
     status: row.status,
     address: row.address ?? "",
     dateOfBirth: row.date_of_birth ?? "",
@@ -280,6 +339,69 @@ function auditLogFromRow(row) {
   };
 }
 
+function certificateTemplateFromRow(row) {
+  return {
+    id: row.id,
+    name: row.name,
+    type: row.type,
+    bodyTemplate: row.body_template,
+    status: row.status,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at,
+    syncStatus: row.sync_status,
+  };
+}
+
+function issuedCertificateFromRow(row) {
+  return {
+    id: row.id,
+    certificateNo: row.certificate_no,
+    studentId: row.student_id,
+    studentName: row.student_name,
+    admissionNo: row.admission_no ?? "",
+    className: row.class_name ?? "",
+    section: row.section ?? "",
+    templateId: row.template_id ?? "",
+    certificateType: row.certificate_type ?? "",
+    issuedDate: row.issued_date,
+    body: row.body ?? "",
+    issuedBy: row.issued_by ?? "",
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    syncStatus: row.sync_status,
+  };
+}
+
+function licenseActivationFromRow(row) {
+  if (!row) return null;
+  let features = [];
+  try {
+    const parsedFeatures = JSON.parse(row.features_json ?? "[]");
+    features = Array.isArray(parsedFeatures) ? parsedFeatures : [];
+  } catch {
+    features = [];
+  }
+  return {
+    id: row.id,
+    licenseId: row.license_id ?? "",
+    schoolName: row.school_name ?? "",
+    deviceId: row.device_id ?? "",
+    plan: row.plan ?? "",
+    issuedAt: row.issued_at ?? "",
+    expiresAt: row.expires_at ?? "",
+    maintenanceUntil: row.maintenance_until ?? "",
+    maxUsers: Number(row.max_users ?? 0),
+    features,
+    licenseKey: row.license_key ?? "",
+    status: row.status ?? "missing",
+    activatedAt: row.activated_at ?? null,
+    lastCheckedAt: row.last_checked_at ?? null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
 function masterStatus(value, fallback = "Active") {
   const status = optionalText(value) || fallback;
   if (!MASTER_STATUSES.has(status)) {
@@ -341,6 +463,14 @@ function createDatabase(databasePath) {
       section TEXT,
       guardian_name TEXT,
       mobile TEXT,
+      father_name TEXT,
+      mother_name TEXT,
+      email TEXT,
+      gender TEXT,
+      blood_group TEXT,
+      aadhar_no TEXT,
+      previous_school TEXT,
+      notes TEXT,
       status TEXT DEFAULT 'Active',
       address TEXT,
       date_of_birth TEXT,
@@ -507,6 +637,25 @@ function createDatabase(databasePath) {
       sync_status TEXT DEFAULT 'pending'
     );
 
+    CREATE TABLE IF NOT EXISTS license_activation (
+      id TEXT PRIMARY KEY,
+      license_id TEXT,
+      school_name TEXT,
+      device_id TEXT,
+      plan TEXT,
+      issued_at TEXT,
+      expires_at TEXT,
+      maintenance_until TEXT,
+      max_users INTEGER,
+      features_json TEXT,
+      license_key TEXT,
+      status TEXT,
+      activated_at TEXT,
+      last_checked_at TEXT,
+      created_at TEXT,
+      updated_at TEXT
+    );
+
     CREATE TABLE IF NOT EXISTS audit_logs (
       id TEXT PRIMARY KEY,
       user_id TEXT,
@@ -515,6 +664,40 @@ function createDatabase(databasePath) {
       module TEXT,
       details TEXT,
       created_at TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS certificate_templates (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      type TEXT NOT NULL CHECK (
+        type IN ('Bonafide', 'Character', 'Transfer', 'Admission', 'Custom')
+      ),
+      body_template TEXT NOT NULL,
+      status TEXT DEFAULT 'Active' CHECK (status IN ('Active', 'Inactive')),
+      created_at TEXT,
+      updated_at TEXT,
+      deleted_at TEXT,
+      sync_status TEXT DEFAULT 'pending'
+    );
+
+    CREATE TABLE IF NOT EXISTS issued_certificates (
+      id TEXT PRIMARY KEY,
+      certificate_no TEXT UNIQUE NOT NULL,
+      student_id TEXT NOT NULL,
+      student_name TEXT NOT NULL,
+      admission_no TEXT,
+      class_name TEXT,
+      section TEXT,
+      template_id TEXT,
+      certificate_type TEXT,
+      issued_date TEXT,
+      body TEXT,
+      issued_by TEXT,
+      created_at TEXT,
+      updated_at TEXT,
+      sync_status TEXT DEFAULT 'pending',
+      FOREIGN KEY (student_id) REFERENCES students(id),
+      FOREIGN KEY (template_id) REFERENCES certificate_templates(id)
     );
 
     CREATE INDEX IF NOT EXISTS idx_students_active
@@ -545,6 +728,12 @@ function createDatabase(databasePath) {
       ON users(deleted_at, status, role);
     CREATE INDEX IF NOT EXISTS idx_audit_logs_created
       ON audit_logs(created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_certificate_templates_active
+      ON certificate_templates(deleted_at, status, name);
+    CREATE INDEX IF NOT EXISTS idx_issued_certificates_student
+      ON issued_certificates(student_id, issued_date DESC);
+    CREATE INDEX IF NOT EXISTS idx_issued_certificates_date
+      ON issued_certificates(issued_date DESC, created_at DESC);
   `);
 
   addColumnIfMissing(db, "fee_payments", "admission_no", "TEXT");
@@ -554,6 +743,14 @@ function createDatabase(databasePath) {
   addColumnIfMissing(db, "fee_payments", "cashier_name", "TEXT");
   addColumnIfMissing(db, "attendance", "admission_no", "TEXT");
   addColumnIfMissing(db, "attendance", "remarks", "TEXT");
+  addColumnIfMissing(db, "students", "father_name", "TEXT");
+  addColumnIfMissing(db, "students", "mother_name", "TEXT");
+  addColumnIfMissing(db, "students", "email", "TEXT");
+  addColumnIfMissing(db, "students", "gender", "TEXT");
+  addColumnIfMissing(db, "students", "blood_group", "TEXT");
+  addColumnIfMissing(db, "students", "aadhar_no", "TEXT");
+  addColumnIfMissing(db, "students", "previous_school", "TEXT");
+  addColumnIfMissing(db, "students", "notes", "TEXT");
 
   const timestamp = now();
   db.prepare(`
@@ -575,6 +772,46 @@ function createDatabase(databasePath) {
     createdAt: timestamp,
     updatedAt: timestamp,
   });
+
+  const insertDefaultTemplate = db.prepare(`
+    INSERT OR IGNORE INTO certificate_templates (
+      id, name, type, body_template, status, created_at, updated_at,
+      deleted_at, sync_status
+    ) VALUES (
+      @id, @name, @type, @bodyTemplate, 'Active', @createdAt, @updatedAt,
+      NULL, 'pending'
+    )
+  `);
+  const defaultCertificateTemplates = [
+    {
+      id: "default-bonafide-certificate",
+      name: "Bonafide Certificate",
+      type: "Bonafide",
+      bodyTemplate:
+        "This is to certify that {{studentName}}, Admission No. {{admissionNo}}, is a bonafide student of {{schoolName}} studying in Class {{className}}, Section {{section}}, during the academic year {{academicYear}}.\n\nThis certificate is issued on {{date}} at the request of the student/guardian for official purposes.",
+    },
+    {
+      id: "default-character-certificate",
+      name: "Character Certificate",
+      type: "Character",
+      bodyTemplate:
+        "This is to certify that {{studentName}}, Admission No. {{admissionNo}}, of Class {{className}}, Section {{section}}, has been a student of {{schoolName}} during the academic year {{academicYear}}.\n\nTo the best of our knowledge, the student's conduct and character have been satisfactory. We wish the student success in future endeavours.",
+    },
+    {
+      id: "default-transfer-certificate",
+      name: "Transfer Certificate",
+      type: "Transfer",
+      bodyTemplate:
+        "This is to certify that {{studentName}}, Admission No. {{admissionNo}}, studied at {{schoolName}} in Class {{className}}, Section {{section}}, during the academic year {{academicYear}}.\n\nThis basic transfer certificate is issued on {{date}}. Complete statutory transfer details may be added by editing this template before issue.",
+    },
+  ];
+  for (const template of defaultCertificateTemplates) {
+    insertDefaultTemplate.run({
+      ...template,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    });
+  }
 
   if (!hadClassesTable) {
     const legacyClasses = db
@@ -657,12 +894,14 @@ function createDatabase(databasePath) {
   const insertStudentStatement = db.prepare(`
     INSERT INTO students (
       id, admission_no, name, class_name, section, guardian_name, mobile,
-      status, address, date_of_birth, admission_date, created_at, updated_at,
-      deleted_at, sync_status
+      father_name, mother_name, email, gender, blood_group, aadhar_no,
+      previous_school, notes, status, address, date_of_birth, admission_date,
+      created_at, updated_at, deleted_at, sync_status
     ) VALUES (
       @id, @admissionNo, @name, @className, @section, @guardianName, @mobile,
-      @status, @address, @dateOfBirth, @admissionDate, @createdAt, @updatedAt,
-      NULL, 'pending'
+      @fatherName, @motherName, @email, @gender, @bloodGroup, @aadharNo,
+      @previousSchool, @notes, @status, @address, @dateOfBirth,
+      @admissionDate, @createdAt, @updatedAt, NULL, 'pending'
     )
   `);
 
@@ -674,6 +913,14 @@ function createDatabase(databasePath) {
         section = @section,
         guardian_name = @guardianName,
         mobile = @mobile,
+        father_name = @fatherName,
+        mother_name = @motherName,
+        email = @email,
+        gender = @gender,
+        blood_group = @bloodGroup,
+        aadhar_no = @aadharNo,
+        previous_school = @previousSchool,
+        notes = @notes,
         status = @status,
         address = @address,
         date_of_birth = @dateOfBirth,
@@ -748,6 +995,49 @@ function createDatabase(databasePath) {
     return `${receiptStem}${String(nextSequence).padStart(4, "0")}`;
   }
 
+  function generateCertificateNumber(issuedDate) {
+    const year = normalizeDate(issuedDate, "Issue date").slice(0, 4);
+    const certificateStem = `CERT-${year}-`;
+    const sequence = db
+      .prepare(`
+        SELECT MAX(
+          CAST(substr(certificate_no, length(?) + 1) AS INTEGER)
+        ) AS last_sequence
+        FROM issued_certificates
+        WHERE substr(certificate_no, 1, length(?)) = ?
+      `)
+      .get(certificateStem, certificateStem, certificateStem);
+    const nextSequence = Number(sequence?.last_sequence ?? 0) + 1;
+    return `${certificateStem}${String(nextSequence).padStart(4, "0")}`;
+  }
+
+  function formatDocumentDate(value) {
+    const date = new Date(`${normalizeDate(value, "Issue date")}T00:00:00`);
+    return new Intl.DateTimeFormat("en-IN", {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    }).format(date);
+  }
+
+  function renderCertificateBody(bodyTemplate, settings, student, issuedDate) {
+    const variables = {
+      schoolName: settings.school_name ?? "",
+      studentName: student.name ?? "",
+      admissionNo: student.admission_no ?? "",
+      className: student.class_name ?? "",
+      section: student.section ?? "",
+      guardianName: student.guardian_name ?? "",
+      date: formatDocumentDate(issuedDate),
+      academicYear: settings.academic_year ?? "",
+    };
+    return Object.entries(variables).reduce(
+      (body, [name, value]) =>
+        body.replaceAll(`{{${name}}}`, optionalText(value)),
+      requiredText(bodyTemplate, "Certificate body"),
+    );
+  }
+
   return {
     getStudents() {
       return getStudentsStatement.all().map(studentFromRow);
@@ -790,6 +1080,14 @@ function createDatabase(databasePath) {
         section,
         guardianName: optionalText(input?.guardianName),
         mobile: optionalText(input?.mobile),
+        fatherName: optionalText(input?.fatherName),
+        motherName: optionalText(input?.motherName),
+        email: optionalText(input?.email),
+        gender: optionalText(input?.gender),
+        bloodGroup: optionalText(input?.bloodGroup),
+        aadharNo: optionalText(input?.aadharNo),
+        previousSchool: optionalText(input?.previousSchool),
+        notes: optionalText(input?.notes),
         status,
         address: optionalText(input?.address),
         dateOfBirth: optionalText(input?.dateOfBirth),
@@ -863,6 +1161,38 @@ function createDatabase(databasePath) {
           input?.mobile === undefined
             ? existingStudent.mobile
             : optionalText(input.mobile),
+        fatherName:
+          input?.fatherName === undefined
+            ? existingStudent.fatherName
+            : optionalText(input.fatherName),
+        motherName:
+          input?.motherName === undefined
+            ? existingStudent.motherName
+            : optionalText(input.motherName),
+        email:
+          input?.email === undefined
+            ? existingStudent.email
+            : optionalText(input.email),
+        gender:
+          input?.gender === undefined
+            ? existingStudent.gender
+            : optionalText(input.gender),
+        bloodGroup:
+          input?.bloodGroup === undefined
+            ? existingStudent.bloodGroup
+            : optionalText(input.bloodGroup),
+        aadharNo:
+          input?.aadharNo === undefined
+            ? existingStudent.aadharNo
+            : optionalText(input.aadharNo),
+        previousSchool:
+          input?.previousSchool === undefined
+            ? existingStudent.previousSchool
+            : optionalText(input.previousSchool),
+        notes:
+          input?.notes === undefined
+            ? existingStudent.notes
+            : optionalText(input.notes),
         status,
         address:
           input?.address === undefined
@@ -893,6 +1223,341 @@ function createDatabase(databasePath) {
         `)
         .run({ id: requiredText(id, "Student id"), deletedAt: now(), updatedAt: now() });
       return { success: result.changes === 1 };
+    },
+
+    getStudentImportTemplate() {
+      return {
+        columns: STUDENT_IMPORT_TEMPLATE_COLUMNS,
+        sampleRows: [
+          [
+            "VSE-2026-001",
+            "Sample Student",
+            "10",
+            "A",
+            "Sample Guardian",
+            "9876543210",
+            "School Road, City",
+            "2011-05-15",
+            "2026-04-01",
+            "Active",
+          ],
+        ],
+        filename: "vidhya-student-import-template.xlsx",
+      };
+    },
+
+    importStudentsBulk(rows, options = {}) {
+      if (!Array.isArray(rows)) {
+        throw new Error("Student import rows must be an array.");
+      }
+      if (rows.length === 0) {
+        throw new Error("No student rows were provided for import.");
+      }
+      if (rows.length > 5000) {
+        throw new Error("A maximum of 5,000 students can be imported at once.");
+      }
+      const mode = options?.mode === "update" ? "update" : "skip";
+      const autoCreateMasters = options?.autoCreateMasters === true;
+      const result = {
+        totalRows: rows.length,
+        imported: 0,
+        inserted: 0,
+        updated: 0,
+        skipped: 0,
+        duplicates: 0,
+        errors: [],
+        classesCreated: 0,
+        sectionsCreated: 0,
+      };
+      const seenAdmissionNumbers = new Set();
+
+      const importTransaction = db.transaction(() => {
+        for (let rowIndex = 0; rowIndex < rows.length; rowIndex += 1) {
+          const input = rows[rowIndex] ?? {};
+          const providedFields = Array.isArray(input.providedFields)
+            ? new Set(input.providedFields.map(optionalText))
+            : null;
+          const wasProvided = (fieldName) =>
+            !providedFields || providedFields.has(fieldName);
+          const rowNumber =
+            Number.isInteger(Number(input.rowNumber)) &&
+            Number(input.rowNumber) > 0
+              ? Number(input.rowNumber)
+              : rowIndex + 2;
+          let admissionNo = optionalText(input.admissionNo);
+
+          try {
+            admissionNo = importText(
+              input.admissionNo,
+              "Admission number",
+              100,
+              true,
+            );
+            const normalizedAdmissionNo = admissionNo.toLowerCase();
+            if (seenAdmissionNumbers.has(normalizedAdmissionNo)) {
+              result.duplicates += 1;
+              result.skipped += 1;
+              continue;
+            }
+            seenAdmissionNumbers.add(normalizedAdmissionNo);
+
+            const name = importText(
+              input.name,
+              "Student name",
+              200,
+              true,
+            );
+            const className = importText(
+              input.className,
+              "Class",
+              100,
+              true,
+            );
+            const section = importText(input.section, "Section", 100);
+            const guardianName = importText(
+              input.guardianName,
+              "Guardian name",
+              200,
+            );
+            const mobile = importText(input.mobile, "Mobile", 50);
+            const fatherName = importText(
+              input.fatherName,
+              "Father name",
+              200,
+            );
+            const motherName = importText(
+              input.motherName,
+              "Mother name",
+              200,
+            );
+            const address = importText(input.address, "Address", 1000);
+            const email = importText(input.email, "Email", 254);
+            if (
+              email &&
+              !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+            ) {
+              throw new StudentImportValidationError(
+                "Email address is invalid.",
+              );
+            }
+            const gender = importText(input.gender, "Gender", 50);
+            const bloodGroup = importText(
+              input.bloodGroup,
+              "Blood group",
+              20,
+            );
+            const aadharNo = importText(input.aadharNo, "Aadhar number", 30);
+            const previousSchool = importText(
+              input.previousSchool,
+              "Previous school",
+              300,
+            );
+            const notes = importText(input.notes, "Notes", 2000);
+            const dateOfBirth = normalizeOptionalImportDate(
+              input.dateOfBirth,
+              "Date of birth",
+            );
+            const admissionDate = normalizeOptionalImportDate(
+              input.admissionDate,
+              "Admission date",
+            );
+            const rawStatus = optionalText(input.status) || "Active";
+            const status =
+              rawStatus.toLowerCase() === "active"
+                ? "Active"
+                : rawStatus.toLowerCase() === "inactive"
+                  ? "Inactive"
+                  : "";
+            if (!status) {
+              throw new StudentImportValidationError(
+                "Status must be Active or Inactive.",
+              );
+            }
+
+            const existingStudent = db
+              .prepare(`
+                SELECT *
+                FROM students
+                WHERE admission_no = ? COLLATE NOCASE
+              `)
+              .get(admissionNo);
+            if (existingStudent?.deleted_at) {
+              result.duplicates += 1;
+              result.skipped += 1;
+              result.errors.push({
+                rowNumber,
+                admissionNo,
+                message:
+                  "A soft-deleted student already uses this admission number.",
+              });
+              continue;
+            }
+            if (existingStudent && mode === "skip") {
+              result.duplicates += 1;
+              result.skipped += 1;
+              continue;
+            }
+
+            let schoolClass = db
+              .prepare(`
+                SELECT *
+                FROM classes
+                WHERE name = ? COLLATE NOCASE AND deleted_at IS NULL
+              `)
+              .get(className);
+            if (schoolClass?.status !== "Active") {
+              if (schoolClass) {
+                throw new StudentImportValidationError(
+                  `Class "${className}" is inactive.`,
+                );
+              }
+              if (!autoCreateMasters) {
+                throw new StudentImportValidationError(
+                  `Class "${className}" does not exist.`,
+                );
+              }
+              const nextDisplayOrder =
+                Number(
+                  db
+                    .prepare(
+                      "SELECT MAX(display_order) AS maximum FROM classes",
+                    )
+                    .get()?.maximum ?? 0,
+                ) + 1;
+              const createdClass = this.createClass({
+                name: className,
+                displayOrder: nextDisplayOrder,
+                status: "Active",
+              });
+              result.classesCreated += 1;
+              schoolClass = db
+                .prepare("SELECT * FROM classes WHERE id = ?")
+                .get(createdClass.id);
+            }
+
+            if (section) {
+              const schoolSection = db
+                .prepare(`
+                  SELECT *
+                  FROM sections
+                  WHERE class_id = ?
+                    AND name = ? COLLATE NOCASE
+                    AND deleted_at IS NULL
+                `)
+                .get(schoolClass.id, section);
+              if (schoolSection?.status !== "Active") {
+                if (schoolSection) {
+                  throw new StudentImportValidationError(
+                    `Section "${section}" is inactive for class "${className}".`,
+                  );
+                }
+                if (!autoCreateMasters) {
+                  throw new StudentImportValidationError(
+                    `Section "${section}" does not exist for class "${className}".`,
+                  );
+                }
+                this.createSection({
+                  classId: schoolClass.id,
+                  name: section,
+                  status: "Active",
+                });
+                result.sectionsCreated += 1;
+              }
+            }
+
+            const studentValues = {
+              id: existingStudent?.id ?? crypto.randomUUID(),
+              admissionNo,
+              name,
+              className: schoolClass.name,
+              section:
+                existingStudent && !wasProvided("section")
+                  ? existingStudent.section ?? ""
+                  : section,
+              guardianName:
+                existingStudent && !wasProvided("guardianName")
+                  ? existingStudent.guardian_name ?? ""
+                  : guardianName,
+              mobile:
+                existingStudent && !wasProvided("mobile")
+                  ? existingStudent.mobile ?? ""
+                  : mobile,
+              fatherName:
+                existingStudent && !wasProvided("fatherName")
+                  ? existingStudent.father_name ?? ""
+                  : fatherName,
+              motherName:
+                existingStudent && !wasProvided("motherName")
+                  ? existingStudent.mother_name ?? ""
+                  : motherName,
+              email:
+                existingStudent && !wasProvided("email")
+                  ? existingStudent.email ?? ""
+                  : email,
+              gender:
+                existingStudent && !wasProvided("gender")
+                  ? existingStudent.gender ?? ""
+                  : gender,
+              bloodGroup:
+                existingStudent && !wasProvided("bloodGroup")
+                  ? existingStudent.blood_group ?? ""
+                  : bloodGroup,
+              aadharNo:
+                existingStudent && !wasProvided("aadharNo")
+                  ? existingStudent.aadhar_no ?? ""
+                  : aadharNo,
+              previousSchool:
+                existingStudent && !wasProvided("previousSchool")
+                  ? existingStudent.previous_school ?? ""
+                  : previousSchool,
+              notes:
+                existingStudent && !wasProvided("notes")
+                  ? existingStudent.notes ?? ""
+                  : notes,
+              status:
+                existingStudent && !wasProvided("status")
+                  ? existingStudent.status
+                  : status,
+              address:
+                existingStudent && !wasProvided("address")
+                  ? existingStudent.address ?? ""
+                  : address,
+              dateOfBirth:
+                existingStudent && !wasProvided("dateOfBirth")
+                  ? existingStudent.date_of_birth ?? ""
+                  : dateOfBirth,
+              admissionDate:
+                existingStudent && !wasProvided("admissionDate")
+                  ? existingStudent.admission_date ?? ""
+                  : admissionDate,
+              createdAt: existingStudent?.created_at ?? now(),
+              updatedAt: now(),
+            };
+
+            if (existingStudent) {
+              updateStudentStatement.run(studentValues);
+              result.updated += 1;
+            } else {
+              insertStudentStatement.run(studentValues);
+              result.inserted += 1;
+            }
+            result.imported += 1;
+          } catch (error) {
+            if (!(error instanceof StudentImportValidationError)) {
+              throw error;
+            }
+            result.skipped += 1;
+            result.errors.push({
+              rowNumber,
+              admissionNo,
+              message: error.message,
+            });
+          }
+        }
+      });
+
+      importTransaction();
+      return result;
     },
 
     getSchoolSettings() {
@@ -2757,6 +3422,331 @@ function createDatabase(databasePath) {
             : `Created ${totalCreated} sample demo record(s).`,
         created,
       };
+    },
+
+    getCertificateTemplates() {
+      return db
+        .prepare(`
+          SELECT *
+          FROM certificate_templates
+          WHERE deleted_at IS NULL
+          ORDER BY
+            CASE status WHEN 'Active' THEN 0 ELSE 1 END,
+            name COLLATE NOCASE
+        `)
+        .all()
+        .map(certificateTemplateFromRow);
+    },
+
+    createCertificateTemplate(input) {
+      const name = requiredText(input?.name, "Template name");
+      const type = requiredText(input?.type, "Certificate type");
+      if (!CERTIFICATE_TYPES.has(type)) {
+        throw new Error("Certificate type is invalid.");
+      }
+      const bodyTemplate = requiredText(
+        input?.bodyTemplate,
+        "Certificate body",
+      );
+      if (bodyTemplate.length > 10000) {
+        throw new Error("Certificate body must not exceed 10,000 characters.");
+      }
+      const duplicate = db
+        .prepare(`
+          SELECT id
+          FROM certificate_templates
+          WHERE name = ? COLLATE NOCASE AND deleted_at IS NULL
+        `)
+        .get(name);
+      if (duplicate) {
+        throw new Error("An active certificate template with this name already exists.");
+      }
+
+      const id = crypto.randomUUID();
+      const timestamp = now();
+      db.prepare(`
+        INSERT INTO certificate_templates (
+          id, name, type, body_template, status, created_at, updated_at,
+          deleted_at, sync_status
+        ) VALUES (
+          @id, @name, @type, @bodyTemplate, @status, @createdAt, @updatedAt,
+          NULL, 'pending'
+        )
+      `).run({
+        id,
+        name,
+        type,
+        bodyTemplate,
+        status: masterStatus(input?.status),
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+      return certificateTemplateFromRow(
+        db.prepare("SELECT * FROM certificate_templates WHERE id = ?").get(id),
+      );
+    },
+
+    updateCertificateTemplate(id, input) {
+      const templateId = requiredText(id, "Template id");
+      const existing = db
+        .prepare(`
+          SELECT *
+          FROM certificate_templates
+          WHERE id = ? AND deleted_at IS NULL
+        `)
+        .get(templateId);
+      if (!existing) {
+        throw new Error("Certificate template was not found.");
+      }
+
+      const name =
+        input?.name === undefined
+          ? existing.name
+          : requiredText(input.name, "Template name");
+      const type =
+        input?.type === undefined
+          ? existing.type
+          : requiredText(input.type, "Certificate type");
+      if (!CERTIFICATE_TYPES.has(type)) {
+        throw new Error("Certificate type is invalid.");
+      }
+      const bodyTemplate =
+        input?.bodyTemplate === undefined
+          ? existing.body_template
+          : requiredText(input.bodyTemplate, "Certificate body");
+      if (bodyTemplate.length > 10000) {
+        throw new Error("Certificate body must not exceed 10,000 characters.");
+      }
+      const duplicate = db
+        .prepare(`
+          SELECT id
+          FROM certificate_templates
+          WHERE name = ? COLLATE NOCASE
+            AND id <> ?
+            AND deleted_at IS NULL
+        `)
+        .get(name, templateId);
+      if (duplicate) {
+        throw new Error("An active certificate template with this name already exists.");
+      }
+
+      db.prepare(`
+        UPDATE certificate_templates
+        SET name = @name,
+            type = @type,
+            body_template = @bodyTemplate,
+            status = @status,
+            updated_at = @updatedAt,
+            sync_status = 'pending'
+        WHERE id = @id AND deleted_at IS NULL
+      `).run({
+        id: templateId,
+        name,
+        type,
+        bodyTemplate,
+        status: masterStatus(input?.status, existing.status),
+        updatedAt: now(),
+      });
+      return certificateTemplateFromRow(
+        db
+          .prepare("SELECT * FROM certificate_templates WHERE id = ?")
+          .get(templateId),
+      );
+    },
+
+    deleteCertificateTemplate(id) {
+      const timestamp = now();
+      const result = db
+        .prepare(`
+          UPDATE certificate_templates
+          SET deleted_at = ?,
+              updated_at = ?,
+              sync_status = 'pending'
+          WHERE id = ? AND deleted_at IS NULL
+        `)
+        .run(timestamp, timestamp, requiredText(id, "Template id"));
+      return { success: result.changes === 1 };
+    },
+
+    issueCertificate(input) {
+      const studentId = requiredText(input?.studentId, "Student");
+      const templateId = requiredText(
+        input?.templateId,
+        "Certificate template",
+      );
+      const student = getStudentStatement.get(studentId);
+      if (!student) {
+        throw new Error("The selected student was not found.");
+      }
+      const template = db
+        .prepare(`
+          SELECT *
+          FROM certificate_templates
+          WHERE id = ?
+            AND status = 'Active'
+            AND deleted_at IS NULL
+        `)
+        .get(templateId);
+      if (!template) {
+        throw new Error("Select an active certificate template.");
+      }
+      const issuedDate = normalizeDate(
+        optionalText(input?.issuedDate) || now().slice(0, 10),
+        "Issue date",
+      );
+      const settings = db
+        .prepare("SELECT * FROM school_settings WHERE id = ?")
+        .get(DEFAULT_SETTINGS_ID);
+      const timestamp = now();
+      const id = crypto.randomUUID();
+
+      db.transaction(() => {
+        db.prepare(`
+          INSERT INTO issued_certificates (
+            id, certificate_no, student_id, student_name, admission_no,
+            class_name, section, template_id, certificate_type, issued_date,
+            body, issued_by, created_at, updated_at, sync_status
+          ) VALUES (
+            @id, @certificateNo, @studentId, @studentName, @admissionNo,
+            @className, @section, @templateId, @certificateType, @issuedDate,
+            @body, @issuedBy, @createdAt, @updatedAt, 'pending'
+          )
+        `).run({
+          id,
+          certificateNo: generateCertificateNumber(issuedDate),
+          studentId,
+          studentName: student.name,
+          admissionNo: student.admission_no,
+          className: student.class_name,
+          section: student.section ?? "",
+          templateId,
+          certificateType: template.type,
+          issuedDate,
+          body: renderCertificateBody(
+            template.body_template,
+            settings,
+            student,
+            issuedDate,
+          ),
+          issuedBy: optionalText(input?.issuedBy),
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        });
+      })();
+
+      return issuedCertificateFromRow(
+        db.prepare("SELECT * FROM issued_certificates WHERE id = ?").get(id),
+      );
+    },
+
+    getIssuedCertificates() {
+      return db
+        .prepare(`
+          SELECT *
+          FROM issued_certificates
+          ORDER BY issued_date DESC, created_at DESC
+        `)
+        .all()
+        .map(issuedCertificateFromRow);
+    },
+
+    getIssuedCertificatesByStudent(studentId) {
+      return db
+        .prepare(`
+          SELECT *
+          FROM issued_certificates
+          WHERE student_id = ?
+          ORDER BY issued_date DESC, created_at DESC
+        `)
+        .all(requiredText(studentId, "Student id"))
+        .map(issuedCertificateFromRow);
+    },
+
+    getLicenseActivationRecord() {
+      return licenseActivationFromRow(
+        db
+          .prepare(
+            "SELECT * FROM license_activation WHERE id = 'active-license'",
+          )
+          .get(),
+      );
+    },
+
+    saveLicenseActivation(license, licenseKey, status) {
+      const existing = db
+        .prepare(
+          "SELECT created_at FROM license_activation WHERE id = 'active-license'",
+        )
+        .get();
+      const timestamp = now();
+      db.prepare(`
+        INSERT INTO license_activation (
+          id, license_id, school_name, device_id, plan, issued_at, expires_at,
+          maintenance_until, max_users, features_json, license_key, status,
+          activated_at, last_checked_at, created_at, updated_at
+        ) VALUES (
+          'active-license', @licenseId, @schoolName, @deviceId, @plan,
+          @issuedAt, @expiresAt, @maintenanceUntil, @maxUsers, @featuresJson,
+          @licenseKey, @status, @activatedAt, @lastCheckedAt, @createdAt,
+          @updatedAt
+        )
+        ON CONFLICT(id) DO UPDATE SET
+          license_id = excluded.license_id,
+          school_name = excluded.school_name,
+          device_id = excluded.device_id,
+          plan = excluded.plan,
+          issued_at = excluded.issued_at,
+          expires_at = excluded.expires_at,
+          maintenance_until = excluded.maintenance_until,
+          max_users = excluded.max_users,
+          features_json = excluded.features_json,
+          license_key = excluded.license_key,
+          status = excluded.status,
+          activated_at = excluded.activated_at,
+          last_checked_at = excluded.last_checked_at,
+          updated_at = excluded.updated_at
+      `).run({
+        licenseId: requiredText(license?.licenseId, "License id"),
+        schoolName: requiredText(license?.schoolName, "Licensed school name"),
+        deviceId: requiredText(license?.deviceId, "License device id"),
+        plan: requiredText(license?.plan, "License plan"),
+        issuedAt: requiredText(license?.issuedAt, "License issue date"),
+        expiresAt: requiredText(license?.expiresAt, "License expiry date"),
+        maintenanceUntil: requiredText(
+          license?.maintenanceUntil,
+          "License maintenance date",
+        ),
+        maxUsers: wholeNumber(license?.maxUsers, "Maximum users", 1),
+        featuresJson: JSON.stringify(
+          Array.isArray(license?.features) ? license.features : [],
+        ),
+        licenseKey: requiredText(licenseKey, "License key"),
+        status: requiredText(status, "License status"),
+        activatedAt: timestamp,
+        lastCheckedAt: timestamp,
+        createdAt: existing?.created_at ?? timestamp,
+        updatedAt: timestamp,
+      });
+      return this.getLicenseActivationRecord();
+    },
+
+    updateLicenseActivationCheck(status) {
+      const timestamp = now();
+      db.prepare(`
+        UPDATE license_activation
+        SET status = ?, last_checked_at = ?, updated_at = ?
+        WHERE id = 'active-license'
+      `).run(requiredText(status, "License status"), timestamp, timestamp);
+      return this.getLicenseActivationRecord();
+    },
+
+    deactivateLicenseActivation() {
+      const result = db
+        .prepare(
+          "DELETE FROM license_activation WHERE id = 'active-license'",
+        )
+        .run();
+      return { success: result.changes === 1 };
     },
 
     getUserCount() {

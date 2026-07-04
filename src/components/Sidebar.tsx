@@ -1,61 +1,290 @@
-import { canAccessPage } from '../lib/permissions'
-import type { PageId, PermissionRole } from '../types'
-import { Icon, type IconName } from './Icon'
+import { useMemo, useState } from 'react'
+import { hasLicenseFeature } from '../lib/license'
+import {
+  canSeeNavigationEntry,
+  erpNavigation,
+  type ErpMenuGroup,
+  type ErpMenuItem,
+  type NavigationTarget,
+} from '../lib/navigation'
+import type {
+  LicenseStatus,
+  ModulePlaceholderInfo,
+  PermissionRole,
+} from '../types'
+import { Icon } from './Icon'
 
 interface SidebarProps {
-  activePage: PageId
-  onNavigate: (page: PageId) => void
+  activeNavigationId: string
+  licenseStatus: LicenseStatus
+  onLogout: () => void
+  onNavigate: (target: NavigationTarget, navigationId: string) => void
+  onPlaceholder: (info: ModulePlaceholderInfo) => void
   role: PermissionRole
 }
 
-const navigation: { id: PageId; label: string; icon: IconName }[] = [
-  { id: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
-  { id: 'students', label: 'Students', icon: 'students' },
-  { id: 'fees', label: 'Fees', icon: 'fees' },
-  { id: 'attendance', label: 'Attendance', icon: 'attendance' },
-  { id: 'exams', label: 'Exams', icon: 'exams' },
-  { id: 'reports', label: 'Reports', icon: 'reports' },
-  { id: 'settings', label: 'Settings', icon: 'settings' },
-]
+interface VisibleGroup extends ErpMenuGroup {
+  items?: ErpMenuItem[]
+}
 
-export function Sidebar({ activePage, onNavigate, role }: SidebarProps) {
+const matches = (value: string, query: string) =>
+  value.toLocaleLowerCase().includes(query)
+
+export function Sidebar({
+  activeNavigationId,
+  licenseStatus,
+  onLogout,
+  onNavigate,
+  onPlaceholder,
+  role,
+}: SidebarProps) {
+  const [query, setQuery] = useState('')
+  const [expanded, setExpanded] = useState<Set<string>>(
+    () => new Set(['general-settings']),
+  )
+  const [lockedItem, setLockedItem] = useState<ErpMenuItem | null>(null)
+
+  const roleNavigation = useMemo(
+    () =>
+      erpNavigation
+        .filter((group) => canSeeNavigationEntry(role, group.roles))
+        .map((group) => ({
+          ...group,
+          items: group.items?.filter((item) =>
+            canSeeNavigationEntry(role, item.roles),
+          ),
+        }))
+        .filter((group) => group.target || (group.items?.length ?? 0) > 0),
+    [role],
+  )
+
+  const normalizedQuery = query.trim().toLocaleLowerCase()
+  const visibleNavigation = useMemo<VisibleGroup[]>(() => {
+    if (!normalizedQuery) return roleNavigation
+    return roleNavigation
+      .map((group) => {
+        if (matches(group.label, normalizedQuery)) return group
+        const items = group.items?.filter((item) =>
+          matches(item.label, normalizedQuery),
+        )
+        return { ...group, items }
+      })
+      .filter((group) => group.target
+        ? matches(group.label, normalizedQuery)
+        : (group.items?.length ?? 0) > 0)
+  }, [normalizedQuery, roleNavigation])
+
+  const toggleGroup = (id: string) => {
+    setExpanded((current) => {
+      const next = new Set(current)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const openItem = (group: ErpMenuGroup, item: ErpMenuItem) => {
+    if (item.id === 'logout') {
+      onLogout()
+      return
+    }
+
+    const isLocked =
+      item.locked && !hasLicenseFeature(licenseStatus, item.feature ?? item.id)
+    if (isLocked) {
+      setLockedItem(item)
+      return
+    }
+
+    if (item.target) {
+      onNavigate(item.target, item.id)
+      return
+    }
+
+    onPlaceholder({
+      id: item.id,
+      module: group.label,
+      title: item.label,
+    })
+  }
+
   return (
-    <aside className="sidebar">
-      <div className="sidebar-brand">
-        <div className="brand-mark">
-          <Icon name="school" size={24} />
-        </div>
-        <div>
-          <strong>Vidhya</strong>
-          <span>School ERP</span>
-        </div>
-      </div>
-
-      <nav className="sidebar-nav" aria-label="Main navigation">
-        <span className="nav-label">Workspace</span>
-        {navigation.filter((item) => canAccessPage(role, item.id)).map((item) => (
-          <button
-            className={`nav-item${activePage === item.id ? ' nav-item--active' : ''}`}
-            key={item.id}
-            onClick={() => onNavigate(item.id)}
-            type="button"
-          >
-            <Icon name={item.icon} size={19} />
-            <span>{item.label}</span>
-          </button>
-        ))}
-      </nav>
-
-      <div className="sidebar-footer">
-        <div className="local-indicator">
-          <span className="local-indicator__dot" />
+    <>
+      <aside className="sidebar">
+        <div className="sidebar-brand">
+          <div className="brand-mark">
+            <Icon name="school" size={24} />
+          </div>
           <div>
-            <strong>Local system</strong>
-            <span>Data stays on this device</span>
+            <strong>Vidhya</strong>
+            <span>School ERP</span>
           </div>
         </div>
-        <p>Local desktop ERP system</p>
-      </div>
-    </aside>
+
+        <div className="sidebar-search">
+          <Icon name="search" size={15} />
+          <input
+            aria-label="Search ERP menu"
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search menu..."
+            type="search"
+            value={query}
+          />
+          {query && (
+            <button
+              aria-label="Clear menu search"
+              onClick={() => setQuery('')}
+              type="button"
+            >
+              <Icon name="close" size={13} />
+            </button>
+          )}
+        </div>
+
+        <nav className="sidebar-nav" aria-label="ERP modules">
+          <span className="nav-label">
+            {normalizedQuery ? 'Search results' : 'ERP Modules'}
+          </span>
+
+          {visibleNavigation.map((group) => {
+            if (group.target) {
+              return (
+                <button
+                  className={`nav-item${
+                    activeNavigationId === group.id ? ' nav-item--active' : ''
+                  }`}
+                  key={group.id}
+                  onClick={() => onNavigate(group.target!, group.id)}
+                  type="button"
+                >
+                  <Icon name={group.icon} size={18} />
+                  <span>{group.label}</span>
+                </button>
+              )
+            }
+
+            const isGroupActive = group.items?.some(
+              (item) => item.id === activeNavigationId,
+            )
+            const isExpanded =
+              Boolean(normalizedQuery) || expanded.has(group.id)
+
+            return (
+              <div
+                className={`nav-group${isGroupActive ? ' nav-group--active' : ''}`}
+                key={group.id}
+              >
+                <button
+                  aria-expanded={isExpanded}
+                  className="nav-group-button"
+                  onClick={() => toggleGroup(group.id)}
+                  type="button"
+                >
+                  <Icon name={group.icon} size={18} />
+                  <span>{group.label}</span>
+                  <Icon
+                    className="nav-group-button__toggle"
+                    name={isExpanded ? 'minus' : 'plus'}
+                    size={14}
+                  />
+                </button>
+
+                {isExpanded && (
+                  <div className="nav-submenu">
+                    {group.items?.map((item) => {
+                      const isLocked =
+                        item.locked &&
+                        !hasLicenseFeature(
+                          licenseStatus,
+                          item.feature ?? item.id,
+                        )
+                      return (
+                        <button
+                          className={`nav-subitem${
+                            activeNavigationId === item.id
+                              ? ' nav-subitem--active'
+                              : ''
+                          }${isLocked ? ' nav-subitem--locked' : ''}`}
+                          key={item.id}
+                          onClick={() => openItem(group, item)}
+                          type="button"
+                        >
+                          <span className="nav-subitem__bullet" />
+                          <span className="nav-subitem__label">{item.label}</span>
+                          {isLocked && (
+                            <span className="nav-pro-badge">
+                              <Icon name="lock" size={10} />
+                              Pro
+                            </span>
+                          )}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+
+          {visibleNavigation.length === 0 && (
+            <div className="sidebar-empty">
+              No menu items match “{query.trim()}”.
+            </div>
+          )}
+        </nav>
+
+        <div className="sidebar-footer">
+          <div className="local-indicator">
+            <span className="local-indicator__dot" />
+            <div>
+              <strong>Local system</strong>
+              <span>Data stays on this device</span>
+            </div>
+          </div>
+          <p>Local desktop ERP system</p>
+        </div>
+      </aside>
+
+      {lockedItem && (
+        <div
+          className="pro-modal-backdrop"
+          onMouseDown={() => setLockedItem(null)}
+          role="presentation"
+        >
+          <section
+            aria-labelledby="pro-modal-title"
+            aria-modal="true"
+            className="pro-modal"
+            onMouseDown={(event) => event.stopPropagation()}
+            role="dialog"
+          >
+            <button
+              aria-label="Close"
+              className="pro-modal__close"
+              onClick={() => setLockedItem(null)}
+              type="button"
+            >
+              <Icon name="close" size={17} />
+            </button>
+            <span className="pro-modal__icon">
+              <Icon name="lock" size={24} />
+            </span>
+            <span className="pro-modal__eyebrow">Vidhya School ERP Pro</span>
+            <h2 id="pro-modal-title">{lockedItem.label}</h2>
+            <p>
+              This feature is available in Pro/Advanced plan. Contact Vidhya
+              Tech to enable it.
+            </p>
+            <button
+              className="primary-button"
+              onClick={() => setLockedItem(null)}
+              type="button"
+            >
+              Understood
+            </button>
+          </section>
+        </div>
+      )}
+    </>
   )
 }

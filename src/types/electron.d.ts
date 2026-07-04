@@ -4,6 +4,8 @@ import type {
   AttendanceSummary,
   AuthUser,
   ClassItem,
+  CertificateTemplate,
+  CreateCertificateTemplateInput,
   CreateClassInput,
   CreateExamInput,
   CreateFirstOwnerInput,
@@ -21,16 +23,24 @@ import type {
   FeeHead,
   FeePayment,
   FeeStructure,
+  IssueCertificateInput,
+  IssuedCertificate,
   MarkRecord,
+  LicenseStatus,
   SaveMarkInput,
   SaveAttendanceInput,
   SaveSchoolSettingsInput,
   SchoolSettings,
   SectionItem,
   Student,
+  StudentImportOptions,
+  StudentImportResult,
+  StudentImportRow,
+  StudentImportTemplate,
   Subject,
   User,
   UpdateClassInput,
+  UpdateCertificateTemplateInput,
   UpdateAttendanceInput,
   UpdateExamInput,
   UpdateFeeHeadInput,
@@ -43,6 +53,12 @@ import type {
 } from './index'
 
 export interface ErpApi {
+  getDeviceId: () => Promise<string>
+  getLicenseStatus: () => Promise<LicenseStatus>
+  activateLicense: (licenseKey: string) => Promise<LicenseStatus>
+  deactivateLicense: () => Promise<{ success: boolean; message: string }>
+  getLicenseInfo: () => Promise<LicenseStatus>
+
   hasUsers: () => Promise<boolean>
   createFirstOwner: (input: CreateFirstOwnerInput) => Promise<AuthUser>
   login: (username: string, password: string) => Promise<AuthUser>
@@ -69,6 +85,11 @@ export interface ErpApi {
   createStudent: (student: CreateStudentInput) => Promise<Student>
   updateStudent: (id: string, student: UpdateStudentInput) => Promise<Student>
   deleteStudent: (id: string) => Promise<{ success: boolean }>
+  importStudentsBulk: (
+    rows: StudentImportRow[],
+    options: StudentImportOptions,
+  ) => Promise<StudentImportResult>
+  getStudentImportTemplate: () => Promise<StudentImportTemplate>
 
   getSchoolSettings: () => Promise<SchoolSettings>
   saveSchoolSettings: (settings: SaveSchoolSettingsInput) => Promise<SchoolSettings>
@@ -145,6 +166,23 @@ export interface ErpApi {
   ) => Promise<MarkRecord[]>
   saveMarksBulk: (records: SaveMarkInput[]) => Promise<MarkRecord[]>
   updateMark: (id: string, input: UpdateMarkInput) => Promise<MarkRecord>
+
+  getCertificateTemplates: () => Promise<CertificateTemplate[]>
+  createCertificateTemplate: (
+    input: CreateCertificateTemplateInput,
+  ) => Promise<CertificateTemplate>
+  updateCertificateTemplate: (
+    id: string,
+    input: UpdateCertificateTemplateInput,
+  ) => Promise<CertificateTemplate>
+  deleteCertificateTemplate: (id: string) => Promise<{ success: boolean }>
+  issueCertificate: (
+    input: IssueCertificateInput,
+  ) => Promise<IssuedCertificate>
+  getIssuedCertificates: () => Promise<IssuedCertificate[]>
+  getIssuedCertificatesByStudent: (
+    studentId: string,
+  ) => Promise<IssuedCertificate[]>
 
   createDatabaseBackup: () => Promise<DatabaseActionResult>
   restoreDatabaseBackup: () => Promise<DatabaseActionResult>

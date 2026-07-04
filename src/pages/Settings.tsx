@@ -8,7 +8,8 @@ import { BackupRestoreSettings } from './settings/BackupRestoreSettings'
 import { UsersRolesSettings } from './settings/UsersRolesSettings'
 import { AboutSettings } from './settings/AboutSettings'
 import { DemoToolsSettings } from './settings/DemoToolsSettings'
-import type { AuthUser } from '../types'
+import { LicenseSettings } from './settings/LicenseSettings'
+import type { AuthUser, LicenseStatus } from '../types'
 
 export type SettingsNotice = {
   type: 'success' | 'error'
@@ -19,7 +20,7 @@ export interface SettingsSectionProps {
   onNotice: (notice: SettingsNotice) => void
 }
 
-type SettingsTab =
+export type SettingsTab =
   | 'profile'
   | 'classes'
   | 'fee-heads'
@@ -27,6 +28,7 @@ type SettingsTab =
   | 'users'
   | 'backup'
   | 'demo'
+  | 'license'
   | 'about'
 
 const tabs: { id: SettingsTab; label: string; icon: IconName }[] = [
@@ -37,15 +39,24 @@ const tabs: { id: SettingsTab; label: string; icon: IconName }[] = [
   { id: 'users', label: 'Users & Roles', icon: 'user' },
   { id: 'backup', label: 'Backup & Restore', icon: 'download' },
   { id: 'demo', label: 'Demo Tools', icon: 'settings' },
+  { id: 'license', label: 'License', icon: 'check' },
   { id: 'about', label: 'About', icon: 'school' },
 ]
 
 interface SettingsProps {
   currentUser: AuthUser
+  licenseStatus: LicenseStatus
+  onLicenseStatusChange: (status: LicenseStatus) => void
+  initialTab?: SettingsTab
 }
 
-export function Settings({ currentUser }: SettingsProps) {
-  const [activeTab, setActiveTab] = useState<SettingsTab>('profile')
+export function Settings({
+  currentUser,
+  licenseStatus,
+  onLicenseStatusChange,
+  initialTab = 'profile',
+}: SettingsProps) {
+  const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab)
   const [notice, setNotice] = useState<SettingsNotice | null>(null)
 
   const handleTabChange = (tab: SettingsTab) => {
@@ -55,7 +66,12 @@ export function Settings({ currentUser }: SettingsProps) {
 
   const visibleTabs =
     currentUser.role === 'Accountant'
-      ? tabs.filter((tab) => tab.id === 'profile' || tab.id === 'about')
+      ? tabs.filter(
+          (tab) =>
+            tab.id === 'profile' ||
+            tab.id === 'license' ||
+            tab.id === 'about',
+        )
       : tabs.filter((tab) => tab.id !== 'demo' || currentUser.role === 'Owner')
 
   return (
@@ -113,6 +129,14 @@ export function Settings({ currentUser }: SettingsProps) {
       )}
       {activeTab === 'demo' && currentUser.role === 'Owner' && (
         <DemoToolsSettings onNotice={setNotice} />
+      )}
+      {activeTab === 'license' && (
+        <LicenseSettings
+          currentUser={currentUser}
+          initialStatus={licenseStatus}
+          onNotice={setNotice}
+          onStatusChange={onLicenseStatusChange}
+        />
       )}
       {activeTab === 'about' && <AboutSettings />}
     </div>

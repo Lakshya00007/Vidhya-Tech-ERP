@@ -15,7 +15,7 @@ import { MarksheetTab } from './exams/MarksheetTab'
 import { SubjectsTab } from './exams/SubjectsTab'
 import type { ExamNotice } from './exams/types'
 
-type ExamTab = 'subjects' | 'exams' | 'marks' | 'marksheet'
+export type ExamTab = 'subjects' | 'exams' | 'marks' | 'marksheet'
 
 const tabs: { id: ExamTab; label: string; icon: IconName }[] = [
   { id: 'subjects', label: 'Subjects', icon: 'exams' },
@@ -36,8 +36,12 @@ const fallbackSettings: SchoolSettings = {
   updatedAt: '',
 }
 
-export function Exams() {
-  const [activeTab, setActiveTab] = useState<ExamTab>('subjects')
+interface ExamsProps {
+  initialTab?: ExamTab
+}
+
+export function Exams({ initialTab = 'subjects' }: ExamsProps) {
+  const [activeTab, setActiveTab] = useState<ExamTab>(initialTab)
   const [classes, setClasses] = useState<ClassItem[]>([])
   const [sections, setSections] = useState<SectionItem[]>([])
   const [students, setStudents] = useState<Student[]>([])

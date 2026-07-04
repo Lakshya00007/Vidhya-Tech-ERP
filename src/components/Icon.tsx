@@ -8,6 +8,8 @@ export type IconName =
   | 'settings'
   | 'search'
   | 'plus'
+  | 'minus'
+  | 'lock'
   | 'bell'
   | 'chevron'
   | 'calendar'
@@ -79,6 +81,13 @@ const paths: Record<IconName, React.ReactNode> = {
   ),
   search: <><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /></>,
   plus: <path d="M12 5v14M5 12h14" />,
+  minus: <path d="M5 12h14" />,
+  lock: (
+    <>
+      <rect x="5" y="10" width="14" height="11" rx="2" />
+      <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+    </>
+  ),
   bell: <><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" /><path d="M13.7 21a2 2 0 0 1-3.4 0" /></>,
   chevron: <path d="m9 18 6-6-6-6" />,
   calendar: <><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></>,

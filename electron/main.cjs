@@ -7,6 +7,10 @@ const {
 const { createAuthService } = require("./auth.cjs");
 const { createDatabase } = require("./database.cjs");
 const { registerIpcHandlers } = require("./ipc.cjs");
+const {
+  createDeviceIdService,
+  createLicenseService,
+} = require("./license.cjs");
 
 const existingUserDataPath = path.join(
   app.getPath("appData"),
@@ -55,6 +59,14 @@ app
       console.error("Pending database restore could not be applied.", error);
     }
     database = createDatabase(databasePath);
+    const deviceIdService = createDeviceIdService({
+      userDataPath: app.getPath("userData"),
+    });
+    const licenseService = createLicenseService({
+      database,
+      deviceIdService,
+      publicKeyPath: path.join(__dirname, "license-public-key.pem"),
+    });
     const authService = createAuthService(database);
     const backupService = createBackupService({
       app,
@@ -62,7 +74,12 @@ app
       getDatabase: () => database,
       closeDatabase: () => database?.close(),
     });
-    registerIpcHandlers(database, backupService, authService);
+    registerIpcHandlers(
+      database,
+      backupService,
+      authService,
+      licenseService,
+    );
     await createWindow();
   })
   .catch((error) => {

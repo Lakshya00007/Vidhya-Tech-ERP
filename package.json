@@ -13,6 +13,8 @@
     "desktop": "concurrently \"npm run dev\" \"npm run electron\"",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
+    "license:keys": "node scripts/generate-license-keys.cjs",
+    "license:generate": "node scripts/generate-license.cjs",
     "native:install": "electron-builder install-app-deps",
     "test:database": "electron electron/database-smoke.cjs",
     "pack": "npm run build && electron-builder --dir",
@@ -24,7 +26,8 @@
   "dependencies": {
     "better-sqlite3": "^12.11.1",
     "react": "^19.2.7",
-    "react-dom": "^19.2.7"
+    "react-dom": "^19.2.7",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -60,6 +63,7 @@
     "files": [
       "dist/**/*",
       "electron/**/*.cjs",
+      "electron/license-public-key.pem",
       "!electron/database-smoke.cjs",
       "LICENSE.md",
       "package.json"

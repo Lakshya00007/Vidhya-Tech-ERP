@@ -24,7 +24,7 @@ import type {
   StudentStatus,
 } from '../types'
 
-type ReportTab =
+export type ReportTab =
   | 'students'
   | 'daily'
   | 'monthly'
@@ -296,8 +296,12 @@ function CollectionReport({
   )
 }
 
-export function Reports() {
-  const [activeTab, setActiveTab] = useState<ReportTab>('students')
+interface ReportsProps {
+  initialTab?: ReportTab
+}
+
+export function Reports({ initialTab = 'students' }: ReportsProps) {
+  const [activeTab, setActiveTab] = useState<ReportTab>(initialTab)
   const [students, setStudents] = useState<Student[]>([])
   const [classes, setClasses] = useState<ClassItem[]>([])
   const [sections, setSections] = useState<SectionItem[]>([])

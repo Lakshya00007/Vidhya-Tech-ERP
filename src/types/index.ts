@@ -6,6 +6,15 @@ export type PageId =
   | 'exams'
   | 'reports'
   | 'settings'
+  | 'documents'
+  | 'placeholder'
+
+export interface ModulePlaceholderInfo {
+  id: string
+  module: string
+  title: string
+  description?: string
+}
 
 export type PermissionRole =
   | 'Owner'
@@ -13,6 +22,39 @@ export type PermissionRole =
   | 'Accountant'
   | 'Teacher'
   | 'Viewer'
+
+export type LicenseState =
+  | 'missing'
+  | 'active'
+  | 'expiring-soon'
+  | 'expired'
+  | 'maintenance-expired'
+  | 'invalid'
+
+export interface LicenseInfo {
+  licenseId: string
+  schoolName: string
+  deviceId: string
+  plan: string
+  issuedAt: string
+  expiresAt: string
+  maintenanceUntil: string
+  maxUsers: number
+  features: string[]
+  customerPhone: string
+  customerEmail: string
+}
+
+export interface LicenseStatus {
+  status: LicenseState
+  isValid: boolean
+  message: string
+  daysUntilExpiry: number | null
+  deviceId: string
+  license: LicenseInfo | null
+  activatedAt: string | null
+  lastCheckedAt: string | null
+}
 
 export interface User {
   id: string
@@ -73,6 +115,14 @@ export interface Student {
   section: string
   guardianName: string
   mobile: string
+  fatherName: string
+  motherName: string
+  email: string
+  gender: string
+  bloodGroup: string
+  aadharNo: string
+  previousSchool: string
+  notes: string
   status: StudentStatus
   address: string
   dateOfBirth: string
@@ -90,6 +140,14 @@ export interface CreateStudentInput {
   section?: string
   guardianName?: string
   mobile?: string
+  fatherName?: string
+  motherName?: string
+  email?: string
+  gender?: string
+  bloodGroup?: string
+  aadharNo?: string
+  previousSchool?: string
+  notes?: string
   status?: StudentStatus
   address?: string
   dateOfBirth?: string
@@ -97,6 +155,60 @@ export interface CreateStudentInput {
 }
 
 export type UpdateStudentInput = Partial<CreateStudentInput>
+
+export type StudentImportMode = 'skip' | 'update'
+
+export interface StudentImportRow {
+  rowNumber: number
+  providedFields?: string[]
+  admissionNo: string
+  name: string
+  className: string
+  section: string
+  guardianName: string
+  mobile: string
+  fatherName: string
+  motherName: string
+  address: string
+  dateOfBirth: string
+  admissionDate: string
+  status: string
+  email: string
+  gender: string
+  bloodGroup: string
+  aadharNo: string
+  previousSchool: string
+  notes: string
+}
+
+export interface StudentImportOptions {
+  mode: StudentImportMode
+  autoCreateMasters: boolean
+}
+
+export interface StudentImportError {
+  rowNumber: number
+  admissionNo: string
+  message: string
+}
+
+export interface StudentImportResult {
+  totalRows: number
+  imported: number
+  inserted: number
+  updated: number
+  skipped: number
+  duplicates: number
+  errors: StudentImportError[]
+  classesCreated: number
+  sectionsCreated: number
+}
+
+export interface StudentImportTemplate {
+  columns: string[]
+  sampleRows: string[][]
+  filename: string
+}
 
 export type MasterStatus = 'Active' | 'Inactive'
 export type SyncStatus = 'pending' | 'synced'
@@ -372,6 +484,59 @@ export interface MarksheetSummary {
   result: 'Pass' | 'Fail'
   grade: string
   remarks: string
+}
+
+export type CertificateType =
+  | 'Bonafide'
+  | 'Character'
+  | 'Transfer'
+  | 'Admission'
+  | 'Custom'
+
+export interface CertificateTemplate {
+  id: string
+  name: string
+  type: CertificateType
+  bodyTemplate: string
+  status: MasterStatus
+  createdAt: string
+  updatedAt: string
+  deletedAt: string | null
+  syncStatus: SyncStatus
+}
+
+export interface CreateCertificateTemplateInput {
+  name: string
+  type: CertificateType
+  bodyTemplate: string
+  status?: MasterStatus
+}
+
+export type UpdateCertificateTemplateInput =
+  Partial<CreateCertificateTemplateInput>
+
+export interface IssuedCertificate {
+  id: string
+  certificateNo: string
+  studentId: string
+  studentName: string
+  admissionNo: string
+  className: string
+  section: string
+  templateId: string
+  certificateType: CertificateType
+  issuedDate: string
+  body: string
+  issuedBy: string
+  createdAt: string
+  updatedAt: string
+  syncStatus: SyncStatus
+}
+
+export interface IssueCertificateInput {
+  studentId: string
+  templateId: string
+  issuedDate: string
 }
 
 export interface DatabaseInfo {
