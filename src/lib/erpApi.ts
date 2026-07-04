@@ -15,6 +15,12 @@ export const LICENSE_API_UNAVAILABLE_MESSAGE =
 export const DOCUMENTS_API_UNAVAILABLE_MESSAGE =
   'Student documents are available only inside the Electron desktop app.'
 
+export const EMPLOYEES_API_UNAVAILABLE_MESSAGE =
+  'Employee management is available only inside the Electron desktop app.'
+
+export const SALARY_API_UNAVAILABLE_MESSAGE =
+  'Salary management is available only inside the Electron desktop app.'
+
 const licenseApiMethods = [
   'getDeviceId',
   'getLicenseStatus',
@@ -57,6 +63,23 @@ const documentApiMethods = [
   'issueCertificate',
   'getIssuedCertificates',
   'getIssuedCertificatesByStudent',
+] as const satisfies ReadonlyArray<keyof ErpApi>
+
+const employeeApiMethods = [
+  'getEmployees',
+  'getEmployeeById',
+  'createEmployee',
+  'updateEmployee',
+  'deleteEmployee',
+] as const satisfies ReadonlyArray<keyof ErpApi>
+
+const salaryApiMethods = [
+  'getSalaryPayments',
+  'getSalaryPaymentsByDateRange',
+  'getSalaryPaymentsByEmployee',
+  'createSalaryPayment',
+  'updateSalaryPayment',
+  'deleteSalaryPayment',
 ] as const satisfies ReadonlyArray<keyof ErpApi>
 
 export function getErpApi(): ErpApi {
@@ -114,6 +137,28 @@ export function getDocumentsErpApi(): ErpApi {
     documentApiMethods.some((method) => typeof api[method] !== 'function')
   ) {
     throw new Error(DOCUMENTS_API_UNAVAILABLE_MESSAGE)
+  }
+  return api
+}
+
+export function getEmployeesErpApi(): ErpApi {
+  const api = window.erpApi
+  if (
+    !api ||
+    employeeApiMethods.some((method) => typeof api[method] !== 'function')
+  ) {
+    throw new Error(EMPLOYEES_API_UNAVAILABLE_MESSAGE)
+  }
+  return api
+}
+
+export function getSalaryErpApi(): ErpApi {
+  const api = window.erpApi
+  if (
+    !api ||
+    salaryApiMethods.some((method) => typeof api[method] !== 'function')
+  ) {
+    throw new Error(SALARY_API_UNAVAILABLE_MESSAGE)
   }
   return api
 }

@@ -25,6 +25,17 @@ const channels = [
   "students:delete",
   "students:import-bulk",
   "students:import-template",
+  "employees:get-all",
+  "employees:get-by-id",
+  "employees:create",
+  "employees:update",
+  "employees:delete",
+  "salary:get-all",
+  "salary:get-by-date-range",
+  "salary:get-by-employee",
+  "salary:create",
+  "salary:update",
+  "salary:delete",
   "settings:get",
   "settings:save",
   "fees:get-all",
@@ -227,6 +238,145 @@ function registerIpcHandlers(
         `Processed ${result.totalRows} row(s): ${result.inserted} inserted, ${result.updated} updated, ${result.skipped} skipped.`,
         actor,
       );
+      return result;
+    }),
+  );
+
+  ipcMain.handle(
+    "employees:get-all",
+    authenticated(() => {
+      requireRoles(["Owner", "Admin", "Accountant"]);
+      return database.getEmployees();
+    }),
+  );
+  ipcMain.handle(
+    "employees:get-by-id",
+    authenticated((_event, id) => {
+      requireRoles(["Owner", "Admin", "Accountant"]);
+      return database.getEmployeeById(id);
+    }),
+  );
+  ipcMain.handle(
+    "employees:create",
+    authenticated((_event, input) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      const created = database.createEmployee(input);
+      authService?.audit(
+        "Employee created",
+        "Employees",
+        `Created employee "${created.name}" (${created.employeeNo}).`,
+        actor,
+      );
+      return created;
+    }),
+  );
+  ipcMain.handle(
+    "employees:update",
+    authenticated((_event, id, input) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      const updated = database.updateEmployee(id, input);
+      authService?.audit(
+        "Employee updated",
+        "Employees",
+        `Updated employee "${updated.name}" (${updated.employeeNo}).`,
+        actor,
+      );
+      return updated;
+    }),
+  );
+  ipcMain.handle(
+    "employees:delete",
+    authenticated((_event, id) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      const employee = database.getEmployeeById(id);
+      const result = database.deleteEmployee(id);
+      if (result.success) {
+        authService?.audit(
+          "Employee deleted",
+          "Employees",
+          employee
+            ? `Soft-deleted employee "${employee.name}" (${employee.employeeNo}).`
+            : "Soft-deleted an employee record.",
+          actor,
+        );
+      }
+      return result;
+    }),
+  );
+
+  ipcMain.handle(
+    "salary:get-all",
+    authenticated(() => {
+      requireRoles(["Owner", "Admin", "Accountant"]);
+      return database.getSalaryPayments();
+    }),
+  );
+  ipcMain.handle(
+    "salary:get-by-date-range",
+    authenticated((_event, startDate, endDate) => {
+      requireRoles(["Owner", "Admin", "Accountant"]);
+      return database.getSalaryPaymentsByDateRange(startDate, endDate);
+    }),
+  );
+  ipcMain.handle(
+    "salary:get-by-employee",
+    authenticated((_event, employeeId) => {
+      requireRoles(["Owner", "Admin", "Accountant"]);
+      return database.getSalaryPaymentsByEmployee(employeeId);
+    }),
+  );
+  ipcMain.handle(
+    "salary:create",
+    authenticated((_event, input) => {
+      const actor = requireRoles(["Owner", "Admin", "Accountant"]);
+      const created = database.createSalaryPayment({
+        ...input,
+        paidBy: actor?.name ?? "",
+      });
+      authService?.audit(
+        "Salary payment created",
+        "Salary",
+        `Created ${created.salaryNo} for ${created.employeeName} (${created.salaryMonth}).`,
+        actor,
+      );
+      return created;
+    }),
+  );
+  ipcMain.handle(
+    "salary:update",
+    authenticated((_event, id, input) => {
+      const actor = requireRoles(["Owner", "Admin", "Accountant"]);
+      const updated = database.updateSalaryPayment(id, {
+        ...input,
+        paidBy: actor?.name ?? "",
+      });
+      authService?.audit(
+        "Salary payment updated",
+        "Salary",
+        `Updated ${updated.salaryNo} for ${updated.employeeName}.`,
+        actor,
+      );
+      return updated;
+    }),
+  );
+  ipcMain.handle(
+    "salary:delete",
+    authenticated((_event, id) => {
+      const actor = requireRoles(["Owner", "Admin", "Accountant"]);
+      const payment = database
+        .getSalaryPayments()
+        .find((item) => item.id === id);
+      const result = database.deleteSalaryPayment(id);
+      if (result.success) {
+        authService?.audit(
+          "Salary payment deleted",
+          "Salary",
+          payment
+            ? `Soft-deleted ${payment.salaryNo} for ${payment.employeeName}.`
+            : "Soft-deleted a salary payment.",
+          actor,
+        );
+      }
       return result;
     }),
   );

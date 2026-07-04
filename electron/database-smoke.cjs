@@ -268,6 +268,21 @@ app.whenReady().then(async () => {
           "getIssuedCertificates",
           "getIssuedCertificatesByStudent"
         ].every((method) => typeof window.erpApi[method] === "function");
+        const employeeApiAvailable = [
+          "getEmployees",
+          "getEmployeeById",
+          "createEmployee",
+          "updateEmployee",
+          "deleteEmployee"
+        ].every((method) => typeof window.erpApi[method] === "function");
+        const salaryApiAvailable = [
+          "getSalaryPayments",
+          "getSalaryPaymentsByDateRange",
+          "getSalaryPaymentsByEmployee",
+          "createSalaryPayment",
+          "updateSalaryPayment",
+          "deleteSalaryPayment"
+        ].every((method) => typeof window.erpApi[method] === "function");
         const licenseApiAvailable = [
           "getDeviceId",
           "getLicenseStatus",
@@ -353,6 +368,78 @@ app.whenReady().then(async () => {
           academicYear: "2026–2027",
           receiptPrefix: "TEST-RC"
         });
+        const employee = await window.erpApi.createEmployee({
+          employeeNo: "EMP-001",
+          name: "Smoke Test Employee",
+          designation: "Teacher",
+          department: "Academics",
+          mobile: "9000000001",
+          email: "employee@example.com",
+          gender: "Female",
+          dateOfBirth: "1992-06-15",
+          joiningDate: "2024-04-01",
+          qualification: "M.Ed.",
+          experience: "8 years",
+          address: "Employee Test Address",
+          salaryAmount: 42000,
+          status: "Active"
+        });
+        const updatedEmployee = await window.erpApi.updateEmployee(
+          employee.id,
+          {
+            designation: "Senior Teacher",
+            mobile: "9000000099",
+            salaryAmount: 47000
+          }
+        );
+        const fetchedEmployee = await window.erpApi.getEmployeeById(
+          employee.id
+        );
+        const deletedEmployee = await window.erpApi.createEmployee({
+          employeeNo: "EMP-DELETE",
+          name: "Delete Test Employee",
+          designation: "Assistant",
+          status: "Active"
+        });
+        const employeeDeleteResult = await window.erpApi.deleteEmployee(
+          deletedEmployee.id
+        );
+        const employeesAfterDelete = await window.erpApi.getEmployees();
+        const salaryPayment = await window.erpApi.createSalaryPayment({
+          employeeId: employee.id,
+          salaryMonth: "2026-07",
+          baseSalary: 47000,
+          allowances: 3000,
+          deductions: 1000,
+          paymentMode: "Bank Transfer",
+          paymentDate: "2026-07-31",
+          notes: "July payroll"
+        });
+        const updatedSalaryPayment =
+          await window.erpApi.updateSalaryPayment(salaryPayment.id, {
+            allowances: 3500,
+            paymentMode: "Cheque",
+            notes: "Updated July payroll"
+          });
+        const secondSalaryPayment =
+          await window.erpApi.createSalaryPayment({
+            employeeId: employee.id,
+            salaryMonth: "2026-08",
+            baseSalary: 47000,
+            allowances: 0,
+            deductions: 500,
+            paymentMode: "UPI",
+            paymentDate: "2026-08-31"
+          });
+        const deletedSalaryResult =
+          await window.erpApi.deleteSalaryPayment(secondSalaryPayment.id);
+        const salaryPaymentsByEmployee =
+          await window.erpApi.getSalaryPaymentsByEmployee(employee.id);
+        const salaryPaymentsInRange =
+          await window.erpApi.getSalaryPaymentsByDateRange(
+            "2026-07-01",
+            "2026-07-31"
+          );
         const certificateTemplate =
           await window.erpApi.createCertificateTemplate({
             name: "Smoke Test Admission Certificate",
@@ -491,6 +578,8 @@ app.whenReady().then(async () => {
           demoApiAvailable,
           studentImportApiAvailable,
           certificateApiAvailable,
+          employeeApiAvailable,
+          salaryApiAvailable,
           licenseApiAvailable,
           deviceId,
           licenseBeforeActivation,
@@ -519,6 +608,30 @@ app.whenReady().then(async () => {
             ),
           defaultCertificateTemplateCount:
             certificateTemplatesAfterDelete.length,
+          employeeId: employee.id,
+          employeeCount: employeesAfterDelete.length,
+          employeeUpdated:
+            updatedEmployee.designation === "Senior Teacher" &&
+            updatedEmployee.mobile === "9000000099" &&
+            updatedEmployee.salaryAmount === 47000,
+          employeeFetchedById:
+            fetchedEmployee?.id === employee.id,
+          employeeSoftDeleted:
+            employeeDeleteResult.success &&
+            !employeesAfterDelete.some(
+              (item) => item.id === deletedEmployee.id
+            ),
+          salaryPaymentId: salaryPayment.id,
+          salaryNo: salaryPayment.salaryNo,
+          secondSalaryNo: secondSalaryPayment.salaryNo,
+          salaryUpdated:
+            updatedSalaryPayment.netSalary === 49500 &&
+            updatedSalaryPayment.paymentMode === "Cheque",
+          salaryEmployeeCount: salaryPaymentsByEmployee.length,
+          salaryRangeCount: salaryPaymentsInRange.length,
+          salaryDeleteWorked:
+            deletedSalaryResult.success &&
+            (await window.erpApi.getSalaryPayments()).length === 1,
           attendanceApiAvailable,
           backupApiAvailable,
           classAttendanceIsArray: Array.isArray(classAttendance),
@@ -596,6 +709,14 @@ app.whenReady().then(async () => {
     assert(
       bridgeResult.certificateApiAvailable,
       "Certificate APIs were not exposed by the preload bridge.",
+    );
+    assert(
+      bridgeResult.employeeApiAvailable,
+      "Employee APIs were not exposed by the preload bridge.",
+    );
+    assert(
+      bridgeResult.salaryApiAvailable,
+      "Salary APIs were not exposed by the preload bridge.",
     );
     assert(
       bridgeResult.licenseApiAvailable &&
@@ -695,6 +816,48 @@ app.whenReady().then(async () => {
         bridgeResult.certificateTemplateSoftDeleted &&
         bridgeResult.defaultCertificateTemplateCount === 3,
       "Certificate template update, defaults, or soft delete failed.",
+    );
+    assert(
+      bridgeResult.employeeCount === 1 &&
+        bridgeResult.employeeUpdated &&
+        bridgeResult.employeeFetchedById &&
+        bridgeResult.employeeSoftDeleted,
+      "Employee create, update, read, or soft delete failed.",
+    );
+    assert(
+      bridgeResult.salaryNo === "SAL-2026-0001" &&
+        bridgeResult.secondSalaryNo === "SAL-2026-0002",
+      "Salary number generation did not increment by year.",
+    );
+    let duplicateSalaryRejected = false;
+    let duplicateSalaryMessage = "";
+    try {
+      database.createSalaryPayment({
+        employeeId: bridgeResult.employeeId,
+        salaryMonth: "2026-07",
+        baseSalary: 47000,
+        allowances: 0,
+        deductions: 0,
+        paymentMode: "Cash",
+        paymentDate: "2026-07-31",
+      });
+    } catch (error) {
+      duplicateSalaryRejected = true;
+      duplicateSalaryMessage =
+        error instanceof Error ? error.message : String(error);
+    }
+    assert(
+      duplicateSalaryRejected &&
+        duplicateSalaryMessage ===
+          "Salary for this employee and month is already paid.",
+      "Duplicate salary for the same employee and month was accepted.",
+    );
+    assert(
+      bridgeResult.salaryUpdated &&
+        bridgeResult.salaryEmployeeCount === 1 &&
+        bridgeResult.salaryRangeCount === 1 &&
+        bridgeResult.salaryDeleteWorked,
+      "Salary update, employee/date query, or soft delete failed.",
     );
     assert(
       bridgeResult.attendanceCount === 1,
@@ -817,6 +980,18 @@ app.whenReady().then(async () => {
         database.getIssuedCertificates()[0].certificateNo ===
           "CERT-2026-0001",
       "Issued certificate did not persist.",
+    );
+    assert(
+      database.getEmployees().length === 1 &&
+        database.getEmployees()[0].id === bridgeResult.employeeId &&
+        database.getEmployees()[0].designation === "Senior Teacher",
+      "Employee record did not persist.",
+    );
+    assert(
+      database.getSalaryPayments().length === 1 &&
+        database.getSalaryPayments()[0].id === bridgeResult.salaryPaymentId &&
+        database.getSalaryPayments()[0].netSalary === 49500,
+      "Salary payment did not persist.",
     );
     assert(
       database.getMarksByExam(bridgeResult.examId).length === 1,

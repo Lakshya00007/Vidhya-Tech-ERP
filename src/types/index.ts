@@ -7,6 +7,8 @@ export type PageId =
   | 'reports'
   | 'settings'
   | 'documents'
+  | 'employees'
+  | 'salary'
   | 'placeholder'
 
 export interface ModulePlaceholderInfo {
@@ -155,6 +157,87 @@ export interface CreateStudentInput {
 }
 
 export type UpdateStudentInput = Partial<CreateStudentInput>
+
+export interface Employee {
+  id: string
+  employeeNo: string
+  name: string
+  designation: string
+  department: string
+  mobile: string
+  email: string
+  gender: string
+  dateOfBirth: string
+  joiningDate: string
+  qualification: string
+  experience: string
+  address: string
+  salaryAmount: number
+  status: MasterStatus
+  userId: string
+  createdAt: string
+  updatedAt: string
+  deletedAt: string | null
+  syncStatus: SyncStatus
+}
+
+export interface CreateEmployeeInput {
+  employeeNo: string
+  name: string
+  designation?: string
+  department?: string
+  mobile?: string
+  email?: string
+  gender?: string
+  dateOfBirth?: string
+  joiningDate?: string
+  qualification?: string
+  experience?: string
+  address?: string
+  salaryAmount?: number
+  status?: MasterStatus
+  userId?: string
+}
+
+export type UpdateEmployeeInput = Partial<CreateEmployeeInput>
+
+export type SalaryPaymentMode = 'Cash' | 'UPI' | 'Bank Transfer' | 'Cheque'
+
+export interface SalaryPayment {
+  id: string
+  salaryNo: string
+  employeeId: string
+  employeeNo: string
+  employeeName: string
+  designation: string
+  department: string
+  salaryMonth: string
+  baseSalary: number
+  allowances: number
+  deductions: number
+  netSalary: number
+  paymentMode: SalaryPaymentMode
+  paymentDate: string
+  notes: string
+  paidBy: string
+  createdAt: string
+  updatedAt: string
+  deletedAt: string | null
+  syncStatus: SyncStatus
+}
+
+export interface CreateSalaryPaymentInput {
+  employeeId: string
+  salaryMonth: string
+  baseSalary: number
+  allowances?: number
+  deductions?: number
+  paymentMode: SalaryPaymentMode
+  paymentDate: string
+  notes?: string
+}
+
+export type UpdateSalaryPaymentInput = Partial<CreateSalaryPaymentInput>
 
 export type StudentImportMode = 'skip' | 'update'
 

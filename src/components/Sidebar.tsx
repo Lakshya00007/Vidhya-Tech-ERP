@@ -102,6 +102,7 @@ export function Sidebar({
     }
 
     onPlaceholder({
+      description: item.description,
       id: item.id,
       module: group.label,
       title: item.label,

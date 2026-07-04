@@ -14,11 +14,13 @@ import { Attendance } from './pages/Attendance'
 import { CreateOwner } from './pages/CreateOwner'
 import { Dashboard } from './pages/Dashboard'
 import { Exams } from './pages/Exams'
+import { Employees } from './pages/Employees'
 import { Fees } from './pages/Fees'
 import { Login } from './pages/Login'
 import { LicenseActivation } from './pages/LicenseActivation'
 import { Reports } from './pages/Reports'
 import { Settings } from './pages/Settings'
+import { Salary } from './pages/Salary'
 import { Students } from './pages/Students'
 import { StudentDocuments } from './pages/StudentDocuments'
 import type {
@@ -28,8 +30,10 @@ import type {
   PageId,
 } from './types'
 import type { ExamTab } from './pages/Exams'
+import type { EmployeesView } from './pages/Employees'
 import type { ReportTab } from './pages/Reports'
 import type { SettingsTab } from './pages/Settings'
+import type { SalaryView } from './pages/Salary'
 import type { StudentDocumentsView } from './pages/StudentDocuments'
 
 function App() {
@@ -204,6 +208,20 @@ function App() {
           <StudentDocuments
             initialView={(activeView || 'id-cards') as StudentDocumentsView}
             key={`documents-${activeView}-${navigationRevision}`}
+          />
+        )
+      case 'employees':
+        return (
+          <Employees
+            initialView={(activeView || 'all') as EmployeesView}
+            key={`employees-${activeView}-${navigationRevision}`}
+          />
+        )
+      case 'salary':
+        return (
+          <Salary
+            initialView={(activeView || 'pay') as SalaryView}
+            key={`salary-${activeView}-${navigationRevision}`}
           />
         )
       case 'dashboard':

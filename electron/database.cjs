@@ -11,6 +11,12 @@ const PAYMENT_MODES = new Set([
   "Bank Transfer",
   "Cheque",
 ]);
+const SALARY_PAYMENT_MODES = new Set([
+  "Cash",
+  "UPI",
+  "Bank Transfer",
+  "Cheque",
+]);
 const ATTENDANCE_STATUSES = new Set(["Present", "Absent", "Leave"]);
 const USER_ROLES = new Set([
   "Owner",
@@ -142,6 +148,56 @@ function studentFromRow(row) {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at,
+    syncStatus: row.sync_status,
+  };
+}
+
+function employeeFromRow(row) {
+  return {
+    id: row.id,
+    employeeNo: row.employee_no,
+    name: row.name,
+    designation: row.designation ?? "",
+    department: row.department ?? "",
+    mobile: row.mobile ?? "",
+    email: row.email ?? "",
+    gender: row.gender ?? "",
+    dateOfBirth: row.date_of_birth ?? "",
+    joiningDate: row.joining_date ?? "",
+    qualification: row.qualification ?? "",
+    experience: row.experience ?? "",
+    address: row.address ?? "",
+    salaryAmount: Number(row.salary_amount ?? 0),
+    status: row.status,
+    userId: row.user_id ?? "",
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at,
+    syncStatus: row.sync_status,
+  };
+}
+
+function salaryPaymentFromRow(row) {
+  return {
+    id: row.id,
+    salaryNo: row.salary_no,
+    employeeId: row.employee_id,
+    employeeNo: row.employee_no ?? "",
+    employeeName: row.employee_name,
+    designation: row.designation ?? "",
+    department: row.department ?? "",
+    salaryMonth: row.salary_month,
+    baseSalary: Number(row.base_salary ?? 0),
+    allowances: Number(row.allowances ?? 0),
+    deductions: Number(row.deductions ?? 0),
+    netSalary: Number(row.net_salary),
+    paymentMode: row.payment_mode ?? "Cash",
+    paymentDate: row.payment_date,
+    notes: row.notes ?? "",
+    paidBy: row.paid_by ?? "",
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at ?? null,
     syncStatus: row.sync_status,
   };
 }
@@ -481,6 +537,54 @@ function createDatabase(databasePath) {
       sync_status TEXT DEFAULT 'pending'
     );
 
+    CREATE TABLE IF NOT EXISTS employees (
+      id TEXT PRIMARY KEY,
+      employee_no TEXT UNIQUE NOT NULL,
+      name TEXT NOT NULL,
+      designation TEXT,
+      department TEXT,
+      mobile TEXT,
+      email TEXT,
+      gender TEXT,
+      date_of_birth TEXT,
+      joining_date TEXT,
+      qualification TEXT,
+      experience TEXT,
+      address TEXT,
+      salary_amount INTEGER DEFAULT 0,
+      status TEXT DEFAULT 'Active' CHECK (status IN ('Active', 'Inactive')),
+      user_id TEXT,
+      created_at TEXT,
+      updated_at TEXT,
+      deleted_at TEXT,
+      sync_status TEXT DEFAULT 'pending',
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS salary_payments (
+      id TEXT PRIMARY KEY,
+      salary_no TEXT UNIQUE NOT NULL,
+      employee_id TEXT NOT NULL,
+      employee_no TEXT,
+      employee_name TEXT NOT NULL,
+      designation TEXT,
+      department TEXT,
+      salary_month TEXT NOT NULL,
+      base_salary INTEGER DEFAULT 0,
+      allowances INTEGER DEFAULT 0,
+      deductions INTEGER DEFAULT 0,
+      net_salary INTEGER NOT NULL,
+      payment_mode TEXT,
+      payment_date TEXT,
+      notes TEXT,
+      paid_by TEXT,
+      created_at TEXT,
+      updated_at TEXT,
+      deleted_at TEXT,
+      sync_status TEXT DEFAULT 'pending',
+      FOREIGN KEY (employee_id) REFERENCES employees(id)
+    );
+
     CREATE TABLE IF NOT EXISTS fee_payments (
       id TEXT PRIMARY KEY,
       receipt_no TEXT UNIQUE NOT NULL,
@@ -702,6 +806,8 @@ function createDatabase(databasePath) {
 
     CREATE INDEX IF NOT EXISTS idx_students_active
       ON students(deleted_at, created_at);
+    CREATE INDEX IF NOT EXISTS idx_employees_active
+      ON employees(deleted_at, status, department, designation, name);
     CREATE INDEX IF NOT EXISTS idx_fee_payments_date
       ON fee_payments(payment_date);
     CREATE UNIQUE INDEX IF NOT EXISTS idx_attendance_student_date
@@ -751,6 +857,14 @@ function createDatabase(databasePath) {
   addColumnIfMissing(db, "students", "aadhar_no", "TEXT");
   addColumnIfMissing(db, "students", "previous_school", "TEXT");
   addColumnIfMissing(db, "students", "notes", "TEXT");
+  addColumnIfMissing(db, "salary_payments", "deleted_at", "TEXT");
+  db.exec(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_salary_employee_month_active
+      ON salary_payments(employee_id, salary_month)
+      WHERE deleted_at IS NULL;
+    CREATE INDEX IF NOT EXISTS idx_salary_payments_date
+      ON salary_payments(payment_date, deleted_at);
+  `);
 
   const timestamp = now();
   db.prepare(`
@@ -1009,6 +1123,30 @@ function createDatabase(databasePath) {
       .get(certificateStem, certificateStem, certificateStem);
     const nextSequence = Number(sequence?.last_sequence ?? 0) + 1;
     return `${certificateStem}${String(nextSequence).padStart(4, "0")}`;
+  }
+
+  function normalizeSalaryMonth(value) {
+    const month = requiredText(value, "Salary month");
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) {
+      throw new Error("Salary month must use YYYY-MM format.");
+    }
+    return month;
+  }
+
+  function generateSalaryNumber(paymentDate) {
+    const year = normalizeDate(paymentDate, "Payment date").slice(0, 4);
+    const salaryStem = `SAL-${year}-`;
+    const sequence = db
+      .prepare(`
+        SELECT MAX(
+          CAST(substr(salary_no, length(?) + 1) AS INTEGER)
+        ) AS last_sequence
+        FROM salary_payments
+        WHERE substr(salary_no, 1, length(?)) = ?
+      `)
+      .get(salaryStem, salaryStem, salaryStem);
+    const nextSequence = Number(sequence?.last_sequence ?? 0) + 1;
+    return `${salaryStem}${String(nextSequence).padStart(4, "0")}`;
   }
 
   function formatDocumentDate(value) {
@@ -3422,6 +3560,513 @@ function createDatabase(databasePath) {
             : `Created ${totalCreated} sample demo record(s).`,
         created,
       };
+    },
+
+    getEmployees() {
+      return db
+        .prepare(`
+          SELECT *
+          FROM employees
+          WHERE deleted_at IS NULL
+          ORDER BY
+            CASE status WHEN 'Active' THEN 0 ELSE 1 END,
+            name COLLATE NOCASE
+        `)
+        .all()
+        .map(employeeFromRow);
+    },
+
+    getEmployeeById(id) {
+      const row = db
+        .prepare(`
+          SELECT *
+          FROM employees
+          WHERE id = ? AND deleted_at IS NULL
+        `)
+        .get(requiredText(id, "Employee id"));
+      return row ? employeeFromRow(row) : null;
+    },
+
+    createEmployee(input) {
+      const employeeNo = requiredText(input?.employeeNo, "Employee number");
+      const duplicate = db
+        .prepare("SELECT id FROM employees WHERE employee_no = ? COLLATE NOCASE")
+        .get(employeeNo);
+      if (duplicate) {
+        throw new Error("This employee number is already in use.");
+      }
+      const email = optionalText(input?.email).toLowerCase();
+      if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        throw new Error("Employee email address is invalid.");
+      }
+      const dateOfBirth = optionalText(input?.dateOfBirth);
+      const joiningDate = optionalText(input?.joiningDate);
+      const userId = optionalText(input?.userId);
+      if (
+        userId &&
+        !db
+          .prepare("SELECT id FROM users WHERE id = ? AND deleted_at IS NULL")
+          .get(userId)
+      ) {
+        throw new Error("The linked user account was not found.");
+      }
+
+      const id = crypto.randomUUID();
+      const timestamp = now();
+      db.prepare(`
+        INSERT INTO employees (
+          id, employee_no, name, designation, department, mobile, email,
+          gender, date_of_birth, joining_date, qualification, experience,
+          address, salary_amount, status, user_id, created_at, updated_at,
+          deleted_at, sync_status
+        ) VALUES (
+          @id, @employeeNo, @name, @designation, @department, @mobile, @email,
+          @gender, @dateOfBirth, @joiningDate, @qualification, @experience,
+          @address, @salaryAmount, @status, @userId, @createdAt, @updatedAt,
+          NULL, 'pending'
+        )
+      `).run({
+        id,
+        employeeNo,
+        name: requiredText(input?.name, "Employee name"),
+        designation: optionalText(input?.designation),
+        department: optionalText(input?.department),
+        mobile: optionalText(input?.mobile),
+        email,
+        gender: optionalText(input?.gender),
+        dateOfBirth: dateOfBirth
+          ? normalizeDate(dateOfBirth, "Date of birth")
+          : "",
+        joiningDate: joiningDate
+          ? normalizeDate(joiningDate, "Joining date")
+          : "",
+        qualification: optionalText(input?.qualification),
+        experience: optionalText(input?.experience),
+        address: optionalText(input?.address),
+        salaryAmount: wholeNumber(
+          input?.salaryAmount ?? 0,
+          "Salary amount",
+          0,
+        ),
+        status: masterStatus(input?.status),
+        userId: userId || null,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+      return this.getEmployeeById(id);
+    },
+
+    updateEmployee(id, input) {
+      const employeeId = requiredText(id, "Employee id");
+      const existing = db
+        .prepare(`
+          SELECT *
+          FROM employees
+          WHERE id = ? AND deleted_at IS NULL
+        `)
+        .get(employeeId);
+      if (!existing) {
+        throw new Error("Employee record was not found.");
+      }
+
+      const employeeNo =
+        input?.employeeNo === undefined
+          ? existing.employee_no
+          : requiredText(input.employeeNo, "Employee number");
+      const duplicate = db
+        .prepare(`
+          SELECT id
+          FROM employees
+          WHERE employee_no = ? COLLATE NOCASE AND id <> ?
+        `)
+        .get(employeeNo, employeeId);
+      if (duplicate) {
+        throw new Error("This employee number is already in use.");
+      }
+      const email =
+        input?.email === undefined
+          ? existing.email ?? ""
+          : optionalText(input.email).toLowerCase();
+      if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        throw new Error("Employee email address is invalid.");
+      }
+      const dateOfBirth =
+        input?.dateOfBirth === undefined
+          ? existing.date_of_birth ?? ""
+          : optionalText(input.dateOfBirth);
+      const joiningDate =
+        input?.joiningDate === undefined
+          ? existing.joining_date ?? ""
+          : optionalText(input.joiningDate);
+      const userId =
+        input?.userId === undefined
+          ? existing.user_id ?? ""
+          : optionalText(input.userId);
+      if (
+        userId &&
+        !db
+          .prepare("SELECT id FROM users WHERE id = ? AND deleted_at IS NULL")
+          .get(userId)
+      ) {
+        throw new Error("The linked user account was not found.");
+      }
+
+      db.prepare(`
+        UPDATE employees
+        SET employee_no = @employeeNo,
+            name = @name,
+            designation = @designation,
+            department = @department,
+            mobile = @mobile,
+            email = @email,
+            gender = @gender,
+            date_of_birth = @dateOfBirth,
+            joining_date = @joiningDate,
+            qualification = @qualification,
+            experience = @experience,
+            address = @address,
+            salary_amount = @salaryAmount,
+            status = @status,
+            user_id = @userId,
+            updated_at = @updatedAt,
+            sync_status = 'pending'
+        WHERE id = @id AND deleted_at IS NULL
+      `).run({
+        id: employeeId,
+        employeeNo,
+        name:
+          input?.name === undefined
+            ? existing.name
+            : requiredText(input.name, "Employee name"),
+        designation:
+          input?.designation === undefined
+            ? existing.designation ?? ""
+            : optionalText(input.designation),
+        department:
+          input?.department === undefined
+            ? existing.department ?? ""
+            : optionalText(input.department),
+        mobile:
+          input?.mobile === undefined
+            ? existing.mobile ?? ""
+            : optionalText(input.mobile),
+        email,
+        gender:
+          input?.gender === undefined
+            ? existing.gender ?? ""
+            : optionalText(input.gender),
+        dateOfBirth: dateOfBirth
+          ? normalizeDate(dateOfBirth, "Date of birth")
+          : "",
+        joiningDate: joiningDate
+          ? normalizeDate(joiningDate, "Joining date")
+          : "",
+        qualification:
+          input?.qualification === undefined
+            ? existing.qualification ?? ""
+            : optionalText(input.qualification),
+        experience:
+          input?.experience === undefined
+            ? existing.experience ?? ""
+            : optionalText(input.experience),
+        address:
+          input?.address === undefined
+            ? existing.address ?? ""
+            : optionalText(input.address),
+        salaryAmount:
+          input?.salaryAmount === undefined
+            ? Number(existing.salary_amount ?? 0)
+            : wholeNumber(input.salaryAmount, "Salary amount", 0),
+        status: masterStatus(input?.status, existing.status),
+        userId: userId || null,
+        updatedAt: now(),
+      });
+      return this.getEmployeeById(employeeId);
+    },
+
+    deleteEmployee(id) {
+      const timestamp = now();
+      const result = db
+        .prepare(`
+          UPDATE employees
+          SET deleted_at = ?,
+              updated_at = ?,
+              sync_status = 'pending'
+          WHERE id = ? AND deleted_at IS NULL
+        `)
+        .run(timestamp, timestamp, requiredText(id, "Employee id"));
+      return { success: result.changes === 1 };
+    },
+
+    getSalaryPayments() {
+      return db
+        .prepare(`
+          SELECT *
+          FROM salary_payments
+          WHERE deleted_at IS NULL
+          ORDER BY payment_date DESC, created_at DESC
+        `)
+        .all()
+        .map(salaryPaymentFromRow);
+    },
+
+    getSalaryPaymentsByDateRange(startDate, endDate) {
+      const normalizedStart = normalizeDate(startDate, "Start date");
+      const normalizedEnd = normalizeDate(endDate, "End date");
+      if (normalizedStart > normalizedEnd) {
+        throw new Error("Start date must be before or equal to end date.");
+      }
+      return db
+        .prepare(`
+          SELECT *
+          FROM salary_payments
+          WHERE deleted_at IS NULL
+            AND date(payment_date) BETWEEN date(?) AND date(?)
+          ORDER BY payment_date DESC, created_at DESC
+        `)
+        .all(normalizedStart, normalizedEnd)
+        .map(salaryPaymentFromRow);
+    },
+
+    getSalaryPaymentsByEmployee(employeeId) {
+      return db
+        .prepare(`
+          SELECT *
+          FROM salary_payments
+          WHERE employee_id = ? AND deleted_at IS NULL
+          ORDER BY salary_month DESC, payment_date DESC
+        `)
+        .all(requiredText(employeeId, "Employee id"))
+        .map(salaryPaymentFromRow);
+    },
+
+    createSalaryPayment(input) {
+      const employeeId = requiredText(input?.employeeId, "Employee");
+      const employee = db
+        .prepare(`
+          SELECT *
+          FROM employees
+          WHERE id = ? AND deleted_at IS NULL AND status = 'Active'
+        `)
+        .get(employeeId);
+      if (!employee) {
+        throw new Error("Select an active employee.");
+      }
+      const salaryMonth = normalizeSalaryMonth(input?.salaryMonth);
+      const duplicate = db
+        .prepare(`
+          SELECT id
+          FROM salary_payments
+          WHERE employee_id = ?
+            AND salary_month = ?
+            AND deleted_at IS NULL
+        `)
+        .get(employeeId, salaryMonth);
+      if (duplicate) {
+        throw new Error("Salary for this employee and month is already paid.");
+      }
+      const baseSalary = wholeNumber(
+        input?.baseSalary ?? employee.salary_amount ?? 0,
+        "Base salary",
+        0,
+      );
+      const allowances = wholeNumber(
+        input?.allowances ?? 0,
+        "Allowances",
+        0,
+      );
+      const deductions = wholeNumber(
+        input?.deductions ?? 0,
+        "Deductions",
+        0,
+      );
+      const netSalary = baseSalary + allowances - deductions;
+      if (netSalary < 0) {
+        throw new Error("Deductions cannot exceed salary and allowances.");
+      }
+      const paymentMode = requiredText(input?.paymentMode, "Payment mode");
+      if (!SALARY_PAYMENT_MODES.has(paymentMode)) {
+        throw new Error("Salary payment mode is invalid.");
+      }
+      const paymentDate = normalizeDate(
+        optionalText(input?.paymentDate) || now().slice(0, 10),
+        "Payment date",
+      );
+      const id = crypto.randomUUID();
+      const timestamp = now();
+
+      db.transaction(() => {
+        db.prepare(`
+          INSERT INTO salary_payments (
+            id, salary_no, employee_id, employee_no, employee_name,
+            designation, department, salary_month, base_salary, allowances,
+            deductions, net_salary, payment_mode, payment_date, notes,
+            paid_by, created_at, updated_at, deleted_at, sync_status
+          ) VALUES (
+            @id, @salaryNo, @employeeId, @employeeNo, @employeeName,
+            @designation, @department, @salaryMonth, @baseSalary, @allowances,
+            @deductions, @netSalary, @paymentMode, @paymentDate, @notes,
+            @paidBy, @createdAt, @updatedAt, NULL, 'pending'
+          )
+        `).run({
+          id,
+          salaryNo: generateSalaryNumber(paymentDate),
+          employeeId,
+          employeeNo: employee.employee_no,
+          employeeName: employee.name,
+          designation: employee.designation ?? "",
+          department: employee.department ?? "",
+          salaryMonth,
+          baseSalary,
+          allowances,
+          deductions,
+          netSalary,
+          paymentMode,
+          paymentDate,
+          notes: optionalText(input?.notes),
+          paidBy: optionalText(input?.paidBy),
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        });
+      })();
+      return salaryPaymentFromRow(
+        db.prepare("SELECT * FROM salary_payments WHERE id = ?").get(id),
+      );
+    },
+
+    updateSalaryPayment(id, input) {
+      const paymentId = requiredText(id, "Salary payment id");
+      const existing = db
+        .prepare(`
+          SELECT *
+          FROM salary_payments
+          WHERE id = ? AND deleted_at IS NULL
+        `)
+        .get(paymentId);
+      if (!existing) {
+        throw new Error("Salary payment was not found.");
+      }
+      const employeeId =
+        input?.employeeId === undefined
+          ? existing.employee_id
+          : requiredText(input.employeeId, "Employee");
+      const employee = db
+        .prepare(`
+          SELECT *
+          FROM employees
+          WHERE id = ? AND deleted_at IS NULL
+        `)
+        .get(employeeId);
+      if (!employee) {
+        throw new Error("The selected employee was not found.");
+      }
+      const salaryMonth =
+        input?.salaryMonth === undefined
+          ? existing.salary_month
+          : normalizeSalaryMonth(input.salaryMonth);
+      const duplicate = db
+        .prepare(`
+          SELECT id
+          FROM salary_payments
+          WHERE employee_id = ?
+            AND salary_month = ?
+            AND id <> ?
+            AND deleted_at IS NULL
+        `)
+        .get(employeeId, salaryMonth, paymentId);
+      if (duplicate) {
+        throw new Error("Salary for this employee and month is already paid.");
+      }
+      const baseSalary =
+        input?.baseSalary === undefined
+          ? Number(existing.base_salary ?? 0)
+          : wholeNumber(input.baseSalary, "Base salary", 0);
+      const allowances =
+        input?.allowances === undefined
+          ? Number(existing.allowances ?? 0)
+          : wholeNumber(input.allowances, "Allowances", 0);
+      const deductions =
+        input?.deductions === undefined
+          ? Number(existing.deductions ?? 0)
+          : wholeNumber(input.deductions, "Deductions", 0);
+      const netSalary = baseSalary + allowances - deductions;
+      if (netSalary < 0) {
+        throw new Error("Deductions cannot exceed salary and allowances.");
+      }
+      const paymentMode =
+        input?.paymentMode === undefined
+          ? existing.payment_mode
+          : requiredText(input.paymentMode, "Payment mode");
+      if (!SALARY_PAYMENT_MODES.has(paymentMode)) {
+        throw new Error("Salary payment mode is invalid.");
+      }
+      const paymentDate =
+        input?.paymentDate === undefined
+          ? existing.payment_date
+          : normalizeDate(input.paymentDate, "Payment date");
+
+      db.prepare(`
+        UPDATE salary_payments
+        SET employee_id = @employeeId,
+            employee_no = @employeeNo,
+            employee_name = @employeeName,
+            designation = @designation,
+            department = @department,
+            salary_month = @salaryMonth,
+            base_salary = @baseSalary,
+            allowances = @allowances,
+            deductions = @deductions,
+            net_salary = @netSalary,
+            payment_mode = @paymentMode,
+            payment_date = @paymentDate,
+            notes = @notes,
+            paid_by = @paidBy,
+            updated_at = @updatedAt,
+            sync_status = 'pending'
+        WHERE id = @id AND deleted_at IS NULL
+      `).run({
+        id: paymentId,
+        employeeId,
+        employeeNo: employee.employee_no,
+        employeeName: employee.name,
+        designation: employee.designation ?? "",
+        department: employee.department ?? "",
+        salaryMonth,
+        baseSalary,
+        allowances,
+        deductions,
+        netSalary,
+        paymentMode,
+        paymentDate,
+        notes:
+          input?.notes === undefined
+            ? existing.notes ?? ""
+            : optionalText(input.notes),
+        paidBy:
+          input?.paidBy === undefined
+            ? existing.paid_by ?? ""
+            : optionalText(input.paidBy),
+        updatedAt: now(),
+      });
+      return salaryPaymentFromRow(
+        db
+          .prepare("SELECT * FROM salary_payments WHERE id = ?")
+          .get(paymentId),
+      );
+    },
+
+    deleteSalaryPayment(id) {
+      const timestamp = now();
+      const result = db
+        .prepare(`
+          UPDATE salary_payments
+          SET deleted_at = ?,
+              updated_at = ?,
+              sync_status = 'pending'
+          WHERE id = ? AND deleted_at IS NULL
+        `)
+        .run(timestamp, timestamp, requiredText(id, "Salary payment id"));
+      return { success: result.changes === 1 };
     },
 
     getCertificateTemplates() {

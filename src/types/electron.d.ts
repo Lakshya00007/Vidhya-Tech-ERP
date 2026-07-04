@@ -7,18 +7,21 @@ import type {
   CertificateTemplate,
   CreateCertificateTemplateInput,
   CreateClassInput,
+  CreateEmployeeInput,
   CreateExamInput,
   CreateFirstOwnerInput,
   CreateFeePaymentInput,
   CreateFeeHeadInput,
   CreateFeeStructureInput,
   CreateSectionInput,
+  CreateSalaryPaymentInput,
   CreateStudentInput,
   CreateSubjectInput,
   CreateUserInput,
   DatabaseActionResult,
   DatabaseInfo,
   DemoDataResult,
+  Employee,
   Exam,
   FeeHead,
   FeePayment,
@@ -30,6 +33,7 @@ import type {
   SaveMarkInput,
   SaveAttendanceInput,
   SaveSchoolSettingsInput,
+  SalaryPayment,
   SchoolSettings,
   SectionItem,
   Student,
@@ -41,11 +45,13 @@ import type {
   User,
   UpdateClassInput,
   UpdateCertificateTemplateInput,
+  UpdateEmployeeInput,
   UpdateAttendanceInput,
   UpdateExamInput,
   UpdateFeeHeadInput,
   UpdateFeeStructureInput,
   UpdateSectionInput,
+  UpdateSalaryPaymentInput,
   UpdateStudentInput,
   UpdateSubjectInput,
   UpdateMarkInput,
@@ -90,6 +96,29 @@ export interface ErpApi {
     options: StudentImportOptions,
   ) => Promise<StudentImportResult>
   getStudentImportTemplate: () => Promise<StudentImportTemplate>
+
+  getEmployees: () => Promise<Employee[]>
+  getEmployeeById: (id: string) => Promise<Employee | null>
+  createEmployee: (input: CreateEmployeeInput) => Promise<Employee>
+  updateEmployee: (id: string, input: UpdateEmployeeInput) => Promise<Employee>
+  deleteEmployee: (id: string) => Promise<{ success: boolean }>
+
+  getSalaryPayments: () => Promise<SalaryPayment[]>
+  getSalaryPaymentsByDateRange: (
+    startDate: string,
+    endDate: string,
+  ) => Promise<SalaryPayment[]>
+  getSalaryPaymentsByEmployee: (
+    employeeId: string,
+  ) => Promise<SalaryPayment[]>
+  createSalaryPayment: (
+    input: CreateSalaryPaymentInput,
+  ) => Promise<SalaryPayment>
+  updateSalaryPayment: (
+    id: string,
+    input: UpdateSalaryPaymentInput,
+  ) => Promise<SalaryPayment>
+  deleteSalaryPayment: (id: string) => Promise<{ success: boolean }>
 
   getSchoolSettings: () => Promise<SchoolSettings>
   saveSchoolSettings: (settings: SaveSchoolSettingsInput) => Promise<SchoolSettings>

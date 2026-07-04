@@ -42,6 +42,25 @@ contextBridge.exposeInMainWorld("erpApi", {
   getStudentImportTemplate: () =>
     ipcRenderer.invoke("students:import-template"),
 
+  getEmployees: () => ipcRenderer.invoke("employees:get-all"),
+  getEmployeeById: (id) => ipcRenderer.invoke("employees:get-by-id", id),
+  createEmployee: (input) => ipcRenderer.invoke("employees:create", input),
+  updateEmployee: (id, input) =>
+    ipcRenderer.invoke("employees:update", id, input),
+  deleteEmployee: (id) => ipcRenderer.invoke("employees:delete", id),
+
+  getSalaryPayments: () => ipcRenderer.invoke("salary:get-all"),
+  getSalaryPaymentsByDateRange: (startDate, endDate) =>
+    ipcRenderer.invoke("salary:get-by-date-range", startDate, endDate),
+  getSalaryPaymentsByEmployee: (employeeId) =>
+    ipcRenderer.invoke("salary:get-by-employee", employeeId),
+  createSalaryPayment: (input) =>
+    ipcRenderer.invoke("salary:create", input),
+  updateSalaryPayment: (id, input) =>
+    ipcRenderer.invoke("salary:update", id, input),
+  deleteSalaryPayment: (id) =>
+    ipcRenderer.invoke("salary:delete", id),
+
   getSchoolSettings: () => ipcRenderer.invoke("settings:get"),
   saveSchoolSettings: (settings) =>
     ipcRenderer.invoke("settings:save", settings),

@@ -9,6 +9,7 @@ export interface NavigationTarget {
 export interface ErpMenuItem {
   id: string
   label: string
+  description?: string
   target?: NavigationTarget
   locked?: boolean
   feature?: string
@@ -121,11 +122,13 @@ export const erpNavigation: ErpMenuGroup[] = [
     icon: 'user',
     roles: owners,
     items: [
-      placeholder('all-employees', 'All Employees'),
-      placeholder('add-employee', 'Add New'),
-      placeholder('staff-id-cards', 'Staff ID Cards', { locked: true, feature: 'staff-id-cards' }),
-      placeholder('job-letter', 'Job Letter'),
-      placeholder('employee-login', 'Manage Login'),
+      { id: 'all-employees', label: 'All Employees', target: { page: 'employees', view: 'all' } },
+      { id: 'add-employee', label: 'Add New', target: { page: 'employees', view: 'add' } },
+      { id: 'staff-id-cards', label: 'Staff ID Cards', target: { page: 'employees', view: 'id-cards' } },
+      { id: 'job-letter', label: 'Job Letter', target: { page: 'employees', view: 'job-letter' } },
+      placeholder('employee-login', 'Manage Login', {
+        description: 'Employee login linking will be available in next release.',
+      }),
     ],
   },
   {
@@ -160,10 +163,10 @@ export const erpNavigation: ErpMenuGroup[] = [
     icon: 'wallet',
     roles: finance,
     items: [
-      placeholder('pay-salary', 'Pay Salary'),
-      placeholder('salary-paid-slip', 'Salary Paid Slip'),
-      placeholder('salary-sheet', 'Salary Sheet', { locked: true, feature: 'salary-advanced' }),
-      placeholder('salary-report', 'Salary Report', { locked: true, feature: 'salary-advanced' }),
+      { id: 'pay-salary', label: 'Pay Salary', target: { page: 'salary', view: 'pay' } },
+      { id: 'salary-paid-slip', label: 'Salary Paid Slip', target: { page: 'salary', view: 'slips' } },
+      { id: 'salary-sheet', label: 'Salary Sheet', target: { page: 'salary', view: 'sheet' } },
+      { id: 'salary-report', label: 'Salary Report', target: { page: 'salary', view: 'report' } },
     ],
   },
   {
