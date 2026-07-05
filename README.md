@@ -1,9 +1,30 @@
 # Vidhya School ERP
 
-Current release: **1.0.0**
+Current release: **1.1.0**
 
 Offline-first school administration software built with Electron, React,
 TypeScript, Vite, and SQLite.
+
+## Current modules
+
+- Offline license activation
+- Dashboard and school settings
+- Classes, sections, and subjects
+- Students and Excel/CSV import
+- Student ID cards, admission letters, and certificates
+- Fees, fee structures, collections, and receipts
+- Attendance
+- Exams, marks entry, and marksheets
+- Employees and staff documents
+- Salary and payroll
+- Accounts
+- Timetable
+- Homework
+- Class tests
+- Question paper management
+- Reports
+- Backup and restore
+- Users, roles, permissions, and audit logs
 
 ## Development
 
@@ -115,7 +136,7 @@ application on a GitHub-hosted Windows runner.
 
 The artifact contains the generated Windows `.exe` files from `release/`,
 including the installer and portable application. The workflow also runs
-automatically when a tag beginning with `v` is pushed, such as `v1.0.0`.
+automatically when a tag beginning with `v` is pushed, such as `v1.1.0`.
 Electron Builder publishing is explicitly disabled for this command: the
 workflow uploads build artifacts only and does not create or publish a GitHub
 Release.
@@ -187,6 +208,6 @@ distribution.
 
 ## License and support
 
-Vidhya School ERP 1.0 is built by Vidhya Tech. See
+Vidhya School ERP 1.1.0 is built by Vidhya Tech. See
 [`LICENSE.md`](LICENSE.md) for demo release terms. Support placeholder:
 support@vidhyatech.in.
