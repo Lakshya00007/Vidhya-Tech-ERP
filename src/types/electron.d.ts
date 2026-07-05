@@ -1,18 +1,22 @@
 import type {
   AccountCategory,
   AccountTransaction,
+  AcademicSession,
   AuditLog,
   AttendanceRecord,
   AttendanceSummary,
   AuthUser,
   BehaviourRating,
   BehaviourTrait,
+  CarryForwardDue,
+  CarryForwardDueFilter,
   ClassItem,
   ClassTest,
   ClassTestMark,
   Classroom,
   CertificateTemplate,
   CreateCertificateTemplateInput,
+  CreateAcademicSessionInput,
   CreateBehaviourTraitInput,
   CreateAccountCategoryInput,
   CreateAccountTransactionInput,
@@ -77,11 +81,19 @@ import type {
   QuestionBankItem,
   QuestionFilter,
   QuestionPaper,
+  PromotionPreview,
+  PromotionPreviewInput,
+  PromoteStudentsInput,
+  SessionReport,
+  SaveStudentSessionHistoryInput,
+  StudentPromotion,
+  StudentSessionHistory,
   TimetableEntry,
   TimetablePeriod,
   TimetableWeekday,
   User,
   UpdateClassInput,
+  UpdateAcademicSessionInput,
   UpdateBehaviourTraitInput,
   UpdateClassTestInput,
   UpdateClassTestMarkInput,
@@ -94,6 +106,7 @@ import type {
   UpdateSubjectChapterInput,
   UpdateEmployeeInput,
   UpdateAttendanceInput,
+  UpdateCarryForwardDueInput,
   UpdateExamInput,
   UpdateFeeHeadInput,
   UpdateFeeStructureInput,
@@ -357,6 +370,55 @@ export interface ErpApi {
     input: UpdateStudentObservationInput,
   ) => Promise<StudentObservation>
   deleteStudentObservation: (id: string) => Promise<{ success: boolean }>
+
+  getAcademicSessions: () => Promise<AcademicSession[]>
+  getCurrentAcademicSession: () => Promise<AcademicSession | null>
+  createAcademicSession: (
+    input: CreateAcademicSessionInput,
+  ) => Promise<AcademicSession>
+  updateAcademicSession: (
+    id: string,
+    input: UpdateAcademicSessionInput,
+  ) => Promise<AcademicSession>
+  setCurrentAcademicSession: (id: string) => Promise<AcademicSession>
+  closeAcademicSession: (id: string) => Promise<AcademicSession>
+  deleteAcademicSession: (id: string) => Promise<{ success: boolean }>
+
+  getStudentSessionHistory: (
+    studentId: string,
+  ) => Promise<StudentSessionHistory[]>
+  getSessionStudents: (
+    sessionId: string,
+  ) => Promise<StudentSessionHistory[]>
+  createOrUpdateStudentSessionHistory: (
+    input: SaveStudentSessionHistoryInput,
+  ) => Promise<StudentSessionHistory>
+
+  getPromotionPreview: (
+    input: PromotionPreviewInput,
+  ) => Promise<PromotionPreview>
+  promoteStudentsBulk: (
+    input: PromoteStudentsInput,
+  ) => Promise<StudentPromotion>
+  getStudentPromotions: () => Promise<StudentPromotion[]>
+  getStudentPromotionById: (
+    id: string,
+  ) => Promise<StudentPromotion | null>
+  getPromotionReport: (filter: {
+    sessionId: string
+  }) => Promise<SessionReport>
+
+  getCarryForwardDues: (
+    filter: CarryForwardDueFilter,
+  ) => Promise<CarryForwardDue[]>
+  updateCarryForwardDue: (
+    id: string,
+    input: UpdateCarryForwardDueInput,
+  ) => Promise<CarryForwardDue>
+  waiveCarryForwardDue: (
+    id: string,
+    reason: string,
+  ) => Promise<CarryForwardDue>
 
   getSchoolSettings: () => Promise<SchoolSettings>
   saveSchoolSettings: (settings: SaveSchoolSettingsInput) => Promise<SchoolSettings>

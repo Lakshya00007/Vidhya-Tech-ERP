@@ -39,6 +39,9 @@ export const QUESTION_PAPER_API_UNAVAILABLE_MESSAGE =
 export const BEHAVIOUR_SKILLS_API_UNAVAILABLE_MESSAGE =
   'Behaviour and skills management is available only inside the Electron desktop app.'
 
+export const ACADEMIC_SESSIONS_API_UNAVAILABLE_MESSAGE =
+  'Academic session management is available only inside the Electron desktop app.'
+
 const licenseApiMethods = [
   'getDeviceId',
   'getLicenseStatus',
@@ -191,6 +194,27 @@ const behaviourSkillsApiMethods = [
   'deleteStudentObservation',
 ] as const satisfies ReadonlyArray<keyof ErpApi>
 
+const academicSessionsApiMethods = [
+  'getAcademicSessions',
+  'getCurrentAcademicSession',
+  'createAcademicSession',
+  'updateAcademicSession',
+  'setCurrentAcademicSession',
+  'closeAcademicSession',
+  'deleteAcademicSession',
+  'getStudentSessionHistory',
+  'getSessionStudents',
+  'createOrUpdateStudentSessionHistory',
+  'getPromotionPreview',
+  'promoteStudentsBulk',
+  'getStudentPromotions',
+  'getStudentPromotionById',
+  'getPromotionReport',
+  'getCarryForwardDues',
+  'updateCarryForwardDue',
+  'waiveCarryForwardDue',
+] as const satisfies ReadonlyArray<keyof ErpApi>
+
 export function getErpApi(): ErpApi {
   if (!window.erpApi) {
     throw new Error('The local database is available only inside the Electron desktop app.')
@@ -338,6 +362,19 @@ export function getBehaviourSkillsErpApi(): ErpApi {
     )
   ) {
     throw new Error(BEHAVIOUR_SKILLS_API_UNAVAILABLE_MESSAGE)
+  }
+  return api
+}
+
+export function getAcademicSessionsErpApi(): ErpApi {
+  const api = window.erpApi
+  if (
+    !api ||
+    academicSessionsApiMethods.some(
+      (method) => typeof api[method] !== 'function',
+    )
+  ) {
+    throw new Error(ACADEMIC_SESSIONS_API_UNAVAILABLE_MESSAGE)
   }
   return api
 }

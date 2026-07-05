@@ -8228,6 +8228,444 @@
   }
 }
 
+.page-header-session-badge {
+  display: grid;
+  gap: 3px;
+  min-width: 170px;
+  padding: 11px 15px;
+  border: 1px solid #d9e4f8;
+  border-radius: 11px;
+  background: #f3f7ff;
+  text-align: right;
+}
+
+.page-header-session-badge span {
+  color: #70809c;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.page-header-session-badge strong {
+  color: #263e76;
+  font-size: 17px;
+}
+
+.academic-session-tabs {
+  overflow-x: auto;
+}
+
+.academic-current-session {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 112px;
+  padding: 22px 24px;
+  color: #fff;
+  background: linear-gradient(135deg, #263d76, #456bc4);
+  border-radius: 14px;
+  box-shadow: 0 12px 28px rgb(37 61 117 / 18%);
+}
+
+.academic-current-session > div {
+  display: grid;
+  gap: 5px;
+}
+
+.academic-current-session span {
+  color: rgb(255 255 255 / 72%);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.academic-current-session strong {
+  font-size: 27px;
+}
+
+.academic-current-session small {
+  color: rgb(255 255 255 / 78%);
+}
+
+.academic-session-management,
+.promotion-workspace,
+.promotion-history-layout {
+  display: grid;
+  gap: 18px;
+}
+
+.academic-session-grid {
+  display: grid;
+  grid-template-columns: minmax(290px, 0.72fr) minmax(650px, 1.6fr);
+  gap: 18px;
+}
+
+.academic-session-form {
+  display: grid;
+  align-content: start;
+  gap: 15px;
+}
+
+.academic-session-form-actions,
+.session-row-actions,
+.promotion-report-toolbar > div:last-child,
+.carry-forward-toolbar > div:last-child {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.academic-session-list-heading,
+.promotion-report-toolbar,
+.carry-forward-toolbar,
+.session-report-toolbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.academic-session-list-heading .form-field {
+  min-width: 250px;
+}
+
+.session-status,
+.carry-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 4px 9px;
+  color: #58677e;
+  background: #f0f3f7;
+  border: 1px solid #dce2ea;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.session-status--active,
+.carry-status--paid {
+  color: #137357;
+  background: #e8f8f1;
+  border-color: #c2ead9;
+}
+
+.session-status--closed,
+.carry-status--waived {
+  color: #874852;
+  background: #fff0f1;
+  border-color: #efd0d4;
+}
+
+.promotion-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(130px, 1fr)) auto;
+  align-items: end;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.promotion-load-button {
+  min-height: 42px;
+  margin-bottom: 1px;
+}
+
+.promotion-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(100px, 1fr));
+  gap: 10px;
+}
+
+.promotion-summary-grid > div,
+.promotion-print-summary > div,
+.session-report-summary > div,
+.carry-forward-summary > div {
+  display: grid;
+  gap: 5px;
+  padding: 13px 14px;
+  border: 1px solid #e2e8f2;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.promotion-summary-grid span,
+.promotion-print-summary span,
+.session-report-summary span,
+.carry-forward-summary span {
+  color: #76839a;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.promotion-summary-grid strong,
+.promotion-print-summary strong,
+.session-report-summary strong,
+.carry-forward-summary strong {
+  color: #192740;
+  font-size: 18px;
+}
+
+.promotion-bulk-toolbar,
+.promotion-finalize {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 15px;
+}
+
+.promotion-bulk-toolbar > div:first-child {
+  display: grid;
+  gap: 3px;
+}
+
+.promotion-bulk-toolbar > div:first-child span {
+  color: #7b879b;
+  font-size: 12px;
+}
+
+.promotion-bulk-toolbar > div:last-child {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.promotion-preview-table {
+  min-width: 1540px;
+}
+
+.promotion-preview-table th:first-child {
+  width: 42px;
+}
+
+.promotion-preview-table th:nth-child(2) {
+  min-width: 180px;
+}
+
+.promotion-preview-table th:nth-child(5),
+.promotion-preview-table th:nth-child(6),
+.promotion-preview-table th:nth-child(7) {
+  min-width: 130px;
+}
+
+.promotion-preview-table th:last-child {
+  min-width: 180px;
+}
+
+.promotion-table-select,
+.promotion-number-input,
+.promotion-remarks-input {
+  width: 100%;
+  min-height: 34px;
+  padding: 6px 8px;
+  color: #26344c;
+  background: #fff;
+  border: 1px solid #d8e0eb;
+  border-radius: 7px;
+  font: inherit;
+}
+
+.promotion-number-input {
+  min-width: 95px;
+}
+
+.promotion-table-select:disabled,
+.promotion-number-input:disabled {
+  color: #8994a6;
+  background: #f3f5f8;
+}
+
+.promotion-finalize {
+  margin: 16px 0 0;
+  padding-top: 16px;
+  border-top: 1px solid #e5eaf1;
+}
+
+.promotion-finalize .form-field {
+  width: min(560px, 70%);
+}
+
+.table-row--selected {
+  background: #f2f6ff;
+}
+
+.promotion-batch-list tbody tr {
+  cursor: pointer;
+}
+
+.promotion-report-toolbar h3,
+.carry-forward-toolbar h3,
+.session-report-toolbar h3 {
+  margin: 0 0 5px;
+  color: #18263f;
+  font-size: 18px;
+}
+
+.promotion-report-toolbar p,
+.carry-forward-toolbar p,
+.session-report-toolbar p {
+  margin: 0;
+  color: #77839a;
+  font-size: 13px;
+}
+
+.promotion-print-area,
+.carry-forward-print-area,
+.session-report-print-area {
+  margin-top: 18px;
+  background: #fff;
+}
+
+.academic-print-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid #273e76;
+}
+
+.academic-print-header > div:last-child {
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+  text-align: right;
+}
+
+.academic-print-header span {
+  color: #64738d;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.academic-print-header h2 {
+  margin: 5px 0;
+  color: #17233b;
+  font-size: 24px;
+}
+
+.academic-print-header p,
+.academic-print-header small {
+  margin: 0;
+  color: #6e7a90;
+  font-size: 12px;
+}
+
+.academic-print-header strong {
+  color: #17233b;
+  font-size: 16px;
+}
+
+.promotion-print-summary {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(100px, 1fr));
+  gap: 9px;
+  margin: 16px 0;
+}
+
+.promotion-detail-table {
+  min-width: 1000px;
+}
+
+.academic-loading-overlay {
+  display: flex;
+  justify-content: center;
+  padding: 16px;
+}
+
+.carry-forward-filters {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(150px, 1fr));
+  gap: 12px;
+  margin: 18px 0;
+  padding: 15px;
+  border: 1px solid #e3e9f1;
+  border-radius: 11px;
+  background: #f8fafc;
+}
+
+.carry-forward-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(140px, 1fr));
+  gap: 10px;
+  margin: 16px 0;
+}
+
+.carry-forward-table {
+  min-width: 1120px;
+}
+
+.session-report-toolbar > div:last-child {
+  display: flex;
+  align-items: end;
+  gap: 9px;
+}
+
+.session-report-toolbar .form-field {
+  min-width: 190px;
+}
+
+.session-report-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(130px, 1fr));
+  gap: 10px;
+  margin: 16px 0 20px;
+}
+
+.session-class-summary h3 {
+  margin: 0 0 12px;
+  color: #1a2841;
+}
+
+.student-list-filter {
+  display: grid;
+  gap: 4px;
+}
+
+.student-list-filter span {
+  color: #748198;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.student-list-filter select {
+  min-height: 38px;
+  padding: 7px 30px 7px 9px;
+  color: #26344d;
+  background: #fff;
+  border: 1px solid #d8e0eb;
+  border-radius: 8px;
+}
+
+.status-badge--tc,
+.status-badge--left {
+  color: #9b3e47;
+  background: #fff0f1;
+}
+
+@media (max-width: 1250px) {
+  .academic-session-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .promotion-filter-grid {
+    grid-template-columns: repeat(3, minmax(140px, 1fr));
+  }
+
+  .promotion-summary-grid {
+    grid-template-columns: repeat(4, minmax(110px, 1fr));
+  }
+}
+
 @media print {
   @page receipt {
     size: A5 portrait;
@@ -8289,6 +8727,11 @@
     margin: 9mm;
   }
 
+  @page academic-session-report {
+    size: A4 landscape;
+    margin: 9mm;
+  }
+
   html,
   body,
   #root {
@@ -8334,6 +8777,7 @@
   .class-tests-tabs,
   .question-paper-tabs,
   .behaviour-skills-tabs,
+  .academic-session-tabs,
   .documents-page .document-toolbar,
   .employees-page .employee-document-toolbar,
   .documents-page > .inline-message,
@@ -8355,6 +8799,12 @@
   .observation-history-toolbar,
   .domain-report-toolbar,
   .domain-report-filters,
+  .academic-sessions-page > .inline-message,
+  .promotion-batch-list,
+  .promotion-report-toolbar,
+  .carry-forward-toolbar,
+  .carry-forward-filters,
+  .session-report-toolbar,
   .paper-preview-toolbar,
   .account-statement-toolbar,
   .account-report-toolbar,
@@ -8419,6 +8869,12 @@
   .observation-print-area *,
   .domain-report-print-area,
   .domain-report-print-area *,
+  .promotion-print-area,
+  .promotion-print-area *,
+  .carry-forward-print-area,
+  .carry-forward-print-area *,
+  .session-report-print-area,
+  .session-report-print-area *,
   .certificate-print-area,
   .certificate-print-area * {
     visibility: visible !important;
@@ -9243,6 +9699,108 @@
 
   .domain-rating-summary strong {
     font-size: 11pt;
+  }
+
+  .promotion-print-area,
+  .carry-forward-print-area,
+  .session-report-print-area {
+    page: academic-session-report;
+    width: auto;
+    margin: 0;
+    padding: 0;
+    background: #fff;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .academic-print-header {
+    padding-bottom: 3mm;
+  }
+
+  .academic-print-header h2 {
+    font-size: 14pt;
+  }
+
+  .academic-print-header p,
+  .academic-print-header span,
+  .academic-print-header small {
+    font-size: 7pt;
+  }
+
+  .academic-print-header strong {
+    font-size: 10pt;
+  }
+
+  .promotion-print-summary,
+  .session-report-summary {
+    gap: 1.5mm;
+    margin: 3mm 0;
+  }
+
+  .promotion-print-summary {
+    grid-template-columns: repeat(6, 1fr);
+  }
+
+  .session-report-summary {
+    grid-template-columns: repeat(8, 1fr);
+  }
+
+  .carry-forward-summary {
+    gap: 1.5mm;
+    margin: 3mm 0;
+  }
+
+  .promotion-print-summary > div,
+  .session-report-summary > div,
+  .carry-forward-summary > div {
+    padding: 2mm;
+    border-radius: 1.5mm;
+  }
+
+  .promotion-print-summary span,
+  .session-report-summary span,
+  .carry-forward-summary span {
+    font-size: 6.5pt;
+  }
+
+  .promotion-print-summary strong,
+  .session-report-summary strong,
+  .carry-forward-summary strong {
+    font-size: 9pt;
+  }
+
+  .promotion-print-area .table-scroll,
+  .carry-forward-print-area .table-scroll,
+  .session-report-print-area .table-scroll {
+    overflow: visible;
+  }
+
+  .promotion-detail-table,
+  .carry-forward-table,
+  .session-report-print-area .data-table {
+    min-width: 0;
+    font-size: 7pt;
+  }
+
+  .promotion-print-area .data-table th,
+  .promotion-print-area .data-table td,
+  .carry-forward-print-area .data-table th,
+  .carry-forward-print-area .data-table td,
+  .session-report-print-area .data-table th,
+  .session-report-print-area .data-table td {
+    height: auto;
+    padding: 2mm 2.2mm;
+    white-space: normal;
+  }
+
+  .promotion-print-area .data-table tr,
+  .carry-forward-print-area .data-table tr,
+  .session-report-print-area .data-table tr {
+    break-inside: avoid;
+  }
+
+  .carry-forward-screen-actions {
+    display: none !important;
   }
 
   .question-paper-print-area {

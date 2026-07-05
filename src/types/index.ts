@@ -15,6 +15,7 @@ export type PageId =
   | 'class-tests'
   | 'question-paper'
   | 'behaviour-skills'
+  | 'academic-sessions'
   | 'placeholder'
 
 export interface ModulePlaceholderInfo {
@@ -139,6 +140,9 @@ export interface Student {
   updatedAt: string
   deletedAt: string | null
   syncStatus: 'pending' | 'synced'
+  academicSessionId: string
+  academicSessionName: string
+  sessionStatus: StudentSessionStatus
 }
 
 export interface CreateStudentInput {
@@ -776,6 +780,250 @@ export interface CreateStudentObservationInput {
 
 export type UpdateStudentObservationInput =
   Partial<CreateStudentObservationInput>
+
+export type AcademicSessionStatus = 'Active' | 'Inactive' | 'Closed'
+export type StudentSessionStatus =
+  | 'Active'
+  | 'Promoted'
+  | 'Repeated'
+  | 'TC'
+  | 'Left'
+  | 'Inactive'
+export type StudentResultStatus =
+  | 'Pass'
+  | 'Fail'
+  | 'Repeat'
+  | 'TC'
+  | 'Left'
+  | 'Not Applicable'
+export type PromotionAction =
+  | 'Promote'
+  | 'Repeat'
+  | 'TC'
+  | 'Left'
+  | 'Inactive'
+export type CarryForwardDueStatus = 'Pending' | 'Paid' | 'Waived'
+
+export interface AcademicSession {
+  id: string
+  sessionName: string
+  startDate: string
+  endDate: string
+  status: AcademicSessionStatus
+  isCurrent: boolean
+  createdAt: string
+  updatedAt: string
+  closedAt: string
+  deletedAt: string | null
+  syncStatus: SyncStatus
+}
+
+export interface CreateAcademicSessionInput {
+  sessionName: string
+  startDate?: string
+  endDate?: string
+}
+
+export type UpdateAcademicSessionInput =
+  Partial<CreateAcademicSessionInput>
+
+export interface StudentSessionHistory {
+  id: string
+  studentId: string
+  admissionNo: string
+  studentName: string
+  academicSessionId: string
+  academicSessionName: string
+  className: string
+  section: string
+  rollNo: string
+  status: StudentSessionStatus
+  resultStatus: StudentResultStatus
+  promotedToSessionId: string
+  promotedToSessionName: string
+  promotedToClass: string
+  promotedToSection: string
+  promotionDate: string
+  remarks: string
+  createdAt: string
+  updatedAt: string
+  syncStatus: SyncStatus
+}
+
+export interface SaveStudentSessionHistoryInput {
+  studentId: string
+  academicSessionId: string
+  className?: string
+  section?: string
+  rollNo?: string
+  status?: StudentSessionStatus
+  resultStatus?: StudentResultStatus
+  remarks?: string
+}
+
+export interface PromotionPreviewInput {
+  fromSessionId: string
+  toSessionId: string
+  className: string
+  section?: string
+  toClass?: string
+  toSection?: string
+}
+
+export interface PromotionPreviewRow {
+  studentId: string
+  admissionNo: string
+  studentName: string
+  currentClass: string
+  currentSection: string
+  currentStatus: StudentSessionStatus
+  oldDueAmount: number
+  action: PromotionAction
+  newClass: string
+  newSection: string
+  carryForwardDue: boolean
+  carryForwardAmount: number
+  remarks: string
+}
+
+export interface PromotionPreviewSummary {
+  totalStudents: number
+  promote: number
+  repeat: number
+  tc: number
+  left: number
+  inactive: number
+  totalDueAmount: number
+  carryForwardAmount: number
+}
+
+export interface PromotionPreview {
+  fromSession: AcademicSession
+  toSession: AcademicSession
+  rows: PromotionPreviewRow[]
+  summary: PromotionPreviewSummary
+}
+
+export interface PromoteStudentItemInput {
+  studentId: string
+  action: PromotionAction
+  newClass?: string
+  newSection?: string
+  oldDueAmount?: number
+  carryForwardDue?: boolean
+  carryForwardAmount?: number
+  remarks?: string
+}
+
+export interface PromoteStudentsInput {
+  fromSessionId: string
+  toSessionId: string
+  fromClass: string
+  fromSection?: string
+  toClass?: string
+  toSection?: string
+  promotionDate: string
+  remarks?: string
+  items: PromoteStudentItemInput[]
+}
+
+export interface StudentPromotionItem {
+  id: string
+  promotionId: string
+  studentId: string
+  admissionNo: string
+  studentName: string
+  oldClass: string
+  oldSection: string
+  newClass: string
+  newSection: string
+  action: PromotionAction
+  oldDueAmount: number
+  carriedForwardAmount: number
+  remarks: string
+  createdAt: string
+  updatedAt: string
+  syncStatus: SyncStatus
+}
+
+export interface StudentPromotion {
+  id: string
+  promotionNo: string
+  fromSessionId: string
+  fromSessionName: string
+  toSessionId: string
+  toSessionName: string
+  fromClass: string
+  fromSection: string
+  toClass: string
+  toSection: string
+  promotionDate: string
+  totalStudents: number
+  promotedCount: number
+  repeatedCount: number
+  tcCount: number
+  leftCount: number
+  inactiveCount: number
+  carryForwardDues: number
+  createdBy: string
+  remarks: string
+  items: StudentPromotionItem[]
+  createdAt: string
+  updatedAt: string
+  syncStatus: SyncStatus
+}
+
+export interface CarryForwardDue {
+  id: string
+  studentId: string
+  admissionNo: string
+  studentName: string
+  fromSessionId: string
+  fromSessionName: string
+  toSessionId: string
+  toSessionName: string
+  oldDueAmount: number
+  carriedAmount: number
+  status: CarryForwardDueStatus
+  promotionId: string
+  className: string
+  section: string
+  createdAt: string
+  updatedAt: string
+  syncStatus: SyncStatus
+}
+
+export interface CarryForwardDueFilter {
+  fromSessionId?: string
+  toSessionId?: string
+  className?: string
+  section?: string
+  status?: CarryForwardDueStatus | ''
+}
+
+export interface UpdateCarryForwardDueInput {
+  carriedAmount?: number
+  status?: CarryForwardDueStatus
+}
+
+export interface SessionReport {
+  session: AcademicSession
+  summary: {
+    totalActiveStudents: number
+    newAdmissions: number
+    promotedStudents: number
+    repeatedStudents: number
+    tcStudents: number
+    leftStudents: number
+    inactiveStudents: number
+    totalCarriedDues: number
+  }
+  classCounts: {
+    className: string
+    section: string
+    studentCount: number
+  }[]
+}
 
 export type SalaryPaymentMode = 'Cash' | 'UPI' | 'Bank Transfer' | 'Cheque'
 

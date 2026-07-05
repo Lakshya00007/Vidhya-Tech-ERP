@@ -79,6 +79,35 @@ const OBSERVATION_TYPES = new Set([
   "General",
 ]);
 const OBSERVATION_STATUSES = new Set(["Open", "Follow Up", "Closed"]);
+const ACADEMIC_SESSION_STATUSES = new Set([
+  "Active",
+  "Inactive",
+  "Closed",
+]);
+const STUDENT_SESSION_STATUSES = new Set([
+  "Active",
+  "Promoted",
+  "Repeated",
+  "TC",
+  "Left",
+  "Inactive",
+]);
+const STUDENT_RESULT_STATUSES = new Set([
+  "Pass",
+  "Fail",
+  "Repeat",
+  "TC",
+  "Left",
+  "Not Applicable",
+]);
+const PROMOTION_ACTIONS = new Set([
+  "Promote",
+  "Repeat",
+  "TC",
+  "Left",
+  "Inactive",
+]);
+const CARRY_FORWARD_STATUSES = new Set(["Pending", "Paid", "Waived"]);
 const STUDENT_IMPORT_TEMPLATE_COLUMNS = [
   "Admission No",
   "Student Name",
@@ -189,6 +218,9 @@ function studentFromRow(row) {
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at,
     syncStatus: row.sync_status,
+    academicSessionId: row.academic_session_id ?? "",
+    academicSessionName: row.academic_session_name ?? "",
+    sessionStatus: row.session_status ?? row.status,
   };
 }
 
@@ -608,6 +640,119 @@ function studentObservationFromRow(row) {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at,
+    syncStatus: row.sync_status,
+  };
+}
+
+function academicSessionFromRow(row) {
+  return {
+    id: row.id,
+    sessionName: row.session_name,
+    startDate: row.start_date ?? "",
+    endDate: row.end_date ?? "",
+    status: row.status,
+    isCurrent: Number(row.is_current ?? 0) === 1,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    closedAt: row.closed_at ?? "",
+    deletedAt: row.deleted_at,
+    syncStatus: row.sync_status,
+  };
+}
+
+function studentSessionHistoryFromRow(row) {
+  return {
+    id: row.id,
+    studentId: row.student_id,
+    admissionNo: row.admission_no ?? "",
+    studentName: row.student_name ?? "",
+    academicSessionId: row.academic_session_id,
+    academicSessionName: row.academic_session_name,
+    className: row.class_name ?? "",
+    section: row.section ?? "",
+    rollNo: row.roll_no ?? "",
+    status: row.status,
+    resultStatus: row.result_status ?? "Not Applicable",
+    promotedToSessionId: row.promoted_to_session_id ?? "",
+    promotedToSessionName: row.promoted_to_session_name ?? "",
+    promotedToClass: row.promoted_to_class ?? "",
+    promotedToSection: row.promoted_to_section ?? "",
+    promotionDate: row.promotion_date ?? "",
+    remarks: row.remarks ?? "",
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    syncStatus: row.sync_status,
+  };
+}
+
+function promotionItemFromRow(row) {
+  return {
+    id: row.id,
+    promotionId: row.promotion_id,
+    studentId: row.student_id,
+    admissionNo: row.admission_no ?? "",
+    studentName: row.student_name ?? "",
+    oldClass: row.old_class ?? "",
+    oldSection: row.old_section ?? "",
+    newClass: row.new_class ?? "",
+    newSection: row.new_section ?? "",
+    action: row.action,
+    oldDueAmount: Number(row.old_due_amount ?? 0),
+    carriedForwardAmount: Number(row.carried_forward_amount ?? 0),
+    remarks: row.remarks ?? "",
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    syncStatus: row.sync_status,
+  };
+}
+
+function studentPromotionFromRow(row, items = []) {
+  return {
+    id: row.id,
+    promotionNo: row.promotion_no,
+    fromSessionId: row.from_session_id,
+    fromSessionName: row.from_session_name,
+    toSessionId: row.to_session_id,
+    toSessionName: row.to_session_name,
+    fromClass: row.from_class ?? "",
+    fromSection: row.from_section ?? "",
+    toClass: row.to_class ?? "",
+    toSection: row.to_section ?? "",
+    promotionDate: row.promotion_date,
+    totalStudents: Number(row.total_students ?? 0),
+    promotedCount: Number(row.promoted_count ?? 0),
+    repeatedCount: Number(row.repeated_count ?? 0),
+    tcCount: Number(row.tc_count ?? 0),
+    leftCount: Number(row.left_count ?? 0),
+    inactiveCount: Number(row.inactive_count ?? 0),
+    carryForwardDues: Number(row.carry_forward_dues ?? 0),
+    createdBy: row.created_by ?? "",
+    remarks: row.remarks ?? "",
+    items,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    syncStatus: row.sync_status,
+  };
+}
+
+function carryForwardDueFromRow(row) {
+  return {
+    id: row.id,
+    studentId: row.student_id,
+    admissionNo: row.admission_no ?? "",
+    studentName: row.student_name ?? "",
+    fromSessionId: row.from_session_id ?? "",
+    fromSessionName: row.from_session_name ?? "",
+    toSessionId: row.to_session_id ?? "",
+    toSessionName: row.to_session_name ?? "",
+    oldDueAmount: Number(row.old_due_amount ?? 0),
+    carriedAmount: Number(row.carried_amount ?? 0),
+    status: row.status,
+    promotionId: row.promotion_id ?? "",
+    className: row.current_class_name ?? "",
+    section: row.current_section ?? "",
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
     syncStatus: row.sync_status,
   };
 }
@@ -1377,6 +1522,125 @@ function createDatabase(databasePath) {
       FOREIGN KEY (student_id) REFERENCES students(id)
     );
 
+    CREATE TABLE IF NOT EXISTS academic_sessions (
+      id TEXT PRIMARY KEY,
+      session_name TEXT UNIQUE NOT NULL,
+      start_date TEXT,
+      end_date TEXT,
+      status TEXT DEFAULT 'Inactive'
+        CHECK (status IN ('Active', 'Inactive', 'Closed')),
+      is_current INTEGER DEFAULT 0,
+      created_at TEXT,
+      updated_at TEXT,
+      closed_at TEXT,
+      deleted_at TEXT,
+      sync_status TEXT DEFAULT 'pending'
+    );
+
+    CREATE TABLE IF NOT EXISTS student_session_history (
+      id TEXT PRIMARY KEY,
+      student_id TEXT NOT NULL,
+      admission_no TEXT,
+      student_name TEXT,
+      academic_session_id TEXT,
+      academic_session_name TEXT,
+      class_name TEXT,
+      section TEXT,
+      roll_no TEXT,
+      status TEXT DEFAULT 'Active' CHECK (
+        status IN ('Active', 'Promoted', 'Repeated', 'TC', 'Left', 'Inactive')
+      ),
+      result_status TEXT CHECK (
+        result_status IN ('Pass', 'Fail', 'Repeat', 'TC', 'Left', 'Not Applicable')
+      ),
+      promoted_to_session_id TEXT,
+      promoted_to_session_name TEXT,
+      promoted_to_class TEXT,
+      promoted_to_section TEXT,
+      promotion_date TEXT,
+      remarks TEXT,
+      created_at TEXT,
+      updated_at TEXT,
+      sync_status TEXT DEFAULT 'pending',
+      FOREIGN KEY (student_id) REFERENCES students(id),
+      FOREIGN KEY (academic_session_id) REFERENCES academic_sessions(id),
+      FOREIGN KEY (promoted_to_session_id) REFERENCES academic_sessions(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS student_promotions (
+      id TEXT PRIMARY KEY,
+      promotion_no TEXT UNIQUE NOT NULL,
+      from_session_id TEXT NOT NULL,
+      from_session_name TEXT NOT NULL,
+      to_session_id TEXT NOT NULL,
+      to_session_name TEXT NOT NULL,
+      from_class TEXT,
+      from_section TEXT,
+      to_class TEXT,
+      to_section TEXT,
+      promotion_date TEXT NOT NULL,
+      total_students INTEGER DEFAULT 0,
+      promoted_count INTEGER DEFAULT 0,
+      repeated_count INTEGER DEFAULT 0,
+      tc_count INTEGER DEFAULT 0,
+      left_count INTEGER DEFAULT 0,
+      inactive_count INTEGER DEFAULT 0,
+      carry_forward_dues INTEGER DEFAULT 0,
+      created_by TEXT,
+      remarks TEXT,
+      created_at TEXT,
+      updated_at TEXT,
+      sync_status TEXT DEFAULT 'pending',
+      FOREIGN KEY (from_session_id) REFERENCES academic_sessions(id),
+      FOREIGN KEY (to_session_id) REFERENCES academic_sessions(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS student_promotion_items (
+      id TEXT PRIMARY KEY,
+      promotion_id TEXT NOT NULL,
+      student_id TEXT NOT NULL,
+      admission_no TEXT,
+      student_name TEXT,
+      old_class TEXT,
+      old_section TEXT,
+      new_class TEXT,
+      new_section TEXT,
+      action TEXT NOT NULL CHECK (
+        action IN ('Promote', 'Repeat', 'TC', 'Left', 'Inactive')
+      ),
+      old_due_amount INTEGER DEFAULT 0,
+      carried_forward_amount INTEGER DEFAULT 0,
+      remarks TEXT,
+      created_at TEXT,
+      updated_at TEXT,
+      sync_status TEXT DEFAULT 'pending',
+      FOREIGN KEY (promotion_id) REFERENCES student_promotions(id),
+      FOREIGN KEY (student_id) REFERENCES students(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS fee_due_carry_forward (
+      id TEXT PRIMARY KEY,
+      student_id TEXT NOT NULL,
+      admission_no TEXT,
+      student_name TEXT,
+      from_session_id TEXT,
+      from_session_name TEXT,
+      to_session_id TEXT,
+      to_session_name TEXT,
+      old_due_amount INTEGER DEFAULT 0,
+      carried_amount INTEGER DEFAULT 0,
+      status TEXT DEFAULT 'Pending'
+        CHECK (status IN ('Pending', 'Paid', 'Waived')),
+      promotion_id TEXT,
+      created_at TEXT,
+      updated_at TEXT,
+      sync_status TEXT DEFAULT 'pending',
+      FOREIGN KEY (student_id) REFERENCES students(id),
+      FOREIGN KEY (from_session_id) REFERENCES academic_sessions(id),
+      FOREIGN KEY (to_session_id) REFERENCES academic_sessions(id),
+      FOREIGN KEY (promotion_id) REFERENCES student_promotions(id)
+    );
+
     CREATE TABLE IF NOT EXISTS fee_payments (
       id TEXT PRIMARY KEY,
       receipt_no TEXT UNIQUE NOT NULL,
@@ -1737,6 +2001,30 @@ function createDatabase(databasePath) {
       ON student_observations(
         student_id, observation_date, status, deleted_at
       );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_academic_session_current
+      ON academic_sessions(is_current)
+      WHERE is_current = 1 AND deleted_at IS NULL;
+    CREATE INDEX IF NOT EXISTS idx_academic_sessions_status
+      ON academic_sessions(status, is_current, deleted_at, start_date);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_student_session_unique
+      ON student_session_history(student_id, academic_session_id);
+    CREATE INDEX IF NOT EXISTS idx_student_session_roster
+      ON student_session_history(
+        academic_session_id, class_name, section, status, student_name
+      );
+    CREATE INDEX IF NOT EXISTS idx_student_promotions_sessions
+      ON student_promotions(
+        from_session_id, to_session_id, promotion_date, created_at
+      );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_promotion_item_student
+      ON student_promotion_items(promotion_id, student_id);
+    CREATE INDEX IF NOT EXISTS idx_carry_forward_due_filter
+      ON fee_due_carry_forward(
+        to_session_id, from_session_id, status, student_name
+      );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_carry_forward_promotion_student
+      ON fee_due_carry_forward(promotion_id, student_id)
+      WHERE promotion_id IS NOT NULL AND trim(promotion_id) <> '';
   `);
 
   const timestamp = now();
@@ -1983,10 +2271,53 @@ function createDatabase(databasePath) {
   }
 
   const getStudentsStatement = db.prepare(`
-    SELECT *
+    SELECT
+      students.*,
+      COALESCE(
+        current_history.academic_session_id,
+        (
+          SELECT history.academic_session_id
+          FROM student_session_history AS history
+          WHERE history.student_id = students.id
+          ORDER BY history.created_at DESC
+          LIMIT 1
+        )
+      ) AS academic_session_id,
+      COALESCE(
+        current_history.academic_session_name,
+        (
+          SELECT history.academic_session_name
+          FROM student_session_history AS history
+          WHERE history.student_id = students.id
+          ORDER BY history.created_at DESC
+          LIMIT 1
+        )
+      ) AS academic_session_name,
+      CASE
+        WHEN current_history.status IN ('TC', 'Left')
+          THEN current_history.status
+        WHEN students.status = 'Inactive' THEN COALESCE(
+          (
+            SELECT history.status
+            FROM student_session_history AS history
+            WHERE history.student_id = students.id
+              AND history.status IN ('TC', 'Left')
+            ORDER BY history.created_at DESC
+            LIMIT 1
+          ),
+          students.status
+        )
+        ELSE students.status
+      END AS session_status
     FROM students
-    WHERE deleted_at IS NULL
-    ORDER BY created_at DESC
+    LEFT JOIN academic_sessions AS current_session
+      ON current_session.is_current = 1
+      AND current_session.deleted_at IS NULL
+    LEFT JOIN student_session_history AS current_history
+      ON current_history.student_id = students.id
+      AND current_history.academic_session_id = current_session.id
+    WHERE students.deleted_at IS NULL
+    ORDER BY students.created_at DESC
   `);
 
   const getStudentStatement = db.prepare(`
@@ -3141,6 +3472,221 @@ function createDatabase(databasePath) {
     }
   }
 
+  function normalizeSessionName(value) {
+    const sessionName = requiredText(value, "Session name")
+      .replace(/[–—/]/g, "-")
+      .replace(/\s+/g, "");
+    if (!/^\d{4}-\d{2,4}$/.test(sessionName)) {
+      throw new Error("Session name must use a format such as 2026-27.");
+    }
+    return sessionName;
+  }
+
+  function getAcademicSessionRow(id) {
+    return db
+      .prepare(`
+        SELECT *
+        FROM academic_sessions
+        WHERE id = ? AND deleted_at IS NULL
+      `)
+      .get(requiredText(id, "Academic session id"));
+  }
+
+  function validateClassSection(classNameValue, sectionValue) {
+    const className = requiredText(classNameValue, "Class");
+    const schoolClass = getActiveClassByName.get(className);
+    if (!schoolClass || schoolClass.status !== "Active") {
+      throw new Error("Select an active class.");
+    }
+    const section = optionalText(sectionValue);
+    if (section) {
+      const schoolSection = db
+        .prepare(`
+          SELECT id
+          FROM sections
+          WHERE class_id = ?
+            AND name = ? COLLATE NOCASE
+            AND status = 'Active'
+            AND deleted_at IS NULL
+        `)
+        .get(schoolClass.id, section);
+      if (!schoolSection) {
+        throw new Error("Select an active section for the chosen class.");
+      }
+    }
+    return { className: schoolClass.name, section };
+  }
+
+  function ensureStudentSessionHistory(
+    studentId,
+    session = null,
+    overrides = {},
+  ) {
+    const student = getStudentStatement.get(
+      requiredText(studentId, "Student"),
+    );
+    if (!student) throw new Error("Student record was not found.");
+    const targetSession =
+      session ??
+      db
+        .prepare(`
+          SELECT *
+          FROM academic_sessions
+          WHERE is_current = 1 AND deleted_at IS NULL
+        `)
+        .get();
+    if (!targetSession) return null;
+    const existing = db
+      .prepare(`
+        SELECT *
+        FROM student_session_history
+        WHERE student_id = ? AND academic_session_id = ?
+      `)
+      .get(student.id, targetSession.id);
+    const timestamp = now();
+    const values = {
+      studentId: student.id,
+      admissionNo: student.admission_no,
+      studentName: student.name,
+      academicSessionId: targetSession.id,
+      academicSessionName: targetSession.session_name,
+      className: optionalText(overrides.className) || student.class_name,
+      section:
+        overrides.section === undefined
+          ? student.section ?? ""
+          : optionalText(overrides.section),
+      rollNo: optionalText(overrides.rollNo),
+      status: optionalText(overrides.status) || "Active",
+      resultStatus:
+        optionalText(overrides.resultStatus) || "Not Applicable",
+      remarks: optionalText(overrides.remarks),
+    };
+    if (!STUDENT_SESSION_STATUSES.has(values.status)) {
+      throw new Error("Student session status is invalid.");
+    }
+    if (!STUDENT_RESULT_STATUSES.has(values.resultStatus)) {
+      throw new Error("Student result status is invalid.");
+    }
+    if (existing) {
+      db.prepare(`
+        UPDATE student_session_history
+        SET admission_no = @admissionNo,
+            student_name = @studentName,
+            academic_session_name = @academicSessionName,
+            class_name = @className,
+            section = @section,
+            roll_no = @rollNo,
+            status = @status,
+            result_status = @resultStatus,
+            remarks = @remarks,
+            updated_at = @updatedAt,
+            sync_status = 'pending'
+        WHERE id = @id
+      `).run({
+        id: existing.id,
+        ...values,
+        updatedAt: timestamp,
+      });
+      return db
+        .prepare("SELECT * FROM student_session_history WHERE id = ?")
+        .get(existing.id);
+    }
+    const id = crypto.randomUUID();
+    db.prepare(`
+      INSERT INTO student_session_history (
+        id, student_id, admission_no, student_name, academic_session_id,
+        academic_session_name, class_name, section, roll_no, status,
+        result_status, promoted_to_session_id, promoted_to_session_name,
+        promoted_to_class, promoted_to_section, promotion_date, remarks,
+        created_at, updated_at, sync_status
+      ) VALUES (
+        @id, @studentId, @admissionNo, @studentName, @academicSessionId,
+        @academicSessionName, @className, @section, @rollNo, @status,
+        @resultStatus, NULL, NULL, NULL, NULL, NULL, @remarks, @createdAt,
+        @updatedAt, 'pending'
+      )
+    `).run({
+      id,
+      ...values,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    });
+    return db
+      .prepare("SELECT * FROM student_session_history WHERE id = ?")
+      .get(id);
+  }
+
+  function calculateStudentDue(studentId, session) {
+    const student = getStudentStatement.get(studentId);
+    if (!student) throw new Error("Student record was not found.");
+    const structures = db
+      .prepare(`
+        SELECT *
+        FROM fee_structures
+        WHERE class_name = ?
+          AND status = 'Active'
+          AND deleted_at IS NULL
+      `)
+      .all(student.class_name);
+    const sessionStartYear = optionalText(session?.session_name).slice(0, 4);
+    const matchingStructures = structures.filter(
+      (structure) =>
+        !optionalText(structure.academic_year) ||
+        optionalText(structure.academic_year).slice(0, 4) ===
+          sessionStartYear,
+    );
+    const configured = (
+      matchingStructures.length > 0 ? matchingStructures : structures
+    ).reduce((total, structure) => total + Number(structure.amount ?? 0), 0);
+    const startDate = optionalText(session?.start_date);
+    const endDate = optionalText(session?.end_date);
+    const paid = Number(
+      db
+        .prepare(`
+          SELECT COALESCE(SUM(amount), 0) AS total
+          FROM fee_payments
+          WHERE student_id = ?
+            AND (? = '' OR payment_date >= ?)
+            AND (? = '' OR payment_date <= ?)
+        `)
+        .get(
+          student.id,
+          startDate,
+          startDate,
+          endDate,
+          endDate,
+        ).total,
+    );
+    return Math.max(0, configured - paid);
+  }
+
+  function generatePromotionNumber(promotionDate) {
+    const year = normalizeDate(promotionDate, "Promotion date").slice(0, 4);
+    const stem = `PROM-${year}-`;
+    const sequence = db
+      .prepare(`
+        SELECT MAX(
+          CAST(substr(promotion_no, length(?) + 1) AS INTEGER)
+        ) AS last_sequence
+        FROM student_promotions
+        WHERE substr(promotion_no, 1, length(?)) = ?
+      `)
+      .get(stem, stem, stem);
+    return `${stem}${String(Number(sequence?.last_sequence ?? 0) + 1).padStart(4, "0")}`;
+  }
+
+  function getPromotionItems(promotionId) {
+    return db
+      .prepare(`
+        SELECT *
+        FROM student_promotion_items
+        WHERE promotion_id = ?
+        ORDER BY student_name COLLATE NOCASE
+      `)
+      .all(promotionId)
+      .map(promotionItemFromRow);
+  }
+
   return {
     getStudents() {
       return getStudentsStatement.all().map(studentFromRow);
@@ -3199,8 +3745,15 @@ function createDatabase(databasePath) {
         updatedAt: timestamp,
       };
 
-      insertStudentStatement.run(student);
-      return studentFromRow(getStudentStatement.get(student.id));
+      db.transaction(() => {
+        insertStudentStatement.run(student);
+        ensureStudentSessionHistory(student.id, null, {
+          status: status === "Active" ? "Active" : "Inactive",
+        });
+      })();
+      return studentFromRow(getStudentsStatement.all().find(
+        (row) => row.id === student.id,
+      ));
     },
 
     updateStudent(id, input) {
@@ -3347,7 +3900,14 @@ function createDatabase(databasePath) {
         now(),
         studentId,
       );
-      return updatedStudent;
+      ensureStudentSessionHistory(studentId, null, {
+        className: updatedStudent.className,
+        section: updatedStudent.section,
+        status: updatedStudent.status === "Active" ? "Active" : "Inactive",
+      });
+      return studentFromRow(
+        getStudentsStatement.all().find((row) => row.id === studentId),
+      );
     },
 
     deleteStudent(id) {
@@ -3679,6 +4239,12 @@ function createDatabase(databasePath) {
               insertStudentStatement.run(studentValues);
               result.inserted += 1;
             }
+            ensureStudentSessionHistory(studentValues.id, null, {
+              className: studentValues.className,
+              section: studentValues.section,
+              status:
+                studentValues.status === "Active" ? "Active" : "Inactive",
+            });
             result.imported += 1;
           } catch (error) {
             if (!(error instanceof StudentImportValidationError)) {
@@ -9149,6 +9715,987 @@ function createDatabase(databasePath) {
         `)
         .run(timestamp, timestamp, requiredText(id, "Observation id"));
       return { success: result.changes === 1 };
+    },
+
+    getAcademicSessions() {
+      return db
+        .prepare(`
+          SELECT *
+          FROM academic_sessions
+          WHERE deleted_at IS NULL
+          ORDER BY
+            is_current DESC,
+            start_date DESC,
+            session_name DESC
+        `)
+        .all()
+        .map(academicSessionFromRow);
+    },
+
+    getCurrentAcademicSession() {
+      const row = db
+        .prepare(`
+          SELECT *
+          FROM academic_sessions
+          WHERE is_current = 1 AND deleted_at IS NULL
+        `)
+        .get();
+      return row ? academicSessionFromRow(row) : null;
+    },
+
+    createAcademicSession(input) {
+      const sessionName = normalizeSessionName(input?.sessionName);
+      const startDateText = optionalText(input?.startDate);
+      const endDateText = optionalText(input?.endDate);
+      const startDate = startDateText
+        ? normalizeDate(startDateText, "Start date")
+        : "";
+      const endDate = endDateText
+        ? normalizeDate(endDateText, "End date")
+        : "";
+      if (startDate && endDate && startDate > endDate) {
+        throw new Error("Session start date cannot be after its end date.");
+      }
+      const duplicate = db
+        .prepare(`
+          SELECT id
+          FROM academic_sessions
+          WHERE session_name = ? COLLATE NOCASE AND deleted_at IS NULL
+        `)
+        .get(sessionName);
+      if (duplicate) {
+        throw new Error("An academic session with this name already exists.");
+      }
+      const id = crypto.randomUUID();
+      const timestamp = now();
+      db.prepare(`
+        INSERT INTO academic_sessions (
+          id, session_name, start_date, end_date, status, is_current,
+          created_at, updated_at, closed_at, deleted_at, sync_status
+        ) VALUES (
+          @id, @sessionName, @startDate, @endDate, 'Inactive', 0,
+          @createdAt, @updatedAt, NULL, NULL, 'pending'
+        )
+      `).run({
+        id,
+        sessionName,
+        startDate,
+        endDate,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+      return academicSessionFromRow(getAcademicSessionRow(id));
+    },
+
+    updateAcademicSession(id, input) {
+      const sessionId = requiredText(id, "Academic session id");
+      const existing = getAcademicSessionRow(sessionId);
+      if (!existing) throw new Error("Academic session was not found.");
+      if (existing.status === "Closed") {
+        throw new Error("A closed academic session cannot be edited.");
+      }
+      const sessionName =
+        input?.sessionName === undefined
+          ? existing.session_name
+          : normalizeSessionName(input.sessionName);
+      const duplicate = db
+        .prepare(`
+          SELECT id
+          FROM academic_sessions
+          WHERE session_name = ? COLLATE NOCASE
+            AND id <> ?
+            AND deleted_at IS NULL
+        `)
+        .get(sessionName, sessionId);
+      if (duplicate) {
+        throw new Error("An academic session with this name already exists.");
+      }
+      const startDateText =
+        input?.startDate === undefined
+          ? existing.start_date ?? ""
+          : optionalText(input.startDate);
+      const endDateText =
+        input?.endDate === undefined
+          ? existing.end_date ?? ""
+          : optionalText(input.endDate);
+      const startDate = startDateText
+        ? normalizeDate(startDateText, "Start date")
+        : "";
+      const endDate = endDateText
+        ? normalizeDate(endDateText, "End date")
+        : "";
+      if (startDate && endDate && startDate > endDate) {
+        throw new Error("Session start date cannot be after its end date.");
+      }
+      db.transaction(() => {
+        db.prepare(`
+          UPDATE academic_sessions
+          SET session_name = @sessionName,
+              start_date = @startDate,
+              end_date = @endDate,
+              updated_at = @updatedAt,
+              sync_status = 'pending'
+          WHERE id = @id AND deleted_at IS NULL
+        `).run({
+          id: sessionId,
+          sessionName,
+          startDate,
+          endDate,
+          updatedAt: now(),
+        });
+        if (sessionName !== existing.session_name) {
+          db.prepare(`
+            UPDATE student_session_history
+            SET academic_session_name = ?, updated_at = ?, sync_status = 'pending'
+            WHERE academic_session_id = ?
+          `).run(sessionName, now(), sessionId);
+          db.prepare(`
+            UPDATE student_promotions
+            SET from_session_name = CASE
+                  WHEN from_session_id = ? THEN ? ELSE from_session_name
+                END,
+                to_session_name = CASE
+                  WHEN to_session_id = ? THEN ? ELSE to_session_name
+                END,
+                updated_at = ?,
+                sync_status = 'pending'
+            WHERE from_session_id = ? OR to_session_id = ?
+          `).run(
+            sessionId,
+            sessionName,
+            sessionId,
+            sessionName,
+            now(),
+            sessionId,
+            sessionId,
+          );
+        }
+      })();
+      return academicSessionFromRow(getAcademicSessionRow(sessionId));
+    },
+
+    setCurrentAcademicSession(id) {
+      const sessionId = requiredText(id, "Academic session id");
+      const session = getAcademicSessionRow(sessionId);
+      if (!session) throw new Error("Academic session was not found.");
+      if (session.status === "Closed") {
+        throw new Error("A closed session cannot be made current.");
+      }
+      db.transaction(() => {
+        const timestamp = now();
+        db.prepare(`
+          UPDATE academic_sessions
+          SET is_current = 0,
+              status = CASE
+                WHEN status = 'Active' THEN 'Inactive'
+                ELSE status
+              END,
+              updated_at = ?,
+              sync_status = 'pending'
+          WHERE is_current = 1 AND deleted_at IS NULL
+        `).run(timestamp);
+        db.prepare(`
+          UPDATE academic_sessions
+          SET is_current = 1,
+              status = 'Active',
+              updated_at = ?,
+              sync_status = 'pending'
+          WHERE id = ? AND deleted_at IS NULL
+        `).run(timestamp, sessionId);
+        const currentSession = getAcademicSessionRow(sessionId);
+        const students = db
+          .prepare(`
+            SELECT id
+            FROM students
+            WHERE status = 'Active' AND deleted_at IS NULL
+          `)
+          .all();
+        for (const student of students) {
+          ensureStudentSessionHistory(student.id, currentSession);
+        }
+      })();
+      return academicSessionFromRow(getAcademicSessionRow(sessionId));
+    },
+
+    closeAcademicSession(id) {
+      const sessionId = requiredText(id, "Academic session id");
+      const session = getAcademicSessionRow(sessionId);
+      if (!session) throw new Error("Academic session was not found.");
+      if (session.status === "Closed") {
+        return academicSessionFromRow(session);
+      }
+      if (Number(session.is_current) === 1) {
+        throw new Error(
+          "Set the next academic session as current before closing this session.",
+        );
+      }
+      const currentSession = db
+        .prepare(`
+          SELECT id
+          FROM academic_sessions
+          WHERE is_current = 1 AND deleted_at IS NULL
+        `)
+        .get();
+      if (!currentSession) {
+        throw new Error(
+          "Select or create the next current session before closing this session.",
+        );
+      }
+      const timestamp = now();
+      db.prepare(`
+        UPDATE academic_sessions
+        SET status = 'Closed',
+            is_current = 0,
+            closed_at = ?,
+            updated_at = ?,
+            sync_status = 'pending'
+        WHERE id = ? AND deleted_at IS NULL
+      `).run(timestamp, timestamp, sessionId);
+      return academicSessionFromRow(getAcademicSessionRow(sessionId));
+    },
+
+    deleteAcademicSession(id) {
+      const sessionId = requiredText(id, "Academic session id");
+      const session = getAcademicSessionRow(sessionId);
+      if (!session) return { success: false };
+      if (Number(session.is_current) === 1) {
+        throw new Error("The current academic session cannot be deleted.");
+      }
+      const dependencies = Number(
+        db
+          .prepare(`
+            SELECT
+              (SELECT COUNT(*) FROM student_session_history
+                WHERE academic_session_id = ?) +
+              (SELECT COUNT(*) FROM student_promotions
+                WHERE from_session_id = ? OR to_session_id = ?) AS count
+          `)
+          .get(sessionId, sessionId, sessionId).count,
+      );
+      if (dependencies > 0) {
+        throw new Error(
+          "This session has student history or promotions and cannot be deleted.",
+        );
+      }
+      const timestamp = now();
+      const result = db
+        .prepare(`
+          UPDATE academic_sessions
+          SET deleted_at = ?, updated_at = ?, sync_status = 'pending'
+          WHERE id = ? AND deleted_at IS NULL
+        `)
+        .run(timestamp, timestamp, sessionId);
+      return { success: result.changes === 1 };
+    },
+
+    getStudentSessionHistory(studentId) {
+      return db
+        .prepare(`
+          SELECT *
+          FROM student_session_history
+          WHERE student_id = ?
+          ORDER BY academic_session_name DESC, created_at DESC
+        `)
+        .all(requiredText(studentId, "Student"))
+        .map(studentSessionHistoryFromRow);
+    },
+
+    getSessionStudents(sessionId) {
+      const session = getAcademicSessionRow(sessionId);
+      if (!session) return [];
+      return db
+        .prepare(`
+          SELECT *
+          FROM student_session_history
+          WHERE academic_session_id = ?
+          ORDER BY class_name, section, student_name COLLATE NOCASE
+        `)
+        .all(session.id)
+        .map(studentSessionHistoryFromRow);
+    },
+
+    createOrUpdateStudentSessionHistory(input) {
+      const session = getAcademicSessionRow(
+        requiredText(input?.academicSessionId, "Academic session"),
+      );
+      if (!session) throw new Error("Academic session was not found.");
+      const studentId = requiredText(input?.studentId, "Student");
+      const student = getStudentStatement.get(studentId);
+      if (!student) throw new Error("Student record was not found.");
+      const classSection = validateClassSection(
+        input?.className ?? student.class_name,
+        input?.section ?? student.section,
+      );
+      const row = ensureStudentSessionHistory(studentId, session, {
+        className: classSection.className,
+        section: classSection.section,
+        rollNo: input?.rollNo,
+        status: input?.status,
+        resultStatus: input?.resultStatus,
+        remarks: input?.remarks,
+      });
+      return studentSessionHistoryFromRow(row);
+    },
+
+    getPromotionPreview(input) {
+      const fromSession = getAcademicSessionRow(
+        requiredText(input?.fromSessionId, "From session"),
+      );
+      const toSession = getAcademicSessionRow(
+        requiredText(input?.toSessionId, "To session"),
+      );
+      if (!fromSession || !toSession) {
+        throw new Error("Select valid academic sessions.");
+      }
+      if (fromSession.id === toSession.id) {
+        throw new Error("From and to sessions must be different.");
+      }
+      if (toSession.status === "Closed") {
+        throw new Error("Students cannot be promoted into a closed session.");
+      }
+      const className = requiredText(input?.className, "Class");
+      const section = optionalText(input?.section);
+      const historyRows = db
+        .prepare(`
+          SELECT *
+          FROM student_session_history
+          WHERE academic_session_id = ?
+            AND class_name = ?
+            AND (? = '' OR COALESCE(section, '') = ?)
+            AND status = 'Active'
+          ORDER BY student_name COLLATE NOCASE
+        `)
+        .all(fromSession.id, className, section, section);
+      const studentsById = new Map();
+      for (const history of historyRows) {
+        const student = getStudentStatement.get(history.student_id);
+        if (student && student.status === "Active") {
+          studentsById.set(student.id, { student, history });
+        }
+      }
+      if (Number(fromSession.is_current) === 1) {
+        const currentStudents = db
+          .prepare(`
+            SELECT *
+            FROM students
+            WHERE class_name = ?
+              AND (? = '' OR COALESCE(section, '') = ?)
+              AND status = 'Active'
+              AND deleted_at IS NULL
+            ORDER BY name COLLATE NOCASE
+          `)
+          .all(className, section, section);
+        for (const student of currentStudents) {
+          if (!studentsById.has(student.id)) {
+            studentsById.set(student.id, { student, history: null });
+          }
+        }
+      }
+      const orderedClasses = db
+        .prepare(`
+          SELECT *
+          FROM classes
+          WHERE status = 'Active' AND deleted_at IS NULL
+          ORDER BY display_order, name COLLATE NOCASE
+        `)
+        .all();
+      const classIndex = orderedClasses.findIndex(
+        (item) => item.name === className,
+      );
+      const suggestedClass =
+        orderedClasses[classIndex + 1]?.name ?? className;
+      const rows = Array.from(studentsById.values()).map(
+        ({ student, history }) => {
+          const oldDueAmount = calculateStudentDue(student.id, fromSession);
+          return {
+            studentId: student.id,
+            admissionNo: student.admission_no,
+            studentName: student.name,
+            currentClass: history?.class_name ?? student.class_name,
+            currentSection: history?.section ?? student.section ?? "",
+            currentStatus: history?.status ?? "Active",
+            oldDueAmount,
+            action: "Promote",
+            newClass: optionalText(input?.toClass) || suggestedClass,
+            newSection:
+              input?.toSection === undefined
+                ? student.section ?? ""
+                : optionalText(input.toSection),
+            carryForwardDue: oldDueAmount > 0,
+            carryForwardAmount: oldDueAmount,
+            remarks: "",
+          };
+        },
+      );
+      return {
+        fromSession: academicSessionFromRow(fromSession),
+        toSession: academicSessionFromRow(toSession),
+        rows,
+        summary: {
+          totalStudents: rows.length,
+          promote: rows.length,
+          repeat: 0,
+          tc: 0,
+          left: 0,
+          inactive: 0,
+          totalDueAmount: rows.reduce(
+            (total, row) => total + row.oldDueAmount,
+            0,
+          ),
+          carryForwardAmount: rows.reduce(
+            (total, row) => total + row.carryForwardAmount,
+            0,
+          ),
+        },
+      };
+    },
+
+    promoteStudentsBulk(input) {
+      const fromSession = getAcademicSessionRow(
+        requiredText(input?.fromSessionId, "From session"),
+      );
+      const toSession = getAcademicSessionRow(
+        requiredText(input?.toSessionId, "To session"),
+      );
+      if (!fromSession || !toSession) {
+        throw new Error("Select valid academic sessions.");
+      }
+      if (fromSession.id === toSession.id) {
+        throw new Error("From and to sessions must be different.");
+      }
+      if (Number(fromSession.is_current) !== 1) {
+        throw new Error("Only the current academic session can be promoted.");
+      }
+      if (toSession.status === "Closed") {
+        throw new Error("Students cannot be promoted into a closed session.");
+      }
+      if (!Array.isArray(input?.items) || input.items.length === 0) {
+        throw new Error("Select at least one student for promotion.");
+      }
+      const promotionDate = normalizeDate(
+        input?.promotionDate,
+        "Promotion date",
+      );
+      const fromClass = requiredText(input?.fromClass, "From class");
+      const fromSection = optionalText(input?.fromSection);
+      const seenStudents = new Set();
+      const preparedItems = input.items.map((item) => {
+        const studentId = requiredText(item?.studentId, "Student");
+        if (seenStudents.has(studentId)) {
+          throw new Error("A student can appear only once in a promotion batch.");
+        }
+        seenStudents.add(studentId);
+        const action = requiredText(item?.action, "Promotion action");
+        if (!PROMOTION_ACTIONS.has(action)) {
+          throw new Error("Promotion action is invalid.");
+        }
+        const student = getStudentStatement.get(studentId);
+        if (!student || student.status !== "Active") {
+          throw new Error("Every promotion item must reference an active student.");
+        }
+        let sourceHistory = db
+          .prepare(`
+            SELECT *
+            FROM student_session_history
+            WHERE student_id = ? AND academic_session_id = ?
+          `)
+          .get(studentId, fromSession.id);
+        if (!sourceHistory) {
+          sourceHistory = ensureStudentSessionHistory(
+            studentId,
+            fromSession,
+          );
+        }
+        if (
+          sourceHistory.class_name !== fromClass ||
+          (fromSection && (sourceHistory.section ?? "") !== fromSection)
+        ) {
+          throw new Error(
+            `${student.name} does not belong to the selected source class and section.`,
+          );
+        }
+        const existingTarget = db
+          .prepare(`
+            SELECT id
+            FROM student_session_history
+            WHERE student_id = ? AND academic_session_id = ?
+          `)
+          .get(studentId, toSession.id);
+        if (existingTarget) {
+          throw new Error(
+            `${student.name} already has history in ${toSession.session_name}.`,
+          );
+        }
+        let newClass = sourceHistory.class_name;
+        let newSection = sourceHistory.section ?? "";
+        if (action === "Promote") {
+          const classSection = validateClassSection(
+            item?.newClass,
+            item?.newSection,
+          );
+          newClass = classSection.className;
+          newSection = classSection.section;
+        }
+        const oldDueAmount = wholeNumber(
+          item?.oldDueAmount ?? 0,
+          "Old due amount",
+          0,
+        );
+        const carriedForwardAmount =
+          item?.carryForwardDue === true &&
+          (action === "Promote" || action === "Repeat")
+            ? wholeNumber(
+                item?.carryForwardAmount ?? oldDueAmount,
+                "Carry forward amount",
+                0,
+              )
+            : 0;
+        return {
+          student,
+          sourceHistory,
+          action,
+          newClass,
+          newSection,
+          oldDueAmount,
+          carriedForwardAmount,
+          remarks: optionalText(item?.remarks),
+        };
+      });
+
+      return db.transaction(() => {
+        const id = crypto.randomUUID();
+        const timestamp = now();
+        const promotionNo = generatePromotionNumber(promotionDate);
+        const counts = {
+          Promote: 0,
+          Repeat: 0,
+          TC: 0,
+          Left: 0,
+          Inactive: 0,
+        };
+        const totalCarry = preparedItems.reduce(
+          (total, item) => total + item.carriedForwardAmount,
+          0,
+        );
+        db.prepare(`
+          INSERT INTO student_promotions (
+            id, promotion_no, from_session_id, from_session_name,
+            to_session_id, to_session_name, from_class, from_section,
+            to_class, to_section, promotion_date, total_students,
+            promoted_count, repeated_count, tc_count, left_count,
+            inactive_count, carry_forward_dues, created_by, remarks,
+            created_at, updated_at, sync_status
+          ) VALUES (
+            @id, @promotionNo, @fromSessionId, @fromSessionName,
+            @toSessionId, @toSessionName, @fromClass, @fromSection,
+            @toClass, @toSection, @promotionDate, @totalStudents,
+            0, 0, 0, 0, 0, @carryForwardDues, @createdBy, @remarks,
+            @createdAt, @updatedAt, 'pending'
+          )
+        `).run({
+          id,
+          promotionNo,
+          fromSessionId: fromSession.id,
+          fromSessionName: fromSession.session_name,
+          toSessionId: toSession.id,
+          toSessionName: toSession.session_name,
+          fromClass,
+          fromSection,
+          toClass: optionalText(input?.toClass),
+          toSection: optionalText(input?.toSection),
+          promotionDate,
+          totalStudents: preparedItems.length,
+          carryForwardDues: totalCarry,
+          createdBy: optionalText(input?.createdBy),
+          remarks: optionalText(input?.remarks),
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        });
+
+        const insertItem = db.prepare(`
+          INSERT INTO student_promotion_items (
+            id, promotion_id, student_id, admission_no, student_name,
+            old_class, old_section, new_class, new_section, action,
+            old_due_amount, carried_forward_amount, remarks, created_at,
+            updated_at, sync_status
+          ) VALUES (
+            @id, @promotionId, @studentId, @admissionNo, @studentName,
+            @oldClass, @oldSection, @newClass, @newSection, @action,
+            @oldDueAmount, @carriedForwardAmount, @remarks, @createdAt,
+            @updatedAt, 'pending'
+          )
+        `);
+        const insertTargetHistory = db.prepare(`
+          INSERT INTO student_session_history (
+            id, student_id, admission_no, student_name, academic_session_id,
+            academic_session_name, class_name, section, roll_no, status,
+            result_status, promoted_to_session_id, promoted_to_session_name,
+            promoted_to_class, promoted_to_section, promotion_date, remarks,
+            created_at, updated_at, sync_status
+          ) VALUES (
+            @id, @studentId, @admissionNo, @studentName, @academicSessionId,
+            @academicSessionName, @className, @section, '', 'Active',
+            'Not Applicable', NULL, NULL, NULL, NULL, NULL, @remarks,
+            @createdAt, @updatedAt, 'pending'
+          )
+        `);
+        const insertCarry = db.prepare(`
+          INSERT INTO fee_due_carry_forward (
+            id, student_id, admission_no, student_name, from_session_id,
+            from_session_name, to_session_id, to_session_name,
+            old_due_amount, carried_amount, status, promotion_id, created_at,
+            updated_at, sync_status
+          ) VALUES (
+            @id, @studentId, @admissionNo, @studentName, @fromSessionId,
+            @fromSessionName, @toSessionId, @toSessionName, @oldDueAmount,
+            @carriedAmount, 'Pending', @promotionId, @createdAt, @updatedAt,
+            'pending'
+          )
+        `);
+
+        for (const item of preparedItems) {
+          counts[item.action] += 1;
+          const remainsActive =
+            item.action === "Promote" || item.action === "Repeat";
+          const sourceStatus =
+            item.action === "Promote"
+              ? "Promoted"
+              : item.action === "Repeat"
+                ? "Repeated"
+                : item.action;
+          const resultStatus =
+            item.action === "Promote"
+              ? "Pass"
+              : item.action === "Repeat"
+                ? "Repeat"
+                : item.action === "TC"
+                  ? "TC"
+                  : item.action === "Left"
+                    ? "Left"
+                    : "Not Applicable";
+          db.prepare(`
+            UPDATE student_session_history
+            SET status = @status,
+                result_status = @resultStatus,
+                promoted_to_session_id = @toSessionId,
+                promoted_to_session_name = @toSessionName,
+                promoted_to_class = @newClass,
+                promoted_to_section = @newSection,
+                promotion_date = @promotionDate,
+                remarks = @remarks,
+                updated_at = @updatedAt,
+                sync_status = 'pending'
+            WHERE id = @id
+          `).run({
+            id: item.sourceHistory.id,
+            status: sourceStatus,
+            resultStatus,
+            toSessionId: toSession.id,
+            toSessionName: toSession.session_name,
+            newClass: remainsActive ? item.newClass : "",
+            newSection: remainsActive ? item.newSection : "",
+            promotionDate,
+            remarks: item.remarks,
+            updatedAt: timestamp,
+          });
+          db.prepare(`
+            UPDATE students
+            SET class_name = @className,
+                section = @section,
+                status = @status,
+                updated_at = @updatedAt,
+                sync_status = 'pending'
+            WHERE id = @id AND deleted_at IS NULL
+          `).run({
+            id: item.student.id,
+            className: remainsActive
+              ? item.newClass
+              : item.sourceHistory.class_name,
+            section: remainsActive
+              ? item.newSection
+              : item.sourceHistory.section ?? "",
+            status: remainsActive ? "Active" : "Inactive",
+            updatedAt: timestamp,
+          });
+          if (remainsActive) {
+            insertTargetHistory.run({
+              id: crypto.randomUUID(),
+              studentId: item.student.id,
+              admissionNo: item.student.admission_no,
+              studentName: item.student.name,
+              academicSessionId: toSession.id,
+              academicSessionName: toSession.session_name,
+              className: item.newClass,
+              section: item.newSection,
+              remarks: item.remarks,
+              createdAt: timestamp,
+              updatedAt: timestamp,
+            });
+          }
+          insertItem.run({
+            id: crypto.randomUUID(),
+            promotionId: id,
+            studentId: item.student.id,
+            admissionNo: item.student.admission_no,
+            studentName: item.student.name,
+            oldClass: item.sourceHistory.class_name,
+            oldSection: item.sourceHistory.section ?? "",
+            newClass: remainsActive ? item.newClass : "",
+            newSection: remainsActive ? item.newSection : "",
+            action: item.action,
+            oldDueAmount: item.oldDueAmount,
+            carriedForwardAmount: item.carriedForwardAmount,
+            remarks: item.remarks,
+            createdAt: timestamp,
+            updatedAt: timestamp,
+          });
+          if (item.carriedForwardAmount > 0) {
+            insertCarry.run({
+              id: crypto.randomUUID(),
+              studentId: item.student.id,
+              admissionNo: item.student.admission_no,
+              studentName: item.student.name,
+              fromSessionId: fromSession.id,
+              fromSessionName: fromSession.session_name,
+              toSessionId: toSession.id,
+              toSessionName: toSession.session_name,
+              oldDueAmount: item.oldDueAmount,
+              carriedAmount: item.carriedForwardAmount,
+              promotionId: id,
+              createdAt: timestamp,
+              updatedAt: timestamp,
+            });
+          }
+        }
+        db.prepare(`
+          UPDATE student_promotions
+          SET promoted_count = @promotedCount,
+              repeated_count = @repeatedCount,
+              tc_count = @tcCount,
+              left_count = @leftCount,
+              inactive_count = @inactiveCount,
+              updated_at = @updatedAt
+          WHERE id = @id
+        `).run({
+          id,
+          promotedCount: counts.Promote,
+          repeatedCount: counts.Repeat,
+          tcCount: counts.TC,
+          leftCount: counts.Left,
+          inactiveCount: counts.Inactive,
+          updatedAt: timestamp,
+        });
+        const promotion = db
+          .prepare("SELECT * FROM student_promotions WHERE id = ?")
+          .get(id);
+        return studentPromotionFromRow(promotion, getPromotionItems(id));
+      })();
+    },
+
+    getStudentPromotions() {
+      return db
+        .prepare(`
+          SELECT *
+          FROM student_promotions
+          ORDER BY promotion_date DESC, created_at DESC
+        `)
+        .all()
+        .map((row) => studentPromotionFromRow(row));
+    },
+
+    getStudentPromotionById(id) {
+      const promotion = db
+        .prepare("SELECT * FROM student_promotions WHERE id = ?")
+        .get(requiredText(id, "Promotion id"));
+      return promotion
+        ? studentPromotionFromRow(
+            promotion,
+            getPromotionItems(promotion.id),
+          )
+        : null;
+    },
+
+    getPromotionReport(filter = {}) {
+      const session = getAcademicSessionRow(
+        requiredText(filter?.sessionId, "Academic session"),
+      );
+      if (!session) throw new Error("Academic session was not found.");
+      const histories = db
+        .prepare(`
+          SELECT *
+          FROM student_session_history
+          WHERE academic_session_id = ?
+        `)
+        .all(session.id);
+      const actionCounts = db
+        .prepare(`
+          SELECT
+            SUM(CASE
+              WHEN promotions.to_session_id = @sessionId
+                AND items.action = 'Promote' THEN 1 ELSE 0 END
+            ) AS promoted,
+            SUM(CASE
+              WHEN promotions.to_session_id = @sessionId
+                AND items.action = 'Repeat' THEN 1 ELSE 0 END
+            ) AS repeated,
+            SUM(CASE
+              WHEN promotions.from_session_id = @sessionId
+                AND items.action = 'TC' THEN 1 ELSE 0 END
+            ) AS tc,
+            SUM(CASE
+              WHEN promotions.from_session_id = @sessionId
+                AND items.action = 'Left' THEN 1 ELSE 0 END
+            ) AS left,
+            SUM(CASE
+              WHEN promotions.from_session_id = @sessionId
+                AND items.action = 'Inactive' THEN 1 ELSE 0 END
+            ) AS inactive
+          FROM student_promotion_items AS items
+          INNER JOIN student_promotions AS promotions
+            ON promotions.id = items.promotion_id
+        `)
+        .get({ sessionId: session.id });
+      const classCounts = db
+        .prepare(`
+          SELECT
+            class_name,
+            section,
+            COUNT(*) AS student_count
+          FROM student_session_history
+          WHERE academic_session_id = ?
+            AND status = 'Active'
+          GROUP BY class_name, section
+          ORDER BY class_name, section
+        `)
+        .all(session.id)
+        .map((row) => ({
+          className: row.class_name ?? "",
+          section: row.section ?? "",
+          studentCount: Number(row.student_count ?? 0),
+        }));
+      const totalCarriedDues = Number(
+        db
+          .prepare(`
+            SELECT COALESCE(SUM(carried_amount), 0) AS total
+            FROM fee_due_carry_forward
+            WHERE to_session_id = ?
+              AND status IN ('Pending', 'Paid')
+          `)
+          .get(session.id).total,
+      );
+      const newAdmissions = histories.filter((history) => {
+        const promoted = db
+          .prepare(`
+            SELECT 1
+            FROM student_promotion_items AS items
+            INNER JOIN student_promotions AS promotions
+              ON promotions.id = items.promotion_id
+            WHERE items.student_id = ?
+              AND promotions.to_session_id = ?
+            LIMIT 1
+          `)
+          .get(history.student_id, session.id);
+        return !promoted;
+      }).length;
+      return {
+        session: academicSessionFromRow(session),
+        summary: {
+          totalActiveStudents: histories.filter(
+            (history) => history.status === "Active",
+          ).length,
+          newAdmissions,
+          promotedStudents: Number(actionCounts.promoted ?? 0),
+          repeatedStudents: Number(actionCounts.repeated ?? 0),
+          tcStudents: Number(actionCounts.tc ?? 0),
+          leftStudents: Number(actionCounts.left ?? 0),
+          inactiveStudents: Number(actionCounts.inactive ?? 0),
+          totalCarriedDues,
+        },
+        classCounts,
+      };
+    },
+
+    getCarryForwardDues(filter = {}) {
+      const fromSessionId = optionalText(filter?.fromSessionId);
+      const toSessionId = optionalText(filter?.toSessionId);
+      const status = optionalText(filter?.status);
+      const className = optionalText(filter?.className);
+      const section = optionalText(filter?.section);
+      if (status && !CARRY_FORWARD_STATUSES.has(status)) {
+        throw new Error("Carry-forward due status is invalid.");
+      }
+      return db
+        .prepare(`
+          SELECT
+            dues.*,
+            students.class_name AS current_class_name,
+            students.section AS current_section
+          FROM fee_due_carry_forward AS dues
+          LEFT JOIN students ON students.id = dues.student_id
+          WHERE (? = '' OR dues.from_session_id = ?)
+            AND (? = '' OR dues.to_session_id = ?)
+            AND (? = '' OR dues.status = ?)
+            AND (? = '' OR students.class_name = ?)
+            AND (? = '' OR COALESCE(students.section, '') = ?)
+          ORDER BY dues.created_at DESC, dues.student_name COLLATE NOCASE
+        `)
+        .all(
+          fromSessionId,
+          fromSessionId,
+          toSessionId,
+          toSessionId,
+          status,
+          status,
+          className,
+          className,
+          section,
+          section,
+        )
+        .map(carryForwardDueFromRow);
+    },
+
+    updateCarryForwardDue(id, input) {
+      const dueId = requiredText(id, "Carry-forward due id");
+      const existing = db
+        .prepare("SELECT * FROM fee_due_carry_forward WHERE id = ?")
+        .get(dueId);
+      if (!existing) throw new Error("Carry-forward due was not found.");
+      const status =
+        input?.status === undefined
+          ? existing.status
+          : requiredText(input.status, "Due status");
+      if (!CARRY_FORWARD_STATUSES.has(status)) {
+        throw new Error("Carry-forward due status is invalid.");
+      }
+      const carriedAmount =
+        input?.carriedAmount === undefined
+          ? Number(existing.carried_amount)
+          : wholeNumber(input.carriedAmount, "Carried amount", 0);
+      db.prepare(`
+        UPDATE fee_due_carry_forward
+        SET carried_amount = ?,
+            status = ?,
+            updated_at = ?,
+            sync_status = 'pending'
+        WHERE id = ?
+      `).run(carriedAmount, status, now(), dueId);
+      return carryForwardDueFromRow(
+        db
+          .prepare(`
+            SELECT
+              dues.*,
+              students.class_name AS current_class_name,
+              students.section AS current_section
+            FROM fee_due_carry_forward AS dues
+            LEFT JOIN students ON students.id = dues.student_id
+            WHERE dues.id = ?
+          `)
+          .get(dueId),
+      );
+    },
+
+    waiveCarryForwardDue(id) {
+      return this.updateCarryForwardDue(id, { status: "Waived" });
     },
 
     getCertificateTemplates() {

@@ -18,6 +18,7 @@ import {
 import type { NavigationTarget } from './lib/navigation'
 import { Attendance } from './pages/Attendance'
 import { Accounts } from './pages/Accounts'
+import { AcademicSessions } from './pages/AcademicSessions'
 import { BehaviourSkills } from './pages/BehaviourSkills'
 import { CreateOwner } from './pages/CreateOwner'
 import { ClassTests } from './pages/ClassTests'
@@ -53,6 +54,7 @@ import type { HomeworkView } from './pages/Homework'
 import type { ClassTestsView } from './pages/ClassTests'
 import type { QuestionPaperView } from './pages/QuestionPaper'
 import type { BehaviourSkillsView } from './pages/BehaviourSkills'
+import type { AcademicSessionsView } from './pages/AcademicSessions'
 
 function App() {
   const [activePage, setActivePage] = useState<PageId>('dashboard')
@@ -291,6 +293,16 @@ function App() {
               (activeView || 'behaviours') as BehaviourSkillsView
             }
             key={`behaviour-skills-${activeView}-${navigationRevision}`}
+          />
+        )
+      case 'academic-sessions':
+        return (
+          <AcademicSessions
+            currentUserRole={currentUser.role}
+            initialView={
+              (activeView || 'sessions') as AcademicSessionsView
+            }
+            key={`academic-sessions-${activeView}-${navigationRevision}`}
           />
         )
       case 'dashboard':

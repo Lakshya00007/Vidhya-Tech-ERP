@@ -244,6 +244,60 @@ contextBridge.exposeInMainWorld("erpApi", {
   deleteStudentObservation: (id) =>
     ipcRenderer.invoke("behaviour-skills:observations:delete", id),
 
+  getAcademicSessions: () =>
+    ipcRenderer.invoke("academic-sessions:get-all"),
+  getCurrentAcademicSession: () =>
+    ipcRenderer.invoke("academic-sessions:get-current"),
+  createAcademicSession: (input) =>
+    ipcRenderer.invoke("academic-sessions:create", input),
+  updateAcademicSession: (id, input) =>
+    ipcRenderer.invoke("academic-sessions:update", id, input),
+  setCurrentAcademicSession: (id) =>
+    ipcRenderer.invoke("academic-sessions:set-current", id),
+  closeAcademicSession: (id) =>
+    ipcRenderer.invoke("academic-sessions:close", id),
+  deleteAcademicSession: (id) =>
+    ipcRenderer.invoke("academic-sessions:delete", id),
+  getStudentSessionHistory: (studentId) =>
+    ipcRenderer.invoke(
+      "academic-sessions:student-history:get",
+      studentId,
+    ),
+  getSessionStudents: (sessionId) =>
+    ipcRenderer.invoke("academic-sessions:students:get", sessionId),
+  createOrUpdateStudentSessionHistory: (input) =>
+    ipcRenderer.invoke(
+      "academic-sessions:student-history:save",
+      input,
+    ),
+  getPromotionPreview: (input) =>
+    ipcRenderer.invoke("academic-sessions:promotion:preview", input),
+  promoteStudentsBulk: (input) =>
+    ipcRenderer.invoke("academic-sessions:promotion:run", input),
+  getStudentPromotions: () =>
+    ipcRenderer.invoke("academic-sessions:promotions:get-all"),
+  getStudentPromotionById: (id) =>
+    ipcRenderer.invoke("academic-sessions:promotions:get-by-id", id),
+  getPromotionReport: (filter) =>
+    ipcRenderer.invoke(
+      "academic-sessions:promotion-report:get",
+      filter,
+    ),
+  getCarryForwardDues: (filter) =>
+    ipcRenderer.invoke("academic-sessions:carry-forward:get", filter),
+  updateCarryForwardDue: (id, input) =>
+    ipcRenderer.invoke(
+      "academic-sessions:carry-forward:update",
+      id,
+      input,
+    ),
+  waiveCarryForwardDue: (id, reason) =>
+    ipcRenderer.invoke(
+      "academic-sessions:carry-forward:waive",
+      id,
+      reason,
+    ),
+
   getSchoolSettings: () => ipcRenderer.invoke("settings:get"),
   saveSchoolSettings: (settings) =>
     ipcRenderer.invoke("settings:save", settings),

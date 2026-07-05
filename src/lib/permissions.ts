@@ -18,6 +18,7 @@ const pagePermissions: Record<PermissionRole, readonly PageId[]> = {
     'class-tests',
     'question-paper',
     'behaviour-skills',
+    'academic-sessions',
     'placeholder',
   ],
   Admin: [
@@ -37,6 +38,7 @@ const pagePermissions: Record<PermissionRole, readonly PageId[]> = {
     'class-tests',
     'question-paper',
     'behaviour-skills',
+    'academic-sessions',
     'placeholder',
   ],
   Accountant: [
@@ -47,6 +49,7 @@ const pagePermissions: Record<PermissionRole, readonly PageId[]> = {
     'settings',
     'salary',
     'accounts',
+    'academic-sessions',
     'placeholder',
   ],
   Teacher: [
@@ -59,6 +62,7 @@ const pagePermissions: Record<PermissionRole, readonly PageId[]> = {
     'class-tests',
     'question-paper',
     'behaviour-skills',
+    'academic-sessions',
     'placeholder',
   ],
   Viewer: ['dashboard', 'students', 'reports', 'placeholder'],

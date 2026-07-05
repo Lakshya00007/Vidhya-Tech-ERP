@@ -27,6 +27,7 @@ const pageTitles: Record<PageId, string> = {
   'class-tests': 'Class Tests',
   'question-paper': 'Question Paper',
   'behaviour-skills': 'Behaviour & Skills',
+  'academic-sessions': 'Academic Sessions & Promotion',
   placeholder: 'Advanced Module',
 }
 

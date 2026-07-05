@@ -63,6 +63,7 @@ export const erpNavigation: ErpMenuGroup[] = [
     roles: finance,
     items: [
       { id: 'institute-profile', label: 'Institute Profile', target: { page: 'settings', view: 'profile' } },
+      { id: 'academic-sessions', label: 'Academic Sessions', target: { page: 'academic-sessions', view: 'sessions' }, roles: owners },
       { id: 'fees-particulars', label: 'Fees Particulars', target: { page: 'settings', view: 'fee-heads' }, roles: owners },
       { id: 'fees-structure', label: 'Fees Structure', target: { page: 'settings', view: 'fee-structure' }, roles: owners },
       placeholder('discount-type', 'Discount Type', { roles: owners }),
@@ -113,7 +114,7 @@ export const erpNavigation: ErpMenuGroup[] = [
       { id: 'student-id-cards', label: 'Student ID Cards', target: { page: 'documents', view: 'id-cards' }, roles: owners },
       { id: 'student-basic-list', label: 'Print Basic List', target: { page: 'reports', view: 'students' }, roles: reportReaders },
       placeholder('student-login', 'Manage Login', { roles: owners }),
-      placeholder('promote-students', 'Promote Students', { roles: owners }),
+      { id: 'promote-students', label: 'Promote Students', target: { page: 'academic-sessions', view: 'promote' }, roles: owners },
     ],
   },
   {
@@ -320,6 +321,8 @@ export const erpNavigation: ErpMenuGroup[] = [
       { id: 'fee-collection-report', label: 'Fee Collection Report', target: { page: 'reports', view: 'monthly' } },
       placeholder('student-progress-report', 'Student Progress Report', { locked: true, feature: 'advanced-reports' }),
       { id: 'accounts-report', label: 'Accounts Report', target: { page: 'accounts', view: 'report' }, roles: finance },
+      { id: 'session-report', label: 'Session Report', target: { page: 'academic-sessions', view: 'report' }, roles: finance },
+      { id: 'promotion-report', label: 'Promotion Report', target: { page: 'academic-sessions', view: 'history' }, roles: finance },
       placeholder('customised-reports', 'Customised Reports', { locked: true, feature: 'advanced-reports' }),
     ],
   },

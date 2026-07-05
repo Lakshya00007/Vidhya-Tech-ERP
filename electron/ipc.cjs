@@ -109,6 +109,24 @@ const channels = [
   "behaviour-skills:observations:create",
   "behaviour-skills:observations:update",
   "behaviour-skills:observations:delete",
+  "academic-sessions:get-all",
+  "academic-sessions:get-current",
+  "academic-sessions:create",
+  "academic-sessions:update",
+  "academic-sessions:set-current",
+  "academic-sessions:close",
+  "academic-sessions:delete",
+  "academic-sessions:student-history:get",
+  "academic-sessions:students:get",
+  "academic-sessions:student-history:save",
+  "academic-sessions:promotion:preview",
+  "academic-sessions:promotion:run",
+  "academic-sessions:promotions:get-all",
+  "academic-sessions:promotions:get-by-id",
+  "academic-sessions:promotion-report:get",
+  "academic-sessions:carry-forward:get",
+  "academic-sessions:carry-forward:update",
+  "academic-sessions:carry-forward:waive",
   "settings:get",
   "settings:save",
   "fees:get-all",
@@ -1446,6 +1464,221 @@ function registerIpcHandlers(
         );
       }
       return result;
+    }),
+  );
+
+  ipcMain.handle(
+    "academic-sessions:get-all",
+    authenticated(() => {
+      requireRoles(["Owner", "Admin", "Accountant", "Teacher"]);
+      return database.getAcademicSessions();
+    }),
+  );
+  ipcMain.handle(
+    "academic-sessions:get-current",
+    authenticated(() => {
+      requireRoles(["Owner", "Admin", "Accountant", "Teacher"]);
+      return database.getCurrentAcademicSession();
+    }),
+  );
+  ipcMain.handle(
+    "academic-sessions:create",
+    authenticated((_event, input) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      const created = database.createAcademicSession(input);
+      authService?.audit(
+        "Academic session created",
+        "Academic Sessions",
+        `Created academic session ${created.sessionName}.`,
+        actor,
+      );
+      return created;
+    }),
+  );
+  ipcMain.handle(
+    "academic-sessions:update",
+    authenticated((_event, id, input) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      const updated = database.updateAcademicSession(id, input);
+      authService?.audit(
+        "Academic session updated",
+        "Academic Sessions",
+        `Updated academic session ${updated.sessionName}.`,
+        actor,
+      );
+      return updated;
+    }),
+  );
+  ipcMain.handle(
+    "academic-sessions:set-current",
+    authenticated((_event, id) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      const current = database.setCurrentAcademicSession(id);
+      authService?.audit(
+        "Academic session set current",
+        "Academic Sessions",
+        `Set ${current.sessionName} as the current academic session.`,
+        actor,
+      );
+      return current;
+    }),
+  );
+  ipcMain.handle(
+    "academic-sessions:close",
+    authenticated((_event, id) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      const closed = database.closeAcademicSession(id);
+      authService?.audit(
+        "Academic session closed",
+        "Academic Sessions",
+        `Closed academic session ${closed.sessionName}.`,
+        actor,
+      );
+      return closed;
+    }),
+  );
+  ipcMain.handle(
+    "academic-sessions:delete",
+    authenticated((_event, id) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      const session = database
+        .getAcademicSessions()
+        .find((item) => item.id === id);
+      const result = database.deleteAcademicSession(id);
+      if (result.success) {
+        authService?.audit(
+          "Academic session deleted",
+          "Academic Sessions",
+          session
+            ? `Soft-deleted academic session ${session.sessionName}.`
+            : "Soft-deleted an academic session.",
+          actor,
+        );
+      }
+      return result;
+    }),
+  );
+  ipcMain.handle(
+    "academic-sessions:student-history:get",
+    authenticated((_event, studentId) => {
+      requireRoles(["Owner", "Admin", "Accountant", "Teacher"]);
+      return database.getStudentSessionHistory(studentId);
+    }),
+  );
+  ipcMain.handle(
+    "academic-sessions:students:get",
+    authenticated((_event, sessionId) => {
+      requireRoles(["Owner", "Admin", "Accountant", "Teacher"]);
+      return database.getSessionStudents(sessionId);
+    }),
+  );
+  ipcMain.handle(
+    "academic-sessions:student-history:save",
+    authenticated((_event, input) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      const history = database.createOrUpdateStudentSessionHistory(input);
+      authService?.audit(
+        "Student session history saved",
+        "Academic Sessions",
+        `Saved ${history.academicSessionName} history for ${history.studentName}.`,
+        actor,
+      );
+      return history;
+    }),
+  );
+  ipcMain.handle(
+    "academic-sessions:promotion:preview",
+    authenticated((_event, input) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      const preview = database.getPromotionPreview(input);
+      authService?.audit(
+        "Promotion preview generated",
+        "Academic Sessions",
+        `Prepared ${preview.rows.length} student(s) from ${preview.fromSession.sessionName} to ${preview.toSession.sessionName}.`,
+        actor,
+      );
+      return preview;
+    }),
+  );
+  ipcMain.handle(
+    "academic-sessions:promotion:run",
+    authenticated((_event, input) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      const promotion = database.promoteStudentsBulk({
+        ...input,
+        createdBy: actor?.name ?? "",
+      });
+      authService?.audit(
+        "Students promoted",
+        "Academic Sessions",
+        `Completed ${promotion.promotionNo}: ${promotion.promotedCount} promoted, ${promotion.repeatedCount} repeated, ${promotion.tcCount} TC, ${promotion.leftCount} left.`,
+        actor,
+      );
+      if (promotion.carryForwardDues > 0) {
+        authService?.audit(
+          "Carry forward dues created",
+          "Academic Sessions",
+          `Created carried dues totalling ${promotion.carryForwardDues} for ${promotion.promotionNo}.`,
+          actor,
+        );
+      }
+      return promotion;
+    }),
+  );
+  ipcMain.handle(
+    "academic-sessions:promotions:get-all",
+    authenticated(() => {
+      requireRoles(["Owner", "Admin", "Accountant", "Teacher"]);
+      return database.getStudentPromotions();
+    }),
+  );
+  ipcMain.handle(
+    "academic-sessions:promotions:get-by-id",
+    authenticated((_event, id) => {
+      requireRoles(["Owner", "Admin", "Accountant", "Teacher"]);
+      return database.getStudentPromotionById(id);
+    }),
+  );
+  ipcMain.handle(
+    "academic-sessions:promotion-report:get",
+    authenticated((_event, filter) => {
+      requireRoles(["Owner", "Admin", "Accountant", "Teacher"]);
+      return database.getPromotionReport(filter);
+    }),
+  );
+  ipcMain.handle(
+    "academic-sessions:carry-forward:get",
+    authenticated((_event, filter) => {
+      requireRoles(["Owner", "Admin", "Accountant"]);
+      return database.getCarryForwardDues(filter);
+    }),
+  );
+  ipcMain.handle(
+    "academic-sessions:carry-forward:update",
+    authenticated((_event, id, input) => {
+      const actor = requireRoles(["Owner", "Admin", "Accountant"]);
+      const updated = database.updateCarryForwardDue(id, input);
+      authService?.audit(
+        "Carry forward due updated",
+        "Academic Sessions",
+        `Marked carried due for ${updated.studentName} as ${updated.status}.`,
+        actor,
+      );
+      return updated;
+    }),
+  );
+  ipcMain.handle(
+    "academic-sessions:carry-forward:waive",
+    authenticated((_event, id, reason) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      const updated = database.waiveCarryForwardDue(id);
+      authService?.audit(
+        "Carry forward due waived",
+        "Academic Sessions",
+        `Waived carried due for ${updated.studentName}. Reason: ${String(reason ?? "").trim() || "Not provided"}.`,
+        actor,
+      );
+      return updated;
     }),
   );
 

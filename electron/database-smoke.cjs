@@ -368,6 +368,26 @@ app.whenReady().then(async () => {
           "updateStudentObservation",
           "deleteStudentObservation"
         ].every((method) => typeof window.erpApi[method] === "function");
+        const academicSessionsApiAvailable = [
+          "getAcademicSessions",
+          "getCurrentAcademicSession",
+          "createAcademicSession",
+          "updateAcademicSession",
+          "setCurrentAcademicSession",
+          "closeAcademicSession",
+          "deleteAcademicSession",
+          "getStudentSessionHistory",
+          "getSessionStudents",
+          "createOrUpdateStudentSessionHistory",
+          "getPromotionPreview",
+          "promoteStudentsBulk",
+          "getStudentPromotions",
+          "getStudentPromotionById",
+          "getPromotionReport",
+          "getCarryForwardDues",
+          "updateCarryForwardDue",
+          "waiveCarryForwardDue"
+        ].every((method) => typeof window.erpApi[method] === "function");
         const licenseApiAvailable = [
           "getDeviceId",
           "getLicenseStatus",
@@ -421,6 +441,31 @@ app.whenReady().then(async () => {
           name: "A",
           status: "Active"
         });
+        const nextSchoolClass = await window.erpApi.createClass({
+          name: "11",
+          displayOrder: 11,
+          status: "Active"
+        });
+        await window.erpApi.createSection({
+          classId: nextSchoolClass.id,
+          name: "A",
+          status: "Active"
+        });
+        const fromAcademicSession =
+          await window.erpApi.createAcademicSession({
+            sessionName: "2025-26",
+            startDate: "2025-04-01",
+            endDate: "2026-03-31"
+          });
+        await window.erpApi.setCurrentAcademicSession(
+          fromAcademicSession.id
+        );
+        const toAcademicSession =
+          await window.erpApi.createAcademicSession({
+            sessionName: "2026-27",
+            startDate: "2026-04-01",
+            endDate: "2027-03-31"
+          });
         const feeHead = await window.erpApi.createFeeHead({
           name: "Tuition Fee",
           description: "Monthly tuition",
@@ -1091,6 +1136,142 @@ app.whenReady().then(async () => {
             "2026-07-03",
             "2026-07-03"
           );
+        const repeatStudent = await window.erpApi.createStudent({
+          admissionNo: "SMOKE-REPEAT",
+          name: "Repeat Test Student",
+          className: "10",
+          section: "A"
+        });
+        const tcStudent = await window.erpApi.createStudent({
+          admissionNo: "SMOKE-TC",
+          name: "TC Test Student",
+          className: "10",
+          section: "A"
+        });
+        const leftStudent = await window.erpApi.createStudent({
+          admissionNo: "SMOKE-LEFT",
+          name: "Left Test Student",
+          className: "10",
+          section: "A"
+        });
+        const promotionPreview =
+          await window.erpApi.getPromotionPreview({
+            fromSessionId: fromAcademicSession.id,
+            toSessionId: toAcademicSession.id,
+            className: "10",
+            section: "A"
+          });
+        const promotion = await window.erpApi.promoteStudentsBulk({
+          fromSessionId: fromAcademicSession.id,
+          toSessionId: toAcademicSession.id,
+          fromClass: "10",
+          fromSection: "A",
+          promotionDate: "2026-04-01",
+          remarks: "Academic session promotion smoke test",
+          items: [
+            {
+              studentId: student.id,
+              action: "Promote",
+              newClass: "11",
+              newSection: "A",
+              oldDueAmount: 500,
+              carryForwardDue: true,
+              carryForwardAmount: 500,
+              remarks: "Promoted to Class 11"
+            },
+            {
+              studentId: repeatStudent.id,
+              action: "Repeat",
+              oldDueAmount: 0,
+              carryForwardDue: false,
+              remarks: "Repeat Class 10"
+            },
+            {
+              studentId: tcStudent.id,
+              action: "TC",
+              oldDueAmount: 0,
+              carryForwardDue: false
+            },
+            {
+              studentId: leftStudent.id,
+              action: "Left",
+              oldDueAmount: 0,
+              carryForwardDue: false
+            }
+          ]
+        });
+        const promotionWithItems =
+          await window.erpApi.getStudentPromotionById(promotion.id);
+        const promotedHistory =
+          await window.erpApi.getStudentSessionHistory(student.id);
+        const repeatHistory =
+          await window.erpApi.getStudentSessionHistory(repeatStudent.id);
+        const carryForwardDues =
+          await window.erpApi.getCarryForwardDues({
+            toSessionId: toAcademicSession.id,
+            status: "Pending"
+          });
+        const rollbackStudent = await window.erpApi.createStudent({
+          admissionNo: "SMOKE-ROLLBACK",
+          name: "Rollback Test Student",
+          className: "10",
+          section: "A"
+        });
+        const promotionCountBeforeRollback = (
+          await window.erpApi.getStudentPromotions()
+        ).length;
+        let invalidPromotionRolledBack = false;
+        try {
+          await window.erpApi.promoteStudentsBulk({
+            fromSessionId: fromAcademicSession.id,
+            toSessionId: toAcademicSession.id,
+            fromClass: "10",
+            fromSection: "A",
+            promotionDate: "2026-04-02",
+            items: [
+              {
+                studentId: rollbackStudent.id,
+                action: "Promote",
+                newClass: "11",
+                newSection: "A"
+              },
+              {
+                studentId: "missing-student",
+                action: "Promote",
+                newClass: "11",
+                newSection: "A"
+              }
+            ]
+          });
+        } catch {
+          const rollbackStudentAfterFailure = (
+            await window.erpApi.getStudents()
+          ).find((item) => item.id === rollbackStudent.id);
+          invalidPromotionRolledBack =
+            rollbackStudentAfterFailure?.className === "10" &&
+            (await window.erpApi.getStudentPromotions()).length ===
+              promotionCountBeforeRollback;
+        }
+        let currentCloseRejected = false;
+        try {
+          await window.erpApi.closeAcademicSession(
+            fromAcademicSession.id
+          );
+        } catch {
+          currentCloseRejected = true;
+        }
+        await window.erpApi.setCurrentAcademicSession(
+          toAcademicSession.id
+        );
+        const closedFromSession =
+          await window.erpApi.closeAcademicSession(
+            fromAcademicSession.id
+          );
+        const sessionReport =
+          await window.erpApi.getPromotionReport({
+            sessionId: toAcademicSession.id
+          });
+        const studentsAfterPromotion = await window.erpApi.getStudents();
         const databaseInfo = await window.erpApi.getDatabaseInfo();
         const safeUsers = await window.erpApi.getUsers();
         const accountTransactions =
@@ -1121,6 +1302,7 @@ app.whenReady().then(async () => {
           classTestsApiAvailable,
           questionPaperApiAvailable,
           behaviourSkillsApiAvailable,
+          academicSessionsApiAvailable,
           licenseApiAvailable,
           deviceId,
           licenseBeforeActivation,
@@ -1157,6 +1339,76 @@ app.whenReady().then(async () => {
             !observationsAfterDelete.some(
               (item) => item.id === observationToDelete.id
             ),
+          fromAcademicSessionId: fromAcademicSession.id,
+          toAcademicSessionId: toAcademicSession.id,
+          promotionId: promotion.id,
+          promotionPreviewCount: promotionPreview.rows.length,
+          promotionNo: promotion.promotionNo,
+          promotionCountsCorrect:
+            promotion.totalStudents === 4 &&
+            promotion.promotedCount === 1 &&
+            promotion.repeatedCount === 1 &&
+            promotion.tcCount === 1 &&
+            promotion.leftCount === 1,
+          promotionItemsCreated:
+            promotionWithItems?.items.length === 4,
+          promotedHistoryPreserved:
+            promotedHistory.length === 2 &&
+            promotedHistory.some(
+              (item) =>
+                item.academicSessionId === fromAcademicSession.id &&
+                item.status === "Promoted"
+            ) &&
+            promotedHistory.some(
+              (item) =>
+                item.academicSessionId === toAcademicSession.id &&
+                item.className === "11"
+            ),
+          repeatHistoryPreserved:
+            repeatHistory.length === 2 &&
+            repeatHistory.some(
+              (item) =>
+                item.academicSessionId === fromAcademicSession.id &&
+                item.status === "Repeated"
+            ) &&
+            repeatHistory.some(
+              (item) =>
+                item.academicSessionId === toAcademicSession.id &&
+                item.className === "10"
+            ),
+          carryForwardCreated:
+            carryForwardDues.length === 1 &&
+            carryForwardDues[0].carriedAmount === 500 &&
+            carryForwardDues[0].studentId === student.id,
+          invalidPromotionRolledBack,
+          currentCloseRejected,
+          oldSessionClosed: closedFromSession.status === "Closed",
+          sessionReportCorrect:
+            sessionReport.summary.promotedStudents === 1 &&
+            sessionReport.summary.repeatedStudents === 1 &&
+            sessionReport.summary.totalCarriedDues === 500,
+          promotedStudentUpdated:
+            studentsAfterPromotion.find(
+              (item) => item.id === student.id
+            )?.className === "11",
+          repeatedStudentUnchanged:
+            studentsAfterPromotion.find(
+              (item) => item.id === repeatStudent.id
+            )?.className === "10",
+          tcStudentInactive:
+            studentsAfterPromotion.find(
+              (item) => item.id === tcStudent.id
+            )?.status === "Inactive" &&
+            studentsAfterPromotion.find(
+              (item) => item.id === tcStudent.id
+            )?.sessionStatus === "TC",
+          leftStudentInactive:
+            studentsAfterPromotion.find(
+              (item) => item.id === leftStudent.id
+            )?.status === "Inactive" &&
+            studentsAfterPromotion.find(
+              (item) => item.id === leftStudent.id
+            )?.sessionStatus === "Left",
           certificateNo: issuedCertificate.certificateNo,
           certificateBody: issuedCertificate.body,
           certificateIssuedBy: issuedCertificate.issuedBy,
@@ -1426,6 +1678,10 @@ app.whenReady().then(async () => {
       "Behaviour and skills APIs were not exposed by the preload bridge.",
     );
     assert(
+      bridgeResult.academicSessionsApiAvailable,
+      "Academic session and promotion APIs were not exposed by the preload bridge.",
+    );
+    assert(
       bridgeResult.licenseApiAvailable &&
         bridgeResult.deviceId === firstDeviceId,
       "License APIs or device ID bridge failed.",
@@ -1583,6 +1839,24 @@ app.whenReady().then(async () => {
         bridgeResult.observationUpdated &&
         bridgeResult.observationSoftDeleted,
       "Behaviour traits, skill ratings, domain reports, observation updates, or soft-delete behavior failed.",
+    );
+    assert(
+      bridgeResult.promotionPreviewCount === 4 &&
+        bridgeResult.promotionNo === "PROM-2026-0001" &&
+        bridgeResult.promotionCountsCorrect &&
+        bridgeResult.promotionItemsCreated &&
+        bridgeResult.promotedHistoryPreserved &&
+        bridgeResult.repeatHistoryPreserved &&
+        bridgeResult.carryForwardCreated &&
+        bridgeResult.invalidPromotionRolledBack &&
+        bridgeResult.currentCloseRejected &&
+        bridgeResult.oldSessionClosed &&
+        bridgeResult.sessionReportCorrect &&
+        bridgeResult.promotedStudentUpdated &&
+        bridgeResult.repeatedStudentUnchanged &&
+        bridgeResult.tcStudentInactive &&
+        bridgeResult.leftStudentInactive,
+      "Academic session promotion, history, carry-forward, closure, status, report, or rollback behavior failed.",
     );
     const smokeClass = database
       .getClasses()

@@ -20,11 +20,22 @@ interface StudentsProps {
   initialAction?: 'add' | 'import'
 }
 
+const getStudentDisplayStatus = (student: Student) =>
+  student.sessionStatus === 'TC' || student.sessionStatus === 'Left'
+    ? student.sessionStatus
+    : student.status
+
 export function Students({ canManage, initialAction }: StudentsProps) {
   const [studentRows, setStudentRows] = useState<Student[]>([])
   const [classes, setClasses] = useState<ClassItem[]>([])
   const [sections, setSections] = useState<SectionItem[]>([])
   const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState<
+    'Active' | 'Inactive' | 'TC' | 'Left' | 'All'
+  >('Active')
+  const [sessionFilter, setSessionFilter] = useState<'Current' | 'All'>(
+    'Current',
+  )
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [isImportOpen, setIsImportOpen] = useState(
     canManage && initialAction === 'import',
@@ -126,18 +137,25 @@ export function Students({ canManage, initialAction }: StudentsProps) {
 
   const filteredStudents = useMemo(() => {
     const query = search.trim().toLowerCase()
-    if (!query) return studentRows
-
-    return studentRows.filter((student) =>
-      [
-        student.admissionNo,
-        student.name,
-        student.guardianName,
-        student.mobile,
-        `${student.className}-${student.section}`,
-      ].some((value) => value.toLowerCase().includes(query)),
-    )
-  }, [search, studentRows])
+    return studentRows.filter((student) => {
+      const effectiveStatus = getStudentDisplayStatus(student)
+      const matchesStatus =
+        statusFilter === 'All' || effectiveStatus === statusFilter
+      const matchesSession =
+        sessionFilter === 'All' || Boolean(student.academicSessionName)
+      const matchesSearch =
+        !query ||
+        [
+          student.admissionNo,
+          student.name,
+          student.guardianName,
+          student.mobile,
+          `${student.className}-${student.section}`,
+          student.academicSessionName,
+        ].some((value) => value.toLowerCase().includes(query))
+      return matchesStatus && matchesSession && matchesSearch
+    })
+  }, [search, sessionFilter, statusFilter, studentRows])
 
   const handleDelete = async (student: Student) => {
     if (!window.confirm(`Remove ${student.name} from the active student list?`)) {
@@ -221,6 +239,11 @@ export function Students({ canManage, initialAction }: StudentsProps) {
     { key: 'class', header: 'Class', render: (student) => student.className },
     { key: 'section', header: 'Section', render: (student) => student.section || '—' },
     {
+      key: 'session',
+      header: 'Session',
+      render: (student) => student.academicSessionName || 'Unassigned',
+    },
+    {
       key: 'guardian',
       header: 'Guardian',
       render: (student) => student.guardianName || '—',
@@ -230,8 +253,8 @@ export function Students({ canManage, initialAction }: StudentsProps) {
       key: 'status',
       header: 'Status',
       render: (student) => (
-        <span className={`status-badge status-badge--${student.status.toLowerCase()}`}>
-          {student.status}
+        <span className={`status-badge status-badge--${getStudentDisplayStatus(student).toLowerCase()}`}>
+          {getStudentDisplayStatus(student)}
         </span>
       ),
     },
@@ -368,6 +391,40 @@ export function Students({ canManage, initialAction }: StudentsProps) {
               value={search}
             />
           </label>
+          <label className="student-list-filter">
+            <span>Status</span>
+            <select
+              onChange={(event) =>
+                setStatusFilter(
+                  event.target.value as
+                    | 'Active'
+                    | 'Inactive'
+                    | 'TC'
+                    | 'Left'
+                    | 'All',
+                )
+              }
+              value={statusFilter}
+            >
+              <option value="Active">Active</option>
+              <option value="Inactive">Inactive</option>
+              <option value="TC">TC</option>
+              <option value="Left">Left</option>
+              <option value="All">All Statuses</option>
+            </select>
+          </label>
+          <label className="student-list-filter">
+            <span>Academic Session</span>
+            <select
+              onChange={(event) =>
+                setSessionFilter(event.target.value as 'Current' | 'All')
+              }
+              value={sessionFilter}
+            >
+              <option value="Current">Current Session</option>
+              <option value="All">All / Unassigned</option>
+            </select>
+          </label>
           <div className="record-count">
             <span>{filteredStudents.length}</span> students
           </div>
@@ -379,7 +436,7 @@ export function Students({ canManage, initialAction }: StudentsProps) {
           emptyMessage={
             isLoading
               ? 'Loading student records...'
-              : search
+              : search || statusFilter !== 'All' || sessionFilter !== 'All'
                 ? 'No students match your search'
                 : 'No students yet. Add the first admission record.'
           }
