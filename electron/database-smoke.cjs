@@ -350,6 +350,24 @@ app.whenReady().then(async () => {
           "updateQuestionPaper",
           "deleteQuestionPaper"
         ].every((method) => typeof window.erpApi[method] === "function");
+        const behaviourSkillsApiAvailable = [
+          "getBehaviourTraits",
+          "createBehaviourTrait",
+          "updateBehaviourTrait",
+          "deleteBehaviourTrait",
+          "getSkillTraits",
+          "createSkillTrait",
+          "updateSkillTrait",
+          "deleteSkillTrait",
+          "getBehaviourRatings",
+          "saveBehaviourRatingsBulk",
+          "getSkillRatings",
+          "saveSkillRatingsBulk",
+          "getStudentObservations",
+          "createStudentObservation",
+          "updateStudentObservation",
+          "deleteStudentObservation"
+        ].every((method) => typeof window.erpApi[method] === "function");
         const licenseApiAvailable = [
           "getDeviceId",
           "getLicenseStatus",
@@ -435,6 +453,126 @@ app.whenReady().then(async () => {
           academicYear: "2026–2027",
           receiptPrefix: "TEST-RC"
         });
+        const defaultBehaviourTraits =
+          await window.erpApi.getBehaviourTraits();
+        const defaultSkillTraits = await window.erpApi.getSkillTraits();
+        const behaviourTrait =
+          await window.erpApi.createBehaviourTrait({
+            name: "Teamwork",
+            description: "Works constructively with peers",
+            status: "Active"
+          });
+        const updatedBehaviourTrait =
+          await window.erpApi.updateBehaviourTrait(
+            behaviourTrait.id,
+            { description: "Updated teamwork description" }
+          );
+        const affectiveTrait = await window.erpApi.createSkillTrait({
+          name: "Curiosity",
+          domain: "Affective",
+          description: "Shows interest in learning",
+          status: "Active"
+        });
+        const psychomotorTrait = await window.erpApi.createSkillTrait({
+          name: "Coordination",
+          domain: "Psychomotor",
+          description: "Demonstrates coordinated movement",
+          status: "Active"
+        });
+        const behaviourRatings =
+          await window.erpApi.saveBehaviourRatingsBulk([
+            {
+              studentId: student.id,
+              traitId: behaviourTrait.id,
+              rating: "Very Good",
+              ratingDate: "2026-07-05",
+              academicYear: "2026–2027",
+              remarks: "Collaborates well"
+            }
+          ]);
+        const updatedBehaviourRatings =
+          await window.erpApi.saveBehaviourRatingsBulk([
+            {
+              studentId: student.id,
+              traitId: behaviourTrait.id,
+              rating: "Excellent",
+              ratingDate: "2026-07-05",
+              academicYear: "2026–2027",
+              remarks: "Updated rating"
+            }
+          ]);
+        await window.erpApi.saveSkillRatingsBulk([
+          {
+            studentId: student.id,
+            skillId: affectiveTrait.id,
+            rating: "Good",
+            ratingDate: "2026-07-05",
+            academicYear: "2026–2027",
+            remarks: "Asks relevant questions"
+          },
+          {
+            studentId: student.id,
+            skillId: psychomotorTrait.id,
+            rating: "Very Good",
+            ratingDate: "2026-07-05",
+            academicYear: "2026–2027",
+            remarks: "Good coordination"
+          }
+        ]);
+        const affectiveRatings = await window.erpApi.getSkillRatings({
+          className: "10",
+          section: "A",
+          domain: "Affective",
+          startDate: "2026-07-01",
+          endDate: "2026-07-31"
+        });
+        const psychomotorRatings = await window.erpApi.getSkillRatings({
+          className: "10",
+          section: "A",
+          domain: "Psychomotor",
+          startDate: "2026-07-01",
+          endDate: "2026-07-31"
+        });
+        const observation = await window.erpApi.createStudentObservation({
+          studentId: student.id,
+          observationDate: "2026-07-05",
+          observationType: "Academic",
+          observationText: "Participated actively in the mathematics lesson.",
+          actionTaken: "Encouraged continued participation.",
+          followUpDate: "2026-07-12",
+          status: "Follow Up"
+        });
+        const updatedObservation =
+          await window.erpApi.updateStudentObservation(
+            observation.id,
+            {
+              actionTaken: "Participation acknowledged by class teacher.",
+              status: "Closed"
+            }
+          );
+        const observationToDelete =
+          await window.erpApi.createStudentObservation({
+            studentId: student.id,
+            observationDate: "2026-07-06",
+            observationType: "General",
+            observationText: "Temporary observation for soft-delete test.",
+            status: "Open"
+          });
+        const observationDeleteResult =
+          await window.erpApi.deleteStudentObservation(
+            observationToDelete.id
+          );
+        const observationsAfterDelete =
+          await window.erpApi.getStudentObservations({
+            studentId: student.id
+          });
+        const filteredBehaviourRatings =
+          await window.erpApi.getBehaviourRatings({
+            studentId: student.id,
+            traitId: behaviourTrait.id,
+            startDate: "2026-07-05",
+            endDate: "2026-07-05"
+          });
         const defaultAccountCategories =
           await window.erpApi.getAccountCategories();
         const customIncomeCategory =
@@ -982,6 +1120,7 @@ app.whenReady().then(async () => {
           homeworkApiAvailable,
           classTestsApiAvailable,
           questionPaperApiAvailable,
+          behaviourSkillsApiAvailable,
           licenseApiAvailable,
           deviceId,
           licenseBeforeActivation,
@@ -993,6 +1132,31 @@ app.whenReady().then(async () => {
           resetPasswordLoginRole: resetPasswordLogin.role,
           safeUsers,
           auditLogCount: auditLogs.length,
+          behaviourTraitId: behaviourTrait.id,
+          skillTraitId: affectiveTrait.id,
+          observationId: observation.id,
+          defaultBehaviourTraitCount: defaultBehaviourTraits.length,
+          defaultSkillTraitCount: defaultSkillTraits.length,
+          behaviourTraitUpdated:
+            updatedBehaviourTrait.description ===
+            "Updated teamwork description",
+          behaviourRatingUpserted:
+            behaviourRatings[0].id === updatedBehaviourRatings[0].id &&
+            filteredBehaviourRatings.length === 1 &&
+            filteredBehaviourRatings[0].rating === "Excellent" &&
+            filteredBehaviourRatings[0].ratedBy === "Smoke Test Owner",
+          affectiveReportCount: affectiveRatings.length,
+          psychomotorReportCount: psychomotorRatings.length,
+          observationUpdated:
+            updatedObservation.status === "Closed" &&
+            updatedObservation.actionTaken ===
+              "Participation acknowledged by class teacher.",
+          observationSoftDeleted:
+            observationDeleteResult.success &&
+            observationsAfterDelete.length === 1 &&
+            !observationsAfterDelete.some(
+              (item) => item.id === observationToDelete.id
+            ),
           certificateNo: issuedCertificate.certificateNo,
           certificateBody: issuedCertificate.body,
           certificateIssuedBy: issuedCertificate.issuedBy,
@@ -1258,6 +1422,10 @@ app.whenReady().then(async () => {
       "Question paper APIs were not exposed by the preload bridge.",
     );
     assert(
+      bridgeResult.behaviourSkillsApiAvailable,
+      "Behaviour and skills APIs were not exposed by the preload bridge.",
+    );
+    assert(
       bridgeResult.licenseApiAvailable &&
         bridgeResult.deviceId === firstDeviceId,
       "License APIs or device ID bridge failed.",
@@ -1404,6 +1572,17 @@ app.whenReady().then(async () => {
         bridgeResult.questionPaperSnapshotPreserved &&
         bridgeResult.questionPaperSoftDeleted,
       "Question paper chapter, bank filter, numbering, snapshot, update, or soft-delete behavior failed.",
+    );
+    assert(
+      bridgeResult.defaultBehaviourTraitCount === 6 &&
+        bridgeResult.defaultSkillTraitCount === 10 &&
+        bridgeResult.behaviourTraitUpdated &&
+        bridgeResult.behaviourRatingUpserted &&
+        bridgeResult.affectiveReportCount === 1 &&
+        bridgeResult.psychomotorReportCount === 1 &&
+        bridgeResult.observationUpdated &&
+        bridgeResult.observationSoftDeleted,
+      "Behaviour traits, skill ratings, domain reports, observation updates, or soft-delete behavior failed.",
     );
     const smokeClass = database
       .getClasses()
@@ -1678,6 +1857,32 @@ app.whenReady().then(async () => {
         persistedQuestionPaper.items.length === 1 &&
         persistedQuestionPaper.items[0].optionC === "3",
       "Question paper chapters or saved paper snapshots did not persist.",
+    );
+    assert(
+      database
+        .getBehaviourTraits()
+        .some((trait) => trait.id === bridgeResult.behaviourTraitId) &&
+        database
+          .getSkillTraits()
+          .some((trait) => trait.id === bridgeResult.skillTraitId) &&
+        database.getBehaviourRatings({
+          studentId: bridgeResult.studentId,
+        }).length === 1 &&
+        database.getSkillRatings({
+          studentId: bridgeResult.studentId,
+          domain: "Affective",
+        }).length === 1 &&
+        database.getSkillRatings({
+          studentId: bridgeResult.studentId,
+          domain: "Psychomotor",
+        }).length === 1 &&
+        database.getStudentObservations({
+          studentId: bridgeResult.studentId,
+        }).length === 1 &&
+        database.getStudentObservations({
+          studentId: bridgeResult.studentId,
+        })[0].id === bridgeResult.observationId,
+      "Behaviour ratings, skill ratings, or observations did not persist.",
     );
     assert(
       database.getIssuedCertificates().length === 1 &&

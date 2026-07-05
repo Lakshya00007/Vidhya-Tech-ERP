@@ -213,11 +213,11 @@ export const erpNavigation: ErpMenuGroup[] = [
     icon: 'check',
     roles: academic,
     items: [
-      placeholder('rate-behaviours', 'Rate Behaviours', { locked: true, feature: 'behaviour-skills' }),
-      placeholder('rate-skills', 'Rate Skills', { locked: true, feature: 'behaviour-skills' }),
-      placeholder('observations', 'Observations', { locked: true, feature: 'behaviour-skills' }),
-      placeholder('affective-domain-report', 'Affective Domain Rating Report', { locked: true, feature: 'behaviour-skills' }),
-      placeholder('psychomotor-domain-report', 'Psychomotor Domain Rating Report', { locked: true, feature: 'behaviour-skills' }),
+      { id: 'rate-behaviours', label: 'Rate Behaviours', target: { page: 'behaviour-skills', view: 'behaviours' } },
+      { id: 'rate-skills', label: 'Rate Skills', target: { page: 'behaviour-skills', view: 'skills' } },
+      { id: 'observations', label: 'Observations', target: { page: 'behaviour-skills', view: 'observations' } },
+      { id: 'affective-domain-report', label: 'Affective Domain Rating Report', target: { page: 'behaviour-skills', view: 'affective' } },
+      { id: 'psychomotor-domain-report', label: 'Psychomotor Domain Rating Report', target: { page: 'behaviour-skills', view: 'psychomotor' } },
     ],
   },
   {

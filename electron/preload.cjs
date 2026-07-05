@@ -194,6 +194,56 @@ contextBridge.exposeInMainWorld("erpApi", {
   deleteQuestionPaper: (id) =>
     ipcRenderer.invoke("question-paper:papers:delete", id),
 
+  getBehaviourTraits: () =>
+    ipcRenderer.invoke("behaviour-skills:behaviour-traits:get-all"),
+  createBehaviourTrait: (input) =>
+    ipcRenderer.invoke("behaviour-skills:behaviour-traits:create", input),
+  updateBehaviourTrait: (id, input) =>
+    ipcRenderer.invoke(
+      "behaviour-skills:behaviour-traits:update",
+      id,
+      input,
+    ),
+  deleteBehaviourTrait: (id) =>
+    ipcRenderer.invoke("behaviour-skills:behaviour-traits:delete", id),
+
+  getSkillTraits: () =>
+    ipcRenderer.invoke("behaviour-skills:skill-traits:get-all"),
+  createSkillTrait: (input) =>
+    ipcRenderer.invoke("behaviour-skills:skill-traits:create", input),
+  updateSkillTrait: (id, input) =>
+    ipcRenderer.invoke("behaviour-skills:skill-traits:update", id, input),
+  deleteSkillTrait: (id) =>
+    ipcRenderer.invoke("behaviour-skills:skill-traits:delete", id),
+
+  getBehaviourRatings: (filter) =>
+    ipcRenderer.invoke("behaviour-skills:behaviour-ratings:get", filter),
+  saveBehaviourRatingsBulk: (records) =>
+    ipcRenderer.invoke(
+      "behaviour-skills:behaviour-ratings:save-bulk",
+      records,
+    ),
+  getSkillRatings: (filter) =>
+    ipcRenderer.invoke("behaviour-skills:skill-ratings:get", filter),
+  saveSkillRatingsBulk: (records) =>
+    ipcRenderer.invoke(
+      "behaviour-skills:skill-ratings:save-bulk",
+      records,
+    ),
+
+  getStudentObservations: (filter) =>
+    ipcRenderer.invoke("behaviour-skills:observations:get", filter),
+  createStudentObservation: (input) =>
+    ipcRenderer.invoke("behaviour-skills:observations:create", input),
+  updateStudentObservation: (id, input) =>
+    ipcRenderer.invoke(
+      "behaviour-skills:observations:update",
+      id,
+      input,
+    ),
+  deleteStudentObservation: (id) =>
+    ipcRenderer.invoke("behaviour-skills:observations:delete", id),
+
   getSchoolSettings: () => ipcRenderer.invoke("settings:get"),
   saveSchoolSettings: (settings) =>
     ipcRenderer.invoke("settings:save", settings),

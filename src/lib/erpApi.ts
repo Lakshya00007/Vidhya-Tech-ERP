@@ -36,6 +36,9 @@ export const CLASS_TESTS_API_UNAVAILABLE_MESSAGE =
 export const QUESTION_PAPER_API_UNAVAILABLE_MESSAGE =
   'Question paper management is available only inside the Electron desktop app.'
 
+export const BEHAVIOUR_SKILLS_API_UNAVAILABLE_MESSAGE =
+  'Behaviour and skills management is available only inside the Electron desktop app.'
+
 const licenseApiMethods = [
   'getDeviceId',
   'getLicenseStatus',
@@ -167,6 +170,25 @@ const questionPaperApiMethods = [
   'createQuestionPaper',
   'updateQuestionPaper',
   'deleteQuestionPaper',
+] as const satisfies ReadonlyArray<keyof ErpApi>
+
+const behaviourSkillsApiMethods = [
+  'getBehaviourTraits',
+  'createBehaviourTrait',
+  'updateBehaviourTrait',
+  'deleteBehaviourTrait',
+  'getSkillTraits',
+  'createSkillTrait',
+  'updateSkillTrait',
+  'deleteSkillTrait',
+  'getBehaviourRatings',
+  'saveBehaviourRatingsBulk',
+  'getSkillRatings',
+  'saveSkillRatingsBulk',
+  'getStudentObservations',
+  'createStudentObservation',
+  'updateStudentObservation',
+  'deleteStudentObservation',
 ] as const satisfies ReadonlyArray<keyof ErpApi>
 
 export function getErpApi(): ErpApi {
@@ -303,6 +325,19 @@ export function getQuestionPaperErpApi(): ErpApi {
     )
   ) {
     throw new Error(QUESTION_PAPER_API_UNAVAILABLE_MESSAGE)
+  }
+  return api
+}
+
+export function getBehaviourSkillsErpApi(): ErpApi {
+  const api = window.erpApi
+  if (
+    !api ||
+    behaviourSkillsApiMethods.some(
+      (method) => typeof api[method] !== 'function',
+    )
+  ) {
+    throw new Error(BEHAVIOUR_SKILLS_API_UNAVAILABLE_MESSAGE)
   }
   return api
 }

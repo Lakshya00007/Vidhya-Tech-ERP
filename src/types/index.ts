@@ -14,6 +14,7 @@ export type PageId =
   | 'homework'
   | 'class-tests'
   | 'question-paper'
+  | 'behaviour-skills'
   | 'placeholder'
 
 export interface ModulePlaceholderInfo {
@@ -602,6 +603,179 @@ export interface CreateQuestionPaperInput {
 
 export type UpdateQuestionPaperInput =
   Partial<CreateQuestionPaperInput>
+
+export type StudentRating =
+  | 'Excellent'
+  | 'Very Good'
+  | 'Good'
+  | 'Average'
+  | 'Needs Improvement'
+
+export type SkillDomain = 'Affective' | 'Psychomotor'
+
+export interface BehaviourTrait {
+  id: string
+  name: string
+  description: string
+  status: MasterStatus
+  createdAt: string
+  updatedAt: string
+  deletedAt: string | null
+  syncStatus: SyncStatus
+}
+
+export interface CreateBehaviourTraitInput {
+  name: string
+  description?: string
+  status?: MasterStatus
+}
+
+export type UpdateBehaviourTraitInput =
+  Partial<CreateBehaviourTraitInput>
+
+export interface SkillTrait {
+  id: string
+  name: string
+  domain: SkillDomain
+  description: string
+  status: MasterStatus
+  createdAt: string
+  updatedAt: string
+  deletedAt: string | null
+  syncStatus: SyncStatus
+}
+
+export interface CreateSkillTraitInput {
+  name: string
+  domain: SkillDomain
+  description?: string
+  status?: MasterStatus
+}
+
+export type UpdateSkillTraitInput = Partial<CreateSkillTraitInput>
+
+export interface StudentRatingFilter {
+  className?: string
+  section?: string
+  studentId?: string
+  traitId?: string
+  skillId?: string
+  domain?: SkillDomain | ''
+  academicYear?: string
+  startDate?: string
+  endDate?: string
+}
+
+export interface BehaviourRating {
+  id: string
+  studentId: string
+  studentName: string
+  admissionNo: string
+  className: string
+  section: string
+  traitId: string
+  traitName: string
+  rating: StudentRating
+  ratingDate: string
+  academicYear: string
+  remarks: string
+  ratedBy: string
+  createdAt: string
+  updatedAt: string
+  deletedAt: string | null
+  syncStatus: SyncStatus
+}
+
+export interface SaveBehaviourRatingInput {
+  studentId: string
+  traitId: string
+  rating: StudentRating
+  ratingDate: string
+  academicYear?: string
+  remarks?: string
+}
+
+export interface SkillRating {
+  id: string
+  studentId: string
+  studentName: string
+  admissionNo: string
+  className: string
+  section: string
+  skillId: string
+  skillName: string
+  domain: SkillDomain
+  rating: StudentRating
+  ratingDate: string
+  academicYear: string
+  remarks: string
+  ratedBy: string
+  createdAt: string
+  updatedAt: string
+  deletedAt: string | null
+  syncStatus: SyncStatus
+}
+
+export interface SaveSkillRatingInput {
+  studentId: string
+  skillId: string
+  rating: StudentRating
+  ratingDate: string
+  academicYear?: string
+  remarks?: string
+}
+
+export type ObservationType =
+  | 'Academic'
+  | 'Behaviour'
+  | 'Discipline'
+  | 'Health'
+  | 'General'
+
+export type ObservationStatus = 'Open' | 'Follow Up' | 'Closed'
+
+export interface StudentObservation {
+  id: string
+  studentId: string
+  studentName: string
+  admissionNo: string
+  className: string
+  section: string
+  observationDate: string
+  observationType: ObservationType
+  observationText: string
+  actionTaken: string
+  followUpDate: string
+  status: ObservationStatus
+  createdBy: string
+  createdAt: string
+  updatedAt: string
+  deletedAt: string | null
+  syncStatus: SyncStatus
+}
+
+export interface StudentObservationFilter {
+  className?: string
+  section?: string
+  studentId?: string
+  observationType?: ObservationType | ''
+  status?: ObservationStatus | ''
+  startDate?: string
+  endDate?: string
+}
+
+export interface CreateStudentObservationInput {
+  studentId: string
+  observationDate: string
+  observationType: ObservationType
+  observationText: string
+  actionTaken?: string
+  followUpDate?: string
+  status?: ObservationStatus
+}
+
+export type UpdateStudentObservationInput =
+  Partial<CreateStudentObservationInput>
 
 export type SalaryPaymentMode = 'Cash' | 'UPI' | 'Bank Transfer' | 'Cheque'
 

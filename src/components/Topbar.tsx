@@ -26,6 +26,7 @@ const pageTitles: Record<PageId, string> = {
   homework: 'Homework',
   'class-tests': 'Class Tests',
   'question-paper': 'Question Paper',
+  'behaviour-skills': 'Behaviour & Skills',
   placeholder: 'Advanced Module',
 }
 

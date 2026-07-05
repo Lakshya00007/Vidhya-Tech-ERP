@@ -93,6 +93,22 @@ const channels = [
   "question-paper:papers:create",
   "question-paper:papers:update",
   "question-paper:papers:delete",
+  "behaviour-skills:behaviour-traits:get-all",
+  "behaviour-skills:behaviour-traits:create",
+  "behaviour-skills:behaviour-traits:update",
+  "behaviour-skills:behaviour-traits:delete",
+  "behaviour-skills:skill-traits:get-all",
+  "behaviour-skills:skill-traits:create",
+  "behaviour-skills:skill-traits:update",
+  "behaviour-skills:skill-traits:delete",
+  "behaviour-skills:behaviour-ratings:get",
+  "behaviour-skills:behaviour-ratings:save-bulk",
+  "behaviour-skills:skill-ratings:get",
+  "behaviour-skills:skill-ratings:save-bulk",
+  "behaviour-skills:observations:get",
+  "behaviour-skills:observations:create",
+  "behaviour-skills:observations:update",
+  "behaviour-skills:observations:delete",
   "settings:get",
   "settings:save",
   "fees:get-all",
@@ -1198,6 +1214,234 @@ function registerIpcHandlers(
           paper
             ? `Soft-deleted ${paper.paperNo}, "${paper.title}".`
             : "Soft-deleted a question paper.",
+          actor,
+        );
+      }
+      return result;
+    }),
+  );
+
+  ipcMain.handle(
+    "behaviour-skills:behaviour-traits:get-all",
+    authenticated(() => {
+      requireRoles(["Owner", "Admin", "Teacher"]);
+      return database.getBehaviourTraits();
+    }),
+  );
+  ipcMain.handle(
+    "behaviour-skills:behaviour-traits:create",
+    authenticated((_event, input) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      const created = database.createBehaviourTrait(input);
+      authService?.audit(
+        "Behaviour trait created",
+        "Behaviour & Skills",
+        `Created behaviour trait "${created.name}".`,
+        actor,
+      );
+      return created;
+    }),
+  );
+  ipcMain.handle(
+    "behaviour-skills:behaviour-traits:update",
+    authenticated((_event, id, input) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      const updated = database.updateBehaviourTrait(id, input);
+      authService?.audit(
+        "Behaviour trait updated",
+        "Behaviour & Skills",
+        `Updated behaviour trait "${updated.name}".`,
+        actor,
+      );
+      return updated;
+    }),
+  );
+  ipcMain.handle(
+    "behaviour-skills:behaviour-traits:delete",
+    authenticated((_event, id) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      const trait = database
+        .getBehaviourTraits()
+        .find((item) => item.id === id);
+      const result = database.deleteBehaviourTrait(id);
+      if (result.success) {
+        authService?.audit(
+          "Behaviour trait deleted",
+          "Behaviour & Skills",
+          trait
+            ? `Soft-deleted behaviour trait "${trait.name}".`
+            : "Soft-deleted a behaviour trait.",
+          actor,
+        );
+      }
+      return result;
+    }),
+  );
+
+  ipcMain.handle(
+    "behaviour-skills:skill-traits:get-all",
+    authenticated(() => {
+      requireRoles(["Owner", "Admin", "Teacher"]);
+      return database.getSkillTraits();
+    }),
+  );
+  ipcMain.handle(
+    "behaviour-skills:skill-traits:create",
+    authenticated((_event, input) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      const created = database.createSkillTrait(input);
+      authService?.audit(
+        "Skill trait created",
+        "Behaviour & Skills",
+        `Created ${created.domain.toLowerCase()} skill trait "${created.name}".`,
+        actor,
+      );
+      return created;
+    }),
+  );
+  ipcMain.handle(
+    "behaviour-skills:skill-traits:update",
+    authenticated((_event, id, input) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      const updated = database.updateSkillTrait(id, input);
+      authService?.audit(
+        "Skill trait updated",
+        "Behaviour & Skills",
+        `Updated ${updated.domain.toLowerCase()} skill trait "${updated.name}".`,
+        actor,
+      );
+      return updated;
+    }),
+  );
+  ipcMain.handle(
+    "behaviour-skills:skill-traits:delete",
+    authenticated((_event, id) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      const trait = database.getSkillTraits().find((item) => item.id === id);
+      const result = database.deleteSkillTrait(id);
+      if (result.success) {
+        authService?.audit(
+          "Skill trait deleted",
+          "Behaviour & Skills",
+          trait
+            ? `Soft-deleted ${trait.domain.toLowerCase()} skill trait "${trait.name}".`
+            : "Soft-deleted a skill trait.",
+          actor,
+        );
+      }
+      return result;
+    }),
+  );
+
+  ipcMain.handle(
+    "behaviour-skills:behaviour-ratings:get",
+    authenticated((_event, filter) => {
+      requireRoles(["Owner", "Admin", "Teacher"]);
+      return database.getBehaviourRatings(filter);
+    }),
+  );
+  ipcMain.handle(
+    "behaviour-skills:behaviour-ratings:save-bulk",
+    authenticated((_event, records) => {
+      const actor = requireRoles(["Owner", "Admin", "Teacher"]);
+      const securedRecords = Array.isArray(records)
+        ? records.map((record) => ({
+            ...record,
+            ratedBy: actor?.name ?? "",
+          }))
+        : records;
+      const saved = database.saveBehaviourRatingsBulk(securedRecords);
+      authService?.audit(
+        "Behaviour ratings saved",
+        "Behaviour & Skills",
+        `Saved ${saved.length} student behaviour rating(s).`,
+        actor,
+      );
+      return saved;
+    }),
+  );
+
+  ipcMain.handle(
+    "behaviour-skills:skill-ratings:get",
+    authenticated((_event, filter) => {
+      requireRoles(["Owner", "Admin", "Teacher"]);
+      return database.getSkillRatings(filter);
+    }),
+  );
+  ipcMain.handle(
+    "behaviour-skills:skill-ratings:save-bulk",
+    authenticated((_event, records) => {
+      const actor = requireRoles(["Owner", "Admin", "Teacher"]);
+      const securedRecords = Array.isArray(records)
+        ? records.map((record) => ({
+            ...record,
+            ratedBy: actor?.name ?? "",
+          }))
+        : records;
+      const saved = database.saveSkillRatingsBulk(securedRecords);
+      authService?.audit(
+        "Skill ratings saved",
+        "Behaviour & Skills",
+        `Saved ${saved.length} student skill rating(s).`,
+        actor,
+      );
+      return saved;
+    }),
+  );
+
+  ipcMain.handle(
+    "behaviour-skills:observations:get",
+    authenticated((_event, filter) => {
+      requireRoles(["Owner", "Admin", "Teacher"]);
+      return database.getStudentObservations(filter);
+    }),
+  );
+  ipcMain.handle(
+    "behaviour-skills:observations:create",
+    authenticated((_event, input) => {
+      const actor = requireRoles(["Owner", "Admin", "Teacher"]);
+      const created = database.createStudentObservation({
+        ...input,
+        createdBy: actor?.name ?? "",
+      });
+      authService?.audit(
+        "Student observation created",
+        "Behaviour & Skills",
+        `Created ${created.observationType.toLowerCase()} observation for ${created.studentName}.`,
+        actor,
+      );
+      return created;
+    }),
+  );
+  ipcMain.handle(
+    "behaviour-skills:observations:update",
+    authenticated((_event, id, input) => {
+      const actor = requireRoles(["Owner", "Admin", "Teacher"]);
+      const updated = database.updateStudentObservation(id, input);
+      authService?.audit(
+        "Student observation updated",
+        "Behaviour & Skills",
+        `Updated observation for ${updated.studentName}.`,
+        actor,
+      );
+      return updated;
+    }),
+  );
+  ipcMain.handle(
+    "behaviour-skills:observations:delete",
+    authenticated((_event, id) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      const observation = database
+        .getStudentObservations({})
+        .find((item) => item.id === id);
+      const result = database.deleteStudentObservation(id);
+      if (result.success) {
+        authService?.audit(
+          "Student observation deleted",
+          "Behaviour & Skills",
+          observation
+            ? `Soft-deleted observation for ${observation.studentName}.`
+            : "Soft-deleted a student observation.",
           actor,
         );
       }

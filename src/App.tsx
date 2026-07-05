@@ -10,12 +10,15 @@ import {
 } from './lib/erpApi'
 import {
   canAccessPage,
+  canDeleteStudentObservations,
+  canManageBehaviourSkillsMasters,
   canManageStudents,
   canManageTimetable,
 } from './lib/permissions'
 import type { NavigationTarget } from './lib/navigation'
 import { Attendance } from './pages/Attendance'
 import { Accounts } from './pages/Accounts'
+import { BehaviourSkills } from './pages/BehaviourSkills'
 import { CreateOwner } from './pages/CreateOwner'
 import { ClassTests } from './pages/ClassTests'
 import { Dashboard } from './pages/Dashboard'
@@ -49,6 +52,7 @@ import type { TimetableView } from './pages/Timetable'
 import type { HomeworkView } from './pages/Homework'
 import type { ClassTestsView } from './pages/ClassTests'
 import type { QuestionPaperView } from './pages/QuestionPaper'
+import type { BehaviourSkillsView } from './pages/BehaviourSkills'
 
 function App() {
   const [activePage, setActivePage] = useState<PageId>('dashboard')
@@ -272,6 +276,21 @@ function App() {
           <QuestionPaper
             initialView={(activeView || 'chapters') as QuestionPaperView}
             key={`question-paper-${activeView}-${navigationRevision}`}
+          />
+        )
+      case 'behaviour-skills':
+        return (
+          <BehaviourSkills
+            canDeleteObservations={canDeleteStudentObservations(
+              currentUser.role,
+            )}
+            canManageMasters={canManageBehaviourSkillsMasters(
+              currentUser.role,
+            )}
+            initialView={
+              (activeView || 'behaviours') as BehaviourSkillsView
+            }
+            key={`behaviour-skills-${activeView}-${navigationRevision}`}
           />
         )
       case 'dashboard':

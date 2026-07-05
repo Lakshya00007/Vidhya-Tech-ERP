@@ -5,12 +5,15 @@ import type {
   AttendanceRecord,
   AttendanceSummary,
   AuthUser,
+  BehaviourRating,
+  BehaviourTrait,
   ClassItem,
   ClassTest,
   ClassTestMark,
   Classroom,
   CertificateTemplate,
   CreateCertificateTemplateInput,
+  CreateBehaviourTraitInput,
   CreateAccountCategoryInput,
   CreateAccountTransactionInput,
   CreateClassInput,
@@ -28,7 +31,9 @@ import type {
   CreateSectionInput,
   CreateSalaryPaymentInput,
   CreateStudentInput,
+  CreateStudentObservationInput,
   CreateSubjectInput,
+  CreateSkillTraitInput,
   CreateTimetablePeriodInput,
   CreateTimetableWeekdayInput,
   CreateUserInput,
@@ -47,21 +52,28 @@ import type {
   MarkRecord,
   LicenseStatus,
   SaveMarkInput,
+  SaveBehaviourRatingInput,
   SaveAttendanceInput,
   SaveClassTestMarkInput,
   SaveHomeworkSubmissionInput,
   SaveSchoolSettingsInput,
+  SaveSkillRatingInput,
   SalaryPayment,
   SchoolSettings,
   SectionItem,
   SaveTimetableEntryInput,
   Student,
+  StudentObservation,
+  StudentObservationFilter,
+  StudentRatingFilter,
   StudentImportOptions,
   StudentImportResult,
   StudentImportRow,
   StudentImportTemplate,
   Subject,
   SubjectChapter,
+  SkillRating,
+  SkillTrait,
   QuestionBankItem,
   QuestionFilter,
   QuestionPaper,
@@ -70,6 +82,7 @@ import type {
   TimetableWeekday,
   User,
   UpdateClassInput,
+  UpdateBehaviourTraitInput,
   UpdateClassTestInput,
   UpdateClassTestMarkInput,
   UpdateCertificateTemplateInput,
@@ -89,7 +102,9 @@ import type {
   UpdateSectionInput,
   UpdateSalaryPaymentInput,
   UpdateStudentInput,
+  UpdateStudentObservationInput,
   UpdateSubjectInput,
+  UpdateSkillTraitInput,
   UpdateTimetablePeriodInput,
   UpdateTimetableWeekdayInput,
   UpdateMarkInput,
@@ -300,6 +315,48 @@ export interface ErpApi {
     input: UpdateQuestionPaperInput,
   ) => Promise<QuestionPaper>
   deleteQuestionPaper: (id: string) => Promise<{ success: boolean }>
+
+  getBehaviourTraits: () => Promise<BehaviourTrait[]>
+  createBehaviourTrait: (
+    input: CreateBehaviourTraitInput,
+  ) => Promise<BehaviourTrait>
+  updateBehaviourTrait: (
+    id: string,
+    input: UpdateBehaviourTraitInput,
+  ) => Promise<BehaviourTrait>
+  deleteBehaviourTrait: (id: string) => Promise<{ success: boolean }>
+
+  getSkillTraits: () => Promise<SkillTrait[]>
+  createSkillTrait: (input: CreateSkillTraitInput) => Promise<SkillTrait>
+  updateSkillTrait: (
+    id: string,
+    input: UpdateSkillTraitInput,
+  ) => Promise<SkillTrait>
+  deleteSkillTrait: (id: string) => Promise<{ success: boolean }>
+
+  getBehaviourRatings: (
+    filter: StudentRatingFilter,
+  ) => Promise<BehaviourRating[]>
+  saveBehaviourRatingsBulk: (
+    records: SaveBehaviourRatingInput[],
+  ) => Promise<BehaviourRating[]>
+
+  getSkillRatings: (filter: StudentRatingFilter) => Promise<SkillRating[]>
+  saveSkillRatingsBulk: (
+    records: SaveSkillRatingInput[],
+  ) => Promise<SkillRating[]>
+
+  getStudentObservations: (
+    filter: StudentObservationFilter,
+  ) => Promise<StudentObservation[]>
+  createStudentObservation: (
+    input: CreateStudentObservationInput,
+  ) => Promise<StudentObservation>
+  updateStudentObservation: (
+    id: string,
+    input: UpdateStudentObservationInput,
+  ) => Promise<StudentObservation>
+  deleteStudentObservation: (id: string) => Promise<{ success: boolean }>
 
   getSchoolSettings: () => Promise<SchoolSettings>
   saveSchoolSettings: (settings: SaveSchoolSettingsInput) => Promise<SchoolSettings>

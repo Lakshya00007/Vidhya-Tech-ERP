@@ -63,6 +63,22 @@ const QUESTION_TYPES = new Set([
   "Match the Following",
 ]);
 const QUESTION_DIFFICULTIES = new Set(["Easy", "Medium", "Hard"]);
+const RATING_VALUES = new Set([
+  "Excellent",
+  "Very Good",
+  "Good",
+  "Average",
+  "Needs Improvement",
+]);
+const SKILL_DOMAINS = new Set(["Affective", "Psychomotor"]);
+const OBSERVATION_TYPES = new Set([
+  "Academic",
+  "Behaviour",
+  "Discipline",
+  "Health",
+  "General",
+]);
+const OBSERVATION_STATUSES = new Set(["Open", "Follow Up", "Closed"]);
 const STUDENT_IMPORT_TEMPLATE_COLUMNS = [
   "Admission No",
   "Student Name",
@@ -495,6 +511,100 @@ function questionPaperFromRow(row, items = []) {
     createdBy: row.created_by ?? "",
     itemCount: Number(row.item_count ?? items.length),
     items,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at,
+    syncStatus: row.sync_status,
+  };
+}
+
+function behaviourTraitFromRow(row) {
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description ?? "",
+    status: row.status,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at,
+    syncStatus: row.sync_status,
+  };
+}
+
+function skillTraitFromRow(row) {
+  return {
+    id: row.id,
+    name: row.name,
+    domain: row.domain,
+    description: row.description ?? "",
+    status: row.status,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at,
+    syncStatus: row.sync_status,
+  };
+}
+
+function behaviourRatingFromRow(row) {
+  return {
+    id: row.id,
+    studentId: row.student_id,
+    studentName: row.student_name,
+    admissionNo: row.admission_no ?? "",
+    className: row.class_name ?? "",
+    section: row.section ?? "",
+    traitId: row.trait_id ?? "",
+    traitName: row.trait_name,
+    rating: row.rating,
+    ratingDate: row.rating_date,
+    academicYear: row.academic_year ?? "",
+    remarks: row.remarks ?? "",
+    ratedBy: row.rated_by ?? "",
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at,
+    syncStatus: row.sync_status,
+  };
+}
+
+function skillRatingFromRow(row) {
+  return {
+    id: row.id,
+    studentId: row.student_id,
+    studentName: row.student_name,
+    admissionNo: row.admission_no ?? "",
+    className: row.class_name ?? "",
+    section: row.section ?? "",
+    skillId: row.skill_id ?? "",
+    skillName: row.skill_name,
+    domain: row.domain,
+    rating: row.rating,
+    ratingDate: row.rating_date,
+    academicYear: row.academic_year ?? "",
+    remarks: row.remarks ?? "",
+    ratedBy: row.rated_by ?? "",
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at,
+    syncStatus: row.sync_status,
+  };
+}
+
+function studentObservationFromRow(row) {
+  return {
+    id: row.id,
+    studentId: row.student_id,
+    studentName: row.student_name,
+    admissionNo: row.admission_no ?? "",
+    className: row.class_name ?? "",
+    section: row.section ?? "",
+    observationDate: row.observation_date,
+    observationType: row.observation_type,
+    observationText: row.observation_text,
+    actionTaken: row.action_taken ?? "",
+    followUpDate: row.follow_up_date ?? "",
+    status: row.status,
+    createdBy: row.created_by ?? "",
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at,
@@ -1165,6 +1275,108 @@ function createDatabase(databasePath) {
       FOREIGN KEY (question_id) REFERENCES question_bank(id)
     );
 
+    CREATE TABLE IF NOT EXISTS behaviour_traits (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT,
+      status TEXT DEFAULT 'Active' CHECK (status IN ('Active', 'Inactive')),
+      created_at TEXT,
+      updated_at TEXT,
+      deleted_at TEXT,
+      sync_status TEXT DEFAULT 'pending'
+    );
+
+    CREATE TABLE IF NOT EXISTS skill_traits (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      domain TEXT NOT NULL CHECK (domain IN ('Affective', 'Psychomotor')),
+      description TEXT,
+      status TEXT DEFAULT 'Active' CHECK (status IN ('Active', 'Inactive')),
+      created_at TEXT,
+      updated_at TEXT,
+      deleted_at TEXT,
+      sync_status TEXT DEFAULT 'pending'
+    );
+
+    CREATE TABLE IF NOT EXISTS student_behaviour_ratings (
+      id TEXT PRIMARY KEY,
+      student_id TEXT NOT NULL,
+      student_name TEXT NOT NULL,
+      admission_no TEXT,
+      class_name TEXT,
+      section TEXT,
+      trait_id TEXT,
+      trait_name TEXT NOT NULL,
+      rating TEXT CHECK (
+        rating IN (
+          'Excellent', 'Very Good', 'Good', 'Average', 'Needs Improvement'
+        )
+      ),
+      rating_date TEXT NOT NULL,
+      academic_year TEXT,
+      remarks TEXT,
+      rated_by TEXT,
+      created_at TEXT,
+      updated_at TEXT,
+      deleted_at TEXT,
+      sync_status TEXT DEFAULT 'pending',
+      FOREIGN KEY (student_id) REFERENCES students(id),
+      FOREIGN KEY (trait_id) REFERENCES behaviour_traits(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS student_skill_ratings (
+      id TEXT PRIMARY KEY,
+      student_id TEXT NOT NULL,
+      student_name TEXT NOT NULL,
+      admission_no TEXT,
+      class_name TEXT,
+      section TEXT,
+      skill_id TEXT,
+      skill_name TEXT NOT NULL,
+      domain TEXT NOT NULL CHECK (domain IN ('Affective', 'Psychomotor')),
+      rating TEXT CHECK (
+        rating IN (
+          'Excellent', 'Very Good', 'Good', 'Average', 'Needs Improvement'
+        )
+      ),
+      rating_date TEXT NOT NULL,
+      academic_year TEXT,
+      remarks TEXT,
+      rated_by TEXT,
+      created_at TEXT,
+      updated_at TEXT,
+      deleted_at TEXT,
+      sync_status TEXT DEFAULT 'pending',
+      FOREIGN KEY (student_id) REFERENCES students(id),
+      FOREIGN KEY (skill_id) REFERENCES skill_traits(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS student_observations (
+      id TEXT PRIMARY KEY,
+      student_id TEXT NOT NULL,
+      student_name TEXT NOT NULL,
+      admission_no TEXT,
+      class_name TEXT,
+      section TEXT,
+      observation_date TEXT NOT NULL,
+      observation_type TEXT CHECK (
+        observation_type IN (
+          'Academic', 'Behaviour', 'Discipline', 'Health', 'General'
+        )
+      ),
+      observation_text TEXT NOT NULL,
+      action_taken TEXT,
+      follow_up_date TEXT,
+      status TEXT DEFAULT 'Open'
+        CHECK (status IN ('Open', 'Follow Up', 'Closed')),
+      created_by TEXT,
+      created_at TEXT,
+      updated_at TEXT,
+      deleted_at TEXT,
+      sync_status TEXT DEFAULT 'pending',
+      FOREIGN KEY (student_id) REFERENCES students(id)
+    );
+
     CREATE TABLE IF NOT EXISTS fee_payments (
       id TEXT PRIMARY KEY,
       receipt_no TEXT UNIQUE NOT NULL,
@@ -1499,6 +1711,32 @@ function createDatabase(databasePath) {
       ON question_papers(class_name, subject_id, created_at, deleted_at);
     CREATE INDEX IF NOT EXISTS idx_question_paper_items_order
       ON question_paper_items(paper_id, display_order);
+    CREATE INDEX IF NOT EXISTS idx_behaviour_traits_active
+      ON behaviour_traits(status, deleted_at, name);
+    CREATE INDEX IF NOT EXISTS idx_skill_traits_domain
+      ON skill_traits(domain, status, deleted_at, name);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_behaviour_rating_entry
+      ON student_behaviour_ratings(
+        student_id, trait_id, rating_date, COALESCE(academic_year, '')
+      )
+      WHERE deleted_at IS NULL;
+    CREATE INDEX IF NOT EXISTS idx_behaviour_ratings_report
+      ON student_behaviour_ratings(
+        class_name, section, rating_date, student_id, deleted_at
+      );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_skill_rating_entry
+      ON student_skill_ratings(
+        student_id, skill_id, rating_date, COALESCE(academic_year, '')
+      )
+      WHERE deleted_at IS NULL;
+    CREATE INDEX IF NOT EXISTS idx_skill_ratings_report
+      ON student_skill_ratings(
+        domain, class_name, section, rating_date, student_id, deleted_at
+      );
+    CREATE INDEX IF NOT EXISTS idx_student_observations_report
+      ON student_observations(
+        student_id, observation_date, status, deleted_at
+      );
   `);
 
   const timestamp = now();
@@ -1612,6 +1850,72 @@ function createDatabase(databasePath) {
         updatedAt: timestamp,
       });
     });
+
+  const insertDefaultBehaviourTrait = db.prepare(`
+    INSERT OR IGNORE INTO behaviour_traits (
+      id, name, description, status, created_at, updated_at, deleted_at,
+      sync_status
+    ) VALUES (
+      @id, @name, @description, 'Active', @createdAt, @updatedAt, NULL,
+      'pending'
+    )
+  `);
+  [
+    "Discipline",
+    "Punctuality",
+    "Cleanliness",
+    "Respectfulness",
+    "Participation",
+    "Responsibility",
+  ].forEach((name) => {
+    insertDefaultBehaviourTrait.run({
+      id: `default-behaviour-${name.toLowerCase().replaceAll(" ", "-")}`,
+      name,
+      description: `Default ${name.toLowerCase()} behaviour trait`,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    });
+  });
+
+  const insertDefaultSkillTrait = db.prepare(`
+    INSERT OR IGNORE INTO skill_traits (
+      id, name, domain, description, status, created_at, updated_at,
+      deleted_at, sync_status
+    ) VALUES (
+      @id, @name, @domain, @description, 'Active', @createdAt, @updatedAt,
+      NULL, 'pending'
+    )
+  `);
+  const defaultSkillTraits = {
+    Affective: [
+      "Attitude",
+      "Cooperation",
+      "Confidence",
+      "Leadership",
+      "Emotional Balance",
+    ],
+    Psychomotor: [
+      "Handwriting",
+      "Drawing",
+      "Sports",
+      "Craft Work",
+      "Physical Activity",
+    ],
+  };
+  for (const [domain, names] of Object.entries(defaultSkillTraits)) {
+    for (const name of names) {
+      insertDefaultSkillTrait.run({
+        id: `default-skill-${domain.toLowerCase()}-${name
+          .toLowerCase()
+          .replaceAll(" ", "-")}`,
+        name,
+        domain,
+        description: `Default ${domain.toLowerCase()} skill trait`,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+    }
+  }
 
   if (!hadClassesTable) {
     const legacyClasses = db
@@ -8029,6 +8333,821 @@ function createDatabase(databasePath) {
           WHERE id = ? AND deleted_at IS NULL
         `)
         .run(timestamp, timestamp, requiredText(id, "Question paper id"));
+      return { success: result.changes === 1 };
+    },
+
+    getBehaviourTraits() {
+      return db
+        .prepare(`
+          SELECT *
+          FROM behaviour_traits
+          WHERE deleted_at IS NULL
+          ORDER BY
+            CASE status WHEN 'Active' THEN 0 ELSE 1 END,
+            name COLLATE NOCASE
+        `)
+        .all()
+        .map(behaviourTraitFromRow);
+    },
+
+    createBehaviourTrait(input) {
+      const name = requiredText(input?.name, "Behaviour trait name");
+      const duplicate = db
+        .prepare(`
+          SELECT id
+          FROM behaviour_traits
+          WHERE name = ? COLLATE NOCASE AND deleted_at IS NULL
+        `)
+        .get(name);
+      if (duplicate) {
+        throw new Error("An active behaviour trait with this name already exists.");
+      }
+      const id = crypto.randomUUID();
+      const timestamp = now();
+      db.prepare(`
+        INSERT INTO behaviour_traits (
+          id, name, description, status, created_at, updated_at, deleted_at,
+          sync_status
+        ) VALUES (
+          @id, @name, @description, @status, @createdAt, @updatedAt, NULL,
+          'pending'
+        )
+      `).run({
+        id,
+        name,
+        description: optionalText(input?.description),
+        status: masterStatus(input?.status),
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+      return behaviourTraitFromRow(
+        db.prepare("SELECT * FROM behaviour_traits WHERE id = ?").get(id),
+      );
+    },
+
+    updateBehaviourTrait(id, input) {
+      const traitId = requiredText(id, "Behaviour trait id");
+      const existing = db
+        .prepare(`
+          SELECT *
+          FROM behaviour_traits
+          WHERE id = ? AND deleted_at IS NULL
+        `)
+        .get(traitId);
+      if (!existing) throw new Error("Behaviour trait was not found.");
+      const name =
+        input?.name === undefined
+          ? existing.name
+          : requiredText(input.name, "Behaviour trait name");
+      const duplicate = db
+        .prepare(`
+          SELECT id
+          FROM behaviour_traits
+          WHERE name = ? COLLATE NOCASE
+            AND id <> ?
+            AND deleted_at IS NULL
+        `)
+        .get(name, traitId);
+      if (duplicate) {
+        throw new Error("An active behaviour trait with this name already exists.");
+      }
+      db.prepare(`
+        UPDATE behaviour_traits
+        SET name = @name,
+            description = @description,
+            status = @status,
+            updated_at = @updatedAt,
+            sync_status = 'pending'
+        WHERE id = @id AND deleted_at IS NULL
+      `).run({
+        id: traitId,
+        name,
+        description:
+          input?.description === undefined
+            ? existing.description ?? ""
+            : optionalText(input.description),
+        status: masterStatus(input?.status, existing.status),
+        updatedAt: now(),
+      });
+      return behaviourTraitFromRow(
+        db
+          .prepare("SELECT * FROM behaviour_traits WHERE id = ?")
+          .get(traitId),
+      );
+    },
+
+    deleteBehaviourTrait(id) {
+      const timestamp = now();
+      const result = db
+        .prepare(`
+          UPDATE behaviour_traits
+          SET deleted_at = ?, updated_at = ?, sync_status = 'pending'
+          WHERE id = ? AND deleted_at IS NULL
+        `)
+        .run(timestamp, timestamp, requiredText(id, "Behaviour trait id"));
+      return { success: result.changes === 1 };
+    },
+
+    getSkillTraits() {
+      return db
+        .prepare(`
+          SELECT *
+          FROM skill_traits
+          WHERE deleted_at IS NULL
+          ORDER BY
+            CASE domain WHEN 'Affective' THEN 0 ELSE 1 END,
+            CASE status WHEN 'Active' THEN 0 ELSE 1 END,
+            name COLLATE NOCASE
+        `)
+        .all()
+        .map(skillTraitFromRow);
+    },
+
+    createSkillTrait(input) {
+      const name = requiredText(input?.name, "Skill trait name");
+      const domain = requiredText(input?.domain, "Skill domain");
+      if (!SKILL_DOMAINS.has(domain)) {
+        throw new Error("Skill domain is invalid.");
+      }
+      const duplicate = db
+        .prepare(`
+          SELECT id
+          FROM skill_traits
+          WHERE name = ? COLLATE NOCASE
+            AND domain = ?
+            AND deleted_at IS NULL
+        `)
+        .get(name, domain);
+      if (duplicate) {
+        throw new Error("This skill trait already exists in the selected domain.");
+      }
+      const id = crypto.randomUUID();
+      const timestamp = now();
+      db.prepare(`
+        INSERT INTO skill_traits (
+          id, name, domain, description, status, created_at, updated_at,
+          deleted_at, sync_status
+        ) VALUES (
+          @id, @name, @domain, @description, @status, @createdAt, @updatedAt,
+          NULL, 'pending'
+        )
+      `).run({
+        id,
+        name,
+        domain,
+        description: optionalText(input?.description),
+        status: masterStatus(input?.status),
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+      return skillTraitFromRow(
+        db.prepare("SELECT * FROM skill_traits WHERE id = ?").get(id),
+      );
+    },
+
+    updateSkillTrait(id, input) {
+      const skillId = requiredText(id, "Skill trait id");
+      const existing = db
+        .prepare(`
+          SELECT *
+          FROM skill_traits
+          WHERE id = ? AND deleted_at IS NULL
+        `)
+        .get(skillId);
+      if (!existing) throw new Error("Skill trait was not found.");
+      const name =
+        input?.name === undefined
+          ? existing.name
+          : requiredText(input.name, "Skill trait name");
+      const domain =
+        input?.domain === undefined
+          ? existing.domain
+          : requiredText(input.domain, "Skill domain");
+      if (!SKILL_DOMAINS.has(domain)) {
+        throw new Error("Skill domain is invalid.");
+      }
+      const duplicate = db
+        .prepare(`
+          SELECT id
+          FROM skill_traits
+          WHERE name = ? COLLATE NOCASE
+            AND domain = ?
+            AND id <> ?
+            AND deleted_at IS NULL
+        `)
+        .get(name, domain, skillId);
+      if (duplicate) {
+        throw new Error("This skill trait already exists in the selected domain.");
+      }
+      db.prepare(`
+        UPDATE skill_traits
+        SET name = @name,
+            domain = @domain,
+            description = @description,
+            status = @status,
+            updated_at = @updatedAt,
+            sync_status = 'pending'
+        WHERE id = @id AND deleted_at IS NULL
+      `).run({
+        id: skillId,
+        name,
+        domain,
+        description:
+          input?.description === undefined
+            ? existing.description ?? ""
+            : optionalText(input.description),
+        status: masterStatus(input?.status, existing.status),
+        updatedAt: now(),
+      });
+      return skillTraitFromRow(
+        db.prepare("SELECT * FROM skill_traits WHERE id = ?").get(skillId),
+      );
+    },
+
+    deleteSkillTrait(id) {
+      const timestamp = now();
+      const result = db
+        .prepare(`
+          UPDATE skill_traits
+          SET deleted_at = ?, updated_at = ?, sync_status = 'pending'
+          WHERE id = ? AND deleted_at IS NULL
+        `)
+        .run(timestamp, timestamp, requiredText(id, "Skill trait id"));
+      return { success: result.changes === 1 };
+    },
+
+    getBehaviourRatings(filter = {}) {
+      const className = optionalText(filter?.className);
+      const section = optionalText(filter?.section);
+      const studentId = optionalText(filter?.studentId);
+      const traitId = optionalText(filter?.traitId);
+      const academicYear = optionalText(filter?.academicYear);
+      const startDate = optionalText(filter?.startDate);
+      const endDate = optionalText(filter?.endDate);
+      const normalizedStartDate = startDate
+        ? normalizeDate(startDate, "Start date")
+        : "";
+      const normalizedEndDate = endDate
+        ? normalizeDate(endDate, "End date")
+        : "";
+      if (
+        normalizedStartDate &&
+        normalizedEndDate &&
+        normalizedStartDate > normalizedEndDate
+      ) {
+        throw new Error("Start date cannot be after end date.");
+      }
+      return db
+        .prepare(`
+          SELECT *
+          FROM student_behaviour_ratings
+          WHERE (? = '' OR class_name = ?)
+            AND (? = '' OR COALESCE(section, '') = ?)
+            AND (? = '' OR student_id = ?)
+            AND (? = '' OR trait_id = ?)
+            AND (? = '' OR COALESCE(academic_year, '') = ?)
+            AND (? = '' OR rating_date >= ?)
+            AND (? = '' OR rating_date <= ?)
+            AND deleted_at IS NULL
+          ORDER BY rating_date DESC, class_name, section, student_name, trait_name
+        `)
+        .all(
+          className,
+          className,
+          section,
+          section,
+          studentId,
+          studentId,
+          traitId,
+          traitId,
+          academicYear,
+          academicYear,
+          normalizedStartDate,
+          normalizedStartDate,
+          normalizedEndDate,
+          normalizedEndDate,
+        )
+        .map(behaviourRatingFromRow);
+    },
+
+    saveBehaviourRatingsBulk(records) {
+      if (!Array.isArray(records) || records.length === 0) {
+        throw new Error("At least one behaviour rating is required.");
+      }
+      return db.transaction(() => {
+        const saved = [];
+        for (const input of records) {
+          const studentId = requiredText(input?.studentId, "Student");
+          const traitId = requiredText(input?.traitId, "Behaviour trait");
+          const student = getStudentStatement.get(studentId);
+          if (!student || student.status !== "Active") {
+            throw new Error("Select an active student.");
+          }
+          const trait = db
+            .prepare(`
+              SELECT *
+              FROM behaviour_traits
+              WHERE id = ? AND status = 'Active' AND deleted_at IS NULL
+            `)
+            .get(traitId);
+          if (!trait) throw new Error("Select an active behaviour trait.");
+          const rating = requiredText(input?.rating, "Rating");
+          if (!RATING_VALUES.has(rating)) {
+            throw new Error("Behaviour rating is invalid.");
+          }
+          const ratingDate = normalizeDate(input?.ratingDate, "Rating date");
+          const academicYear = optionalText(input?.academicYear);
+          const existing = db
+            .prepare(`
+              SELECT *
+              FROM student_behaviour_ratings
+              WHERE student_id = ?
+                AND trait_id = ?
+                AND rating_date = ?
+                AND COALESCE(academic_year, '') = ?
+                AND deleted_at IS NULL
+            `)
+            .get(studentId, traitId, ratingDate, academicYear);
+          const timestamp = now();
+          if (existing) {
+            db.prepare(`
+              UPDATE student_behaviour_ratings
+              SET student_name = @studentName,
+                  admission_no = @admissionNo,
+                  class_name = @className,
+                  section = @section,
+                  trait_name = @traitName,
+                  rating = @rating,
+                  remarks = @remarks,
+                  rated_by = @ratedBy,
+                  updated_at = @updatedAt,
+                  sync_status = 'pending'
+              WHERE id = @id AND deleted_at IS NULL
+            `).run({
+              id: existing.id,
+              studentName: student.name,
+              admissionNo: student.admission_no,
+              className: student.class_name,
+              section: student.section ?? "",
+              traitName: trait.name,
+              rating,
+              remarks: optionalText(input?.remarks),
+              ratedBy: optionalText(input?.ratedBy),
+              updatedAt: timestamp,
+            });
+            saved.push(
+              behaviourRatingFromRow(
+                db
+                  .prepare("SELECT * FROM student_behaviour_ratings WHERE id = ?")
+                  .get(existing.id),
+              ),
+            );
+            continue;
+          }
+          const id = crypto.randomUUID();
+          db.prepare(`
+            INSERT INTO student_behaviour_ratings (
+              id, student_id, student_name, admission_no, class_name, section,
+              trait_id, trait_name, rating, rating_date, academic_year,
+              remarks, rated_by, created_at, updated_at, deleted_at, sync_status
+            ) VALUES (
+              @id, @studentId, @studentName, @admissionNo, @className,
+              @section, @traitId, @traitName, @rating, @ratingDate,
+              @academicYear, @remarks, @ratedBy, @createdAt, @updatedAt, NULL,
+              'pending'
+            )
+          `).run({
+            id,
+            studentId,
+            studentName: student.name,
+            admissionNo: student.admission_no,
+            className: student.class_name,
+            section: student.section ?? "",
+            traitId,
+            traitName: trait.name,
+            rating,
+            ratingDate,
+            academicYear,
+            remarks: optionalText(input?.remarks),
+            ratedBy: optionalText(input?.ratedBy),
+            createdAt: timestamp,
+            updatedAt: timestamp,
+          });
+          saved.push(
+            behaviourRatingFromRow(
+              db
+                .prepare("SELECT * FROM student_behaviour_ratings WHERE id = ?")
+                .get(id),
+            ),
+          );
+        }
+        return saved;
+      })();
+    },
+
+    getSkillRatings(filter = {}) {
+      const className = optionalText(filter?.className);
+      const section = optionalText(filter?.section);
+      const studentId = optionalText(filter?.studentId);
+      const skillId = optionalText(filter?.skillId);
+      const domain = optionalText(filter?.domain);
+      const academicYear = optionalText(filter?.academicYear);
+      if (domain && !SKILL_DOMAINS.has(domain)) {
+        throw new Error("Skill domain filter is invalid.");
+      }
+      const startDate = optionalText(filter?.startDate);
+      const endDate = optionalText(filter?.endDate);
+      const normalizedStartDate = startDate
+        ? normalizeDate(startDate, "Start date")
+        : "";
+      const normalizedEndDate = endDate
+        ? normalizeDate(endDate, "End date")
+        : "";
+      if (
+        normalizedStartDate &&
+        normalizedEndDate &&
+        normalizedStartDate > normalizedEndDate
+      ) {
+        throw new Error("Start date cannot be after end date.");
+      }
+      return db
+        .prepare(`
+          SELECT *
+          FROM student_skill_ratings
+          WHERE (? = '' OR class_name = ?)
+            AND (? = '' OR COALESCE(section, '') = ?)
+            AND (? = '' OR student_id = ?)
+            AND (? = '' OR skill_id = ?)
+            AND (? = '' OR domain = ?)
+            AND (? = '' OR COALESCE(academic_year, '') = ?)
+            AND (? = '' OR rating_date >= ?)
+            AND (? = '' OR rating_date <= ?)
+            AND deleted_at IS NULL
+          ORDER BY rating_date DESC, class_name, section, student_name, skill_name
+        `)
+        .all(
+          className,
+          className,
+          section,
+          section,
+          studentId,
+          studentId,
+          skillId,
+          skillId,
+          domain,
+          domain,
+          academicYear,
+          academicYear,
+          normalizedStartDate,
+          normalizedStartDate,
+          normalizedEndDate,
+          normalizedEndDate,
+        )
+        .map(skillRatingFromRow);
+    },
+
+    saveSkillRatingsBulk(records) {
+      if (!Array.isArray(records) || records.length === 0) {
+        throw new Error("At least one skill rating is required.");
+      }
+      return db.transaction(() => {
+        const saved = [];
+        for (const input of records) {
+          const studentId = requiredText(input?.studentId, "Student");
+          const skillId = requiredText(input?.skillId, "Skill trait");
+          const student = getStudentStatement.get(studentId);
+          if (!student || student.status !== "Active") {
+            throw new Error("Select an active student.");
+          }
+          const skill = db
+            .prepare(`
+              SELECT *
+              FROM skill_traits
+              WHERE id = ? AND status = 'Active' AND deleted_at IS NULL
+            `)
+            .get(skillId);
+          if (!skill) throw new Error("Select an active skill trait.");
+          const rating = requiredText(input?.rating, "Rating");
+          if (!RATING_VALUES.has(rating)) {
+            throw new Error("Skill rating is invalid.");
+          }
+          const ratingDate = normalizeDate(input?.ratingDate, "Rating date");
+          const academicYear = optionalText(input?.academicYear);
+          const existing = db
+            .prepare(`
+              SELECT *
+              FROM student_skill_ratings
+              WHERE student_id = ?
+                AND skill_id = ?
+                AND rating_date = ?
+                AND COALESCE(academic_year, '') = ?
+                AND deleted_at IS NULL
+            `)
+            .get(studentId, skillId, ratingDate, academicYear);
+          const timestamp = now();
+          if (existing) {
+            db.prepare(`
+              UPDATE student_skill_ratings
+              SET student_name = @studentName,
+                  admission_no = @admissionNo,
+                  class_name = @className,
+                  section = @section,
+                  skill_name = @skillName,
+                  domain = @domain,
+                  rating = @rating,
+                  remarks = @remarks,
+                  rated_by = @ratedBy,
+                  updated_at = @updatedAt,
+                  sync_status = 'pending'
+              WHERE id = @id AND deleted_at IS NULL
+            `).run({
+              id: existing.id,
+              studentName: student.name,
+              admissionNo: student.admission_no,
+              className: student.class_name,
+              section: student.section ?? "",
+              skillName: skill.name,
+              domain: skill.domain,
+              rating,
+              remarks: optionalText(input?.remarks),
+              ratedBy: optionalText(input?.ratedBy),
+              updatedAt: timestamp,
+            });
+            saved.push(
+              skillRatingFromRow(
+                db
+                  .prepare("SELECT * FROM student_skill_ratings WHERE id = ?")
+                  .get(existing.id),
+              ),
+            );
+            continue;
+          }
+          const id = crypto.randomUUID();
+          db.prepare(`
+            INSERT INTO student_skill_ratings (
+              id, student_id, student_name, admission_no, class_name, section,
+              skill_id, skill_name, domain, rating, rating_date, academic_year,
+              remarks, rated_by, created_at, updated_at, deleted_at, sync_status
+            ) VALUES (
+              @id, @studentId, @studentName, @admissionNo, @className,
+              @section, @skillId, @skillName, @domain, @rating, @ratingDate,
+              @academicYear, @remarks, @ratedBy, @createdAt, @updatedAt, NULL,
+              'pending'
+            )
+          `).run({
+            id,
+            studentId,
+            studentName: student.name,
+            admissionNo: student.admission_no,
+            className: student.class_name,
+            section: student.section ?? "",
+            skillId,
+            skillName: skill.name,
+            domain: skill.domain,
+            rating,
+            ratingDate,
+            academicYear,
+            remarks: optionalText(input?.remarks),
+            ratedBy: optionalText(input?.ratedBy),
+            createdAt: timestamp,
+            updatedAt: timestamp,
+          });
+          saved.push(
+            skillRatingFromRow(
+              db.prepare("SELECT * FROM student_skill_ratings WHERE id = ?").get(id),
+            ),
+          );
+        }
+        return saved;
+      })();
+    },
+
+    getStudentObservations(filter = {}) {
+      const className = optionalText(filter?.className);
+      const section = optionalText(filter?.section);
+      const studentId = optionalText(filter?.studentId);
+      const observationType = optionalText(filter?.observationType);
+      const status = optionalText(filter?.status);
+      if (observationType && !OBSERVATION_TYPES.has(observationType)) {
+        throw new Error("Observation type filter is invalid.");
+      }
+      if (status && !OBSERVATION_STATUSES.has(status)) {
+        throw new Error("Observation status filter is invalid.");
+      }
+      const startDate = optionalText(filter?.startDate);
+      const endDate = optionalText(filter?.endDate);
+      const normalizedStartDate = startDate
+        ? normalizeDate(startDate, "Start date")
+        : "";
+      const normalizedEndDate = endDate
+        ? normalizeDate(endDate, "End date")
+        : "";
+      if (
+        normalizedStartDate &&
+        normalizedEndDate &&
+        normalizedStartDate > normalizedEndDate
+      ) {
+        throw new Error("Start date cannot be after end date.");
+      }
+      return db
+        .prepare(`
+          SELECT *
+          FROM student_observations
+          WHERE (? = '' OR class_name = ?)
+            AND (? = '' OR COALESCE(section, '') = ?)
+            AND (? = '' OR student_id = ?)
+            AND (? = '' OR observation_type = ?)
+            AND (? = '' OR status = ?)
+            AND (? = '' OR observation_date >= ?)
+            AND (? = '' OR observation_date <= ?)
+            AND deleted_at IS NULL
+          ORDER BY observation_date DESC, created_at DESC
+        `)
+        .all(
+          className,
+          className,
+          section,
+          section,
+          studentId,
+          studentId,
+          observationType,
+          observationType,
+          status,
+          status,
+          normalizedStartDate,
+          normalizedStartDate,
+          normalizedEndDate,
+          normalizedEndDate,
+        )
+        .map(studentObservationFromRow);
+    },
+
+    createStudentObservation(input) {
+      const studentId = requiredText(input?.studentId, "Student");
+      const student = getStudentStatement.get(studentId);
+      if (!student || student.status !== "Active") {
+        throw new Error("Select an active student.");
+      }
+      const observationDate = normalizeDate(
+        input?.observationDate,
+        "Observation date",
+      );
+      const observationType = requiredText(
+        input?.observationType,
+        "Observation type",
+      );
+      if (!OBSERVATION_TYPES.has(observationType)) {
+        throw new Error("Observation type is invalid.");
+      }
+      const status = optionalText(input?.status) || "Open";
+      if (!OBSERVATION_STATUSES.has(status)) {
+        throw new Error("Observation status is invalid.");
+      }
+      const followUpDateText = optionalText(input?.followUpDate);
+      const followUpDate = followUpDateText
+        ? normalizeDate(followUpDateText, "Follow-up date")
+        : "";
+      if (followUpDate && followUpDate < observationDate) {
+        throw new Error("Follow-up date cannot be before the observation date.");
+      }
+      const id = crypto.randomUUID();
+      const timestamp = now();
+      db.prepare(`
+        INSERT INTO student_observations (
+          id, student_id, student_name, admission_no, class_name, section,
+          observation_date, observation_type, observation_text, action_taken,
+          follow_up_date, status, created_by, created_at, updated_at,
+          deleted_at, sync_status
+        ) VALUES (
+          @id, @studentId, @studentName, @admissionNo, @className, @section,
+          @observationDate, @observationType, @observationText, @actionTaken,
+          @followUpDate, @status, @createdBy, @createdAt, @updatedAt, NULL,
+          'pending'
+        )
+      `).run({
+        id,
+        studentId,
+        studentName: student.name,
+        admissionNo: student.admission_no,
+        className: student.class_name,
+        section: student.section ?? "",
+        observationDate,
+        observationType,
+        observationText: requiredText(
+          input?.observationText,
+          "Observation",
+        ),
+        actionTaken: optionalText(input?.actionTaken),
+        followUpDate,
+        status,
+        createdBy: optionalText(input?.createdBy),
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+      return studentObservationFromRow(
+        db.prepare("SELECT * FROM student_observations WHERE id = ?").get(id),
+      );
+    },
+
+    updateStudentObservation(id, input) {
+      const observationId = requiredText(id, "Observation id");
+      const existing = db
+        .prepare(`
+          SELECT *
+          FROM student_observations
+          WHERE id = ? AND deleted_at IS NULL
+        `)
+        .get(observationId);
+      if (!existing) throw new Error("Student observation was not found.");
+      const studentId =
+        input?.studentId === undefined
+          ? existing.student_id
+          : requiredText(input.studentId, "Student");
+      const student = getStudentStatement.get(studentId);
+      if (!student || student.status !== "Active") {
+        throw new Error("Select an active student.");
+      }
+      const observationDate =
+        input?.observationDate === undefined
+          ? existing.observation_date
+          : normalizeDate(input.observationDate, "Observation date");
+      const observationType =
+        input?.observationType === undefined
+          ? existing.observation_type
+          : requiredText(input.observationType, "Observation type");
+      if (!OBSERVATION_TYPES.has(observationType)) {
+        throw new Error("Observation type is invalid.");
+      }
+      const status =
+        input?.status === undefined
+          ? existing.status
+          : requiredText(input.status, "Observation status");
+      if (!OBSERVATION_STATUSES.has(status)) {
+        throw new Error("Observation status is invalid.");
+      }
+      const followUpDateText =
+        input?.followUpDate === undefined
+          ? existing.follow_up_date ?? ""
+          : optionalText(input.followUpDate);
+      const followUpDate = followUpDateText
+        ? normalizeDate(followUpDateText, "Follow-up date")
+        : "";
+      if (followUpDate && followUpDate < observationDate) {
+        throw new Error("Follow-up date cannot be before the observation date.");
+      }
+      db.prepare(`
+        UPDATE student_observations
+        SET student_id = @studentId,
+            student_name = @studentName,
+            admission_no = @admissionNo,
+            class_name = @className,
+            section = @section,
+            observation_date = @observationDate,
+            observation_type = @observationType,
+            observation_text = @observationText,
+            action_taken = @actionTaken,
+            follow_up_date = @followUpDate,
+            status = @status,
+            updated_at = @updatedAt,
+            sync_status = 'pending'
+        WHERE id = @id AND deleted_at IS NULL
+      `).run({
+        id: observationId,
+        studentId,
+        studentName: student.name,
+        admissionNo: student.admission_no,
+        className: student.class_name,
+        section: student.section ?? "",
+        observationDate,
+        observationType,
+        observationText:
+          input?.observationText === undefined
+            ? existing.observation_text
+            : requiredText(input.observationText, "Observation"),
+        actionTaken:
+          input?.actionTaken === undefined
+            ? existing.action_taken ?? ""
+            : optionalText(input.actionTaken),
+        followUpDate,
+        status,
+        updatedAt: now(),
+      });
+      return studentObservationFromRow(
+        db
+          .prepare("SELECT * FROM student_observations WHERE id = ?")
+          .get(observationId),
+      );
+    },
+
+    deleteStudentObservation(id) {
+      const timestamp = now();
+      const result = db
+        .prepare(`
+          UPDATE student_observations
+          SET deleted_at = ?, updated_at = ?, sync_status = 'pending'
+          WHERE id = ? AND deleted_at IS NULL
+        `)
+        .run(timestamp, timestamp, requiredText(id, "Observation id"));
       return { success: result.changes === 1 };
     },
 
