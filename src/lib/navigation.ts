@@ -276,9 +276,9 @@ export const erpNavigation: ErpMenuGroup[] = [
     icon: 'exams',
     roles: academic,
     items: [
-      placeholder('subject-chapters', 'Subject Chapters', { locked: true, feature: 'question-paper' }),
-      placeholder('question-bank', 'Question Bank', { locked: true, feature: 'question-paper' }),
-      placeholder('create-question-paper', 'Create Question Paper', { locked: true, feature: 'question-paper' }),
+      { id: 'subject-chapters', label: 'Subject Chapters', target: { page: 'question-paper', view: 'chapters' } },
+      { id: 'question-bank', label: 'Question Bank', target: { page: 'question-paper', view: 'questions' } },
+      { id: 'create-question-paper', label: 'Create Question Paper', target: { page: 'question-paper', view: 'papers' } },
     ],
   },
   {

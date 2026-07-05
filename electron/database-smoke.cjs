@@ -333,6 +333,23 @@ app.whenReady().then(async () => {
           "saveClassTestMarksBulk",
           "updateClassTestMark"
         ].every((method) => typeof window.erpApi[method] === "function");
+        const questionPaperApiAvailable = [
+          "getSubjectChapters",
+          "getSubjectChaptersByClassSubject",
+          "createSubjectChapter",
+          "updateSubjectChapter",
+          "deleteSubjectChapter",
+          "getQuestions",
+          "getQuestionsByFilter",
+          "createQuestion",
+          "updateQuestion",
+          "deleteQuestion",
+          "getQuestionPapers",
+          "getQuestionPaperById",
+          "createQuestionPaper",
+          "updateQuestionPaper",
+          "deleteQuestionPaper"
+        ].every((method) => typeof window.erpApi[method] === "function");
         const licenseApiAvailable = [
           "getDeviceId",
           "getLicenseStatus",
@@ -758,6 +775,92 @@ app.whenReady().then(async () => {
         const classTestDeleteResult =
           await window.erpApi.deleteClassTest(classTestToDelete.id);
         const classTestsAfterDelete = await window.erpApi.getClassTests();
+        const subjectChapter =
+          await window.erpApi.createSubjectChapter({
+            className: "10",
+            subjectId: subject.id,
+            chapterNo: "4",
+            chapterName: "Linear Equations",
+            description: "One-variable linear equations",
+            status: "Active"
+          });
+        const updatedSubjectChapter =
+          await window.erpApi.updateSubjectChapter(
+            subjectChapter.id,
+            { description: "Updated one-variable linear equations" }
+          );
+        const question = await window.erpApi.createQuestion({
+          className: "10",
+          subjectId: subject.id,
+          chapterId: subjectChapter.id,
+          questionType: "Objective",
+          difficulty: "Medium",
+          questionText: "What is the value of x if x + 2 = 5?",
+          optionA: "1",
+          optionB: "2",
+          optionC: "3",
+          optionD: "4",
+          correctAnswer: "C",
+          marks: 2,
+          status: "Active"
+        });
+        const filteredQuestions =
+          await window.erpApi.getQuestionsByFilter({
+            className: "10",
+            subjectId: subject.id,
+            chapterId: subjectChapter.id,
+            questionType: "Objective",
+            difficulty: "Medium"
+          });
+        const questionPaper = await window.erpApi.createQuestionPaper({
+          title: "Smoke Test Mathematics Paper",
+          className: "10",
+          section: "A",
+          subjectId: subject.id,
+          examName: "Smoke Test Examination",
+          durationMinutes: 60,
+          instructions: "Answer all questions.",
+          items: [
+            {
+              questionId: question.id,
+              sectionTitle: "Section A",
+              displayOrder: 1
+            }
+          ]
+        });
+        const updatedQuestionPaper =
+          await window.erpApi.updateQuestionPaper(
+            questionPaper.id,
+            { title: "Updated Smoke Test Mathematics Paper" }
+          );
+        const secondQuestionPaper =
+          await window.erpApi.createQuestionPaper({
+            title: "Delete Question Paper Test",
+            className: "10",
+            section: "A",
+            subjectId: subject.id,
+            durationMinutes: 30,
+            items: [
+              {
+                questionId: question.id,
+                sectionTitle: "Section B",
+                displayOrder: 1
+              }
+            ]
+          });
+        const questionDeleteResult =
+          await window.erpApi.deleteQuestion(question.id);
+        const paperAfterQuestionDelete =
+          await window.erpApi.getQuestionPaperById(questionPaper.id);
+        const questionPaperDeleteResult =
+          await window.erpApi.deleteQuestionPaper(secondQuestionPaper.id);
+        const questionPapersAfterDelete =
+          await window.erpApi.getQuestionPapers();
+        const chaptersByClassSubject =
+          await window.erpApi.getSubjectChaptersByClassSubject(
+            "10",
+            "Mathematics"
+          );
         const exam = await window.erpApi.createExam({
           name: "Unit Test I",
           className: "10",
@@ -878,6 +981,7 @@ app.whenReady().then(async () => {
           timetableApiAvailable,
           homeworkApiAvailable,
           classTestsApiAvailable,
+          questionPaperApiAvailable,
           licenseApiAvailable,
           deviceId,
           licenseBeforeActivation,
@@ -975,6 +1079,34 @@ app.whenReady().then(async () => {
             classTestDeleteResult.success &&
             !classTestsAfterDelete.some(
               (item) => item.id === classTestToDelete.id
+            ),
+          subjectChapterId: subjectChapter.id,
+          subjectChapterUpdated:
+            updatedSubjectChapter.description ===
+            "Updated one-variable linear equations",
+          chapterFilterCount: chaptersByClassSubject.length,
+          questionFilterCount: filteredQuestions.length,
+          questionSoftDeleted:
+            questionDeleteResult.success &&
+            (await window.erpApi.getQuestions()).length === 0,
+          questionPaperId: questionPaper.id,
+          questionPaperNo: questionPaper.paperNo,
+          secondQuestionPaperNo: secondQuestionPaper.paperNo,
+          questionPaperUpdated:
+            updatedQuestionPaper.title ===
+              "Updated Smoke Test Mathematics Paper" &&
+            updatedQuestionPaper.itemCount === 1,
+          questionPaperSnapshotPreserved:
+            paperAfterQuestionDelete?.items.length === 1 &&
+            paperAfterQuestionDelete.items[0].questionText.includes(
+              "x + 2 = 5"
+            ) &&
+            paperAfterQuestionDelete.items[0].optionC === "3" &&
+            paperAfterQuestionDelete.totalMarks === 2,
+          questionPaperSoftDeleted:
+            questionPaperDeleteResult.success &&
+            !questionPapersAfterDelete.some(
+              (item) => item.id === secondQuestionPaper.id
             ),
           salaryPaymentId: salaryPayment.id,
           salaryNo: salaryPayment.salaryNo,
@@ -1122,6 +1254,10 @@ app.whenReady().then(async () => {
       "Class test APIs were not exposed by the preload bridge.",
     );
     assert(
+      bridgeResult.questionPaperApiAvailable,
+      "Question paper APIs were not exposed by the preload bridge.",
+    );
+    assert(
       bridgeResult.licenseApiAvailable &&
         bridgeResult.deviceId === firstDeviceId,
       "License APIs or device ID bridge failed.",
@@ -1256,6 +1392,18 @@ app.whenReady().then(async () => {
         bridgeResult.classTestHighest === 9 &&
         bridgeResult.classTestSoftDeleted,
       "Class test creation, mark rows, result calculation, summary, class query, or soft delete failed.",
+    );
+    assert(
+      bridgeResult.subjectChapterUpdated &&
+        bridgeResult.chapterFilterCount === 1 &&
+        bridgeResult.questionFilterCount === 1 &&
+        bridgeResult.questionSoftDeleted &&
+        bridgeResult.questionPaperNo === "QP-2026-0001" &&
+        bridgeResult.secondQuestionPaperNo === "QP-2026-0002" &&
+        bridgeResult.questionPaperUpdated &&
+        bridgeResult.questionPaperSnapshotPreserved &&
+        bridgeResult.questionPaperSoftDeleted,
+      "Question paper chapter, bank filter, numbering, snapshot, update, or soft-delete behavior failed.",
     );
     const smokeClass = database
       .getClasses()
@@ -1516,6 +1664,20 @@ app.whenReady().then(async () => {
         database.getClassTestMarks(bridgeResult.classTestId)[0]
           .marksObtained === 9,
       "Class test or mark updates did not persist.",
+    );
+    const persistedQuestionPaper = database.getQuestionPaperById(
+      bridgeResult.questionPaperId,
+    );
+    assert(
+      database.getSubjectChapters().length === 1 &&
+        database.getSubjectChapters()[0].id ===
+          bridgeResult.subjectChapterId &&
+        database.getQuestions().length === 0 &&
+        database.getQuestionPapers().length === 1 &&
+        persistedQuestionPaper?.paperNo === "QP-2026-0001" &&
+        persistedQuestionPaper.items.length === 1 &&
+        persistedQuestionPaper.items[0].optionC === "3",
+      "Question paper chapters or saved paper snapshots did not persist.",
     );
     assert(
       database.getIssuedCertificates().length === 1 &&

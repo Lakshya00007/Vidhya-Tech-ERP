@@ -13,6 +13,7 @@ export type PageId =
   | 'timetable'
   | 'homework'
   | 'class-tests'
+  | 'question-paper'
   | 'placeholder'
 
 export interface ModulePlaceholderInfo {
@@ -453,6 +454,154 @@ export interface UpdateClassTestMarkInput {
   resultStatus?: ClassTestResultStatus
   remarks?: string
 }
+
+export interface SubjectChapter {
+  id: string
+  className: string
+  subjectId: string
+  subjectName: string
+  chapterName: string
+  chapterNo: string
+  description: string
+  status: MasterStatus
+  createdAt: string
+  updatedAt: string
+  deletedAt: string | null
+  syncStatus: SyncStatus
+}
+
+export interface CreateSubjectChapterInput {
+  className: string
+  subjectId: string
+  chapterName: string
+  chapterNo?: string
+  description?: string
+  status?: MasterStatus
+}
+
+export type UpdateSubjectChapterInput =
+  Partial<CreateSubjectChapterInput>
+
+export type QuestionType =
+  | 'Objective'
+  | 'Short Answer'
+  | 'Long Answer'
+  | 'Fill in the Blanks'
+  | 'True/False'
+  | 'Match the Following'
+
+export type QuestionDifficulty = 'Easy' | 'Medium' | 'Hard'
+
+export interface QuestionBankItem {
+  id: string
+  className: string
+  subjectId: string
+  subjectName: string
+  chapterId: string
+  chapterName: string
+  questionType: QuestionType
+  difficulty: QuestionDifficulty
+  questionText: string
+  optionA: string
+  optionB: string
+  optionC: string
+  optionD: string
+  correctAnswer: string
+  marks: number
+  status: MasterStatus
+  createdBy: string
+  createdAt: string
+  updatedAt: string
+  deletedAt: string | null
+  syncStatus: SyncStatus
+}
+
+export interface CreateQuestionInput {
+  className: string
+  subjectId: string
+  chapterId?: string
+  questionType: QuestionType
+  difficulty?: QuestionDifficulty
+  questionText: string
+  optionA?: string
+  optionB?: string
+  optionC?: string
+  optionD?: string
+  correctAnswer?: string
+  marks?: number
+  status?: MasterStatus
+}
+
+export type UpdateQuestionInput = Partial<CreateQuestionInput>
+
+export interface QuestionFilter {
+  className?: string
+  subjectId?: string
+  subjectName?: string
+  chapterId?: string
+  questionType?: QuestionType | ''
+  difficulty?: QuestionDifficulty | ''
+}
+
+export interface QuestionPaperItem {
+  id: string
+  paperId: string
+  questionId: string
+  sectionTitle: string
+  displayOrder: number
+  questionType: QuestionType
+  questionText: string
+  optionA: string
+  optionB: string
+  optionC: string
+  optionD: string
+  correctAnswer: string
+  marks: number
+  createdAt: string
+  updatedAt: string
+  syncStatus: SyncStatus
+}
+
+export interface CreateQuestionPaperItemInput {
+  questionId: string
+  sectionTitle?: string
+  displayOrder?: number
+}
+
+export interface QuestionPaper {
+  id: string
+  paperNo: string
+  title: string
+  className: string
+  section: string
+  subjectId: string
+  subjectName: string
+  examName: string
+  durationMinutes: number
+  totalMarks: number
+  instructions: string
+  createdBy: string
+  itemCount: number
+  items: QuestionPaperItem[]
+  createdAt: string
+  updatedAt: string
+  deletedAt: string | null
+  syncStatus: SyncStatus
+}
+
+export interface CreateQuestionPaperInput {
+  title: string
+  className: string
+  section?: string
+  subjectId: string
+  examName?: string
+  durationMinutes?: number
+  instructions?: string
+  items: CreateQuestionPaperItemInput[]
+}
+
+export type UpdateQuestionPaperInput =
+  Partial<CreateQuestionPaperInput>
 
 export type SalaryPaymentMode = 'Cash' | 'UPI' | 'Bank Transfer' | 'Cheque'
 

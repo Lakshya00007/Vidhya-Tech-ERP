@@ -78,6 +78,21 @@ const channels = [
   "class-tests:marks:get",
   "class-tests:marks:save-bulk",
   "class-tests:marks:update",
+  "question-paper:chapters:get-all",
+  "question-paper:chapters:get-by-class-subject",
+  "question-paper:chapters:create",
+  "question-paper:chapters:update",
+  "question-paper:chapters:delete",
+  "question-paper:questions:get-all",
+  "question-paper:questions:get-by-filter",
+  "question-paper:questions:create",
+  "question-paper:questions:update",
+  "question-paper:questions:delete",
+  "question-paper:papers:get-all",
+  "question-paper:papers:get-by-id",
+  "question-paper:papers:create",
+  "question-paper:papers:update",
+  "question-paper:papers:delete",
   "settings:get",
   "settings:save",
   "fees:get-all",
@@ -990,6 +1005,203 @@ function registerIpcHandlers(
         actor,
       );
       return updated;
+    }),
+  );
+
+  ipcMain.handle(
+    "question-paper:chapters:get-all",
+    authenticated(() => {
+      requireRoles(["Owner", "Admin", "Teacher"]);
+      return database.getSubjectChapters();
+    }),
+  );
+  ipcMain.handle(
+    "question-paper:chapters:get-by-class-subject",
+    authenticated((_event, className, subjectName) => {
+      requireRoles(["Owner", "Admin", "Teacher"]);
+      return database.getSubjectChaptersByClassSubject(
+        className,
+        subjectName,
+      );
+    }),
+  );
+  ipcMain.handle(
+    "question-paper:chapters:create",
+    authenticated((_event, input) => {
+      const actor = requireRoles(["Owner", "Admin", "Teacher"]);
+      const created = database.createSubjectChapter(input);
+      authService?.audit(
+        "Subject chapter created",
+        "Question Paper",
+        `Created chapter "${created.chapterName}" for ${created.subjectName}, Class ${created.className}.`,
+        actor,
+      );
+      return created;
+    }),
+  );
+  ipcMain.handle(
+    "question-paper:chapters:update",
+    authenticated((_event, id, input) => {
+      const actor = requireRoles(["Owner", "Admin", "Teacher"]);
+      const updated = database.updateSubjectChapter(id, input);
+      authService?.audit(
+        "Subject chapter updated",
+        "Question Paper",
+        `Updated chapter "${updated.chapterName}" for ${updated.subjectName}.`,
+        actor,
+      );
+      return updated;
+    }),
+  );
+  ipcMain.handle(
+    "question-paper:chapters:delete",
+    authenticated((_event, id) => {
+      const actor = requireRoles(["Owner", "Admin", "Teacher"]);
+      const chapter = database
+        .getSubjectChapters()
+        .find((item) => item.id === id);
+      const result = database.deleteSubjectChapter(id);
+      if (result.success) {
+        authService?.audit(
+          "Subject chapter deleted",
+          "Question Paper",
+          chapter
+            ? `Soft-deleted chapter "${chapter.chapterName}".`
+            : "Soft-deleted a subject chapter.",
+          actor,
+        );
+      }
+      return result;
+    }),
+  );
+
+  ipcMain.handle(
+    "question-paper:questions:get-all",
+    authenticated(() => {
+      requireRoles(["Owner", "Admin", "Teacher"]);
+      return database.getQuestions();
+    }),
+  );
+  ipcMain.handle(
+    "question-paper:questions:get-by-filter",
+    authenticated((_event, filter) => {
+      requireRoles(["Owner", "Admin", "Teacher"]);
+      return database.getQuestionsByFilter(filter);
+    }),
+  );
+  ipcMain.handle(
+    "question-paper:questions:create",
+    authenticated((_event, input) => {
+      const actor = requireRoles(["Owner", "Admin", "Teacher"]);
+      const created = database.createQuestion({
+        ...input,
+        createdBy: actor?.name ?? "",
+      });
+      authService?.audit(
+        "Question created",
+        "Question Paper",
+        `Created a ${created.questionType} question for ${created.subjectName}, Class ${created.className}.`,
+        actor,
+      );
+      return created;
+    }),
+  );
+  ipcMain.handle(
+    "question-paper:questions:update",
+    authenticated((_event, id, input) => {
+      const actor = requireRoles(["Owner", "Admin", "Teacher"]);
+      const updated = database.updateQuestion(id, input);
+      authService?.audit(
+        "Question updated",
+        "Question Paper",
+        `Updated a ${updated.questionType} question for ${updated.subjectName}.`,
+        actor,
+      );
+      return updated;
+    }),
+  );
+  ipcMain.handle(
+    "question-paper:questions:delete",
+    authenticated((_event, id) => {
+      const actor = requireRoles(["Owner", "Admin", "Teacher"]);
+      const question = database.getQuestions().find((item) => item.id === id);
+      const result = database.deleteQuestion(id);
+      if (result.success) {
+        authService?.audit(
+          "Question deleted",
+          "Question Paper",
+          question
+            ? `Soft-deleted a ${question.questionType} question for ${question.subjectName}.`
+            : "Soft-deleted a question bank item.",
+          actor,
+        );
+      }
+      return result;
+    }),
+  );
+
+  ipcMain.handle(
+    "question-paper:papers:get-all",
+    authenticated(() => {
+      requireRoles(["Owner", "Admin", "Teacher"]);
+      return database.getQuestionPapers();
+    }),
+  );
+  ipcMain.handle(
+    "question-paper:papers:get-by-id",
+    authenticated((_event, id) => {
+      requireRoles(["Owner", "Admin", "Teacher"]);
+      return database.getQuestionPaperById(id);
+    }),
+  );
+  ipcMain.handle(
+    "question-paper:papers:create",
+    authenticated((_event, input) => {
+      const actor = requireRoles(["Owner", "Admin", "Teacher"]);
+      const created = database.createQuestionPaper({
+        ...input,
+        createdBy: actor?.name ?? "",
+      });
+      authService?.audit(
+        "Question paper created",
+        "Question Paper",
+        `Created ${created.paperNo}, "${created.title}", with ${created.itemCount} question(s).`,
+        actor,
+      );
+      return created;
+    }),
+  );
+  ipcMain.handle(
+    "question-paper:papers:update",
+    authenticated((_event, id, input) => {
+      const actor = requireRoles(["Owner", "Admin", "Teacher"]);
+      const updated = database.updateQuestionPaper(id, input);
+      authService?.audit(
+        "Question paper updated",
+        "Question Paper",
+        `Updated ${updated.paperNo}, "${updated.title}".`,
+        actor,
+      );
+      return updated;
+    }),
+  );
+  ipcMain.handle(
+    "question-paper:papers:delete",
+    authenticated((_event, id) => {
+      const actor = requireRoles(["Owner", "Admin", "Teacher"]);
+      const paper = database.getQuestionPaperById(id);
+      const result = database.deleteQuestionPaper(id);
+      if (result.success) {
+        authService?.audit(
+          "Question paper deleted",
+          "Question Paper",
+          paper
+            ? `Soft-deleted ${paper.paperNo}, "${paper.title}".`
+            : "Soft-deleted a question paper.",
+          actor,
+        );
+      }
+      return result;
     }),
   );
 

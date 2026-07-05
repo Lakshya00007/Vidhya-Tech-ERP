@@ -157,6 +157,43 @@ contextBridge.exposeInMainWorld("erpApi", {
   updateClassTestMark: (id, input) =>
     ipcRenderer.invoke("class-tests:marks:update", id, input),
 
+  getSubjectChapters: () =>
+    ipcRenderer.invoke("question-paper:chapters:get-all"),
+  getSubjectChaptersByClassSubject: (className, subjectName) =>
+    ipcRenderer.invoke(
+      "question-paper:chapters:get-by-class-subject",
+      className,
+      subjectName,
+    ),
+  createSubjectChapter: (input) =>
+    ipcRenderer.invoke("question-paper:chapters:create", input),
+  updateSubjectChapter: (id, input) =>
+    ipcRenderer.invoke("question-paper:chapters:update", id, input),
+  deleteSubjectChapter: (id) =>
+    ipcRenderer.invoke("question-paper:chapters:delete", id),
+
+  getQuestions: () =>
+    ipcRenderer.invoke("question-paper:questions:get-all"),
+  getQuestionsByFilter: (filter) =>
+    ipcRenderer.invoke("question-paper:questions:get-by-filter", filter),
+  createQuestion: (input) =>
+    ipcRenderer.invoke("question-paper:questions:create", input),
+  updateQuestion: (id, input) =>
+    ipcRenderer.invoke("question-paper:questions:update", id, input),
+  deleteQuestion: (id) =>
+    ipcRenderer.invoke("question-paper:questions:delete", id),
+
+  getQuestionPapers: () =>
+    ipcRenderer.invoke("question-paper:papers:get-all"),
+  getQuestionPaperById: (id) =>
+    ipcRenderer.invoke("question-paper:papers:get-by-id", id),
+  createQuestionPaper: (input) =>
+    ipcRenderer.invoke("question-paper:papers:create", input),
+  updateQuestionPaper: (id, input) =>
+    ipcRenderer.invoke("question-paper:papers:update", id, input),
+  deleteQuestionPaper: (id) =>
+    ipcRenderer.invoke("question-paper:papers:delete", id),
+
   getSchoolSettings: () => ipcRenderer.invoke("settings:get"),
   saveSchoolSettings: (settings) =>
     ipcRenderer.invoke("settings:save", settings),

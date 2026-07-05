@@ -23,6 +23,7 @@ import { Exams } from './pages/Exams'
 import { Employees } from './pages/Employees'
 import { Fees } from './pages/Fees'
 import { Login } from './pages/Login'
+import { QuestionPaper } from './pages/QuestionPaper'
 import { LicenseActivation } from './pages/LicenseActivation'
 import { Homework } from './pages/Homework'
 import { Reports } from './pages/Reports'
@@ -47,6 +48,7 @@ import type { StudentDocumentsView } from './pages/StudentDocuments'
 import type { TimetableView } from './pages/Timetable'
 import type { HomeworkView } from './pages/Homework'
 import type { ClassTestsView } from './pages/ClassTests'
+import type { QuestionPaperView } from './pages/QuestionPaper'
 
 function App() {
   const [activePage, setActivePage] = useState<PageId>('dashboard')
@@ -263,6 +265,13 @@ function App() {
           <ClassTests
             initialView={(activeView || 'manage') as ClassTestsView}
             key={`class-tests-${activeView}-${navigationRevision}`}
+          />
+        )
+      case 'question-paper':
+        return (
+          <QuestionPaper
+            initialView={(activeView || 'chapters') as QuestionPaperView}
+            key={`question-paper-${activeView}-${navigationRevision}`}
           />
         )
       case 'dashboard':

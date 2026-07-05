@@ -16,6 +16,9 @@ import type {
   CreateClassInput,
   CreateClassTestInput,
   CreateClassroomInput,
+  CreateQuestionInput,
+  CreateQuestionPaperInput,
+  CreateSubjectChapterInput,
   CreateEmployeeInput,
   CreateExamInput,
   CreateFirstOwnerInput,
@@ -58,6 +61,10 @@ import type {
   StudentImportRow,
   StudentImportTemplate,
   Subject,
+  SubjectChapter,
+  QuestionBankItem,
+  QuestionFilter,
+  QuestionPaper,
   TimetableEntry,
   TimetablePeriod,
   TimetableWeekday,
@@ -69,6 +76,9 @@ import type {
   UpdateAccountCategoryInput,
   UpdateAccountTransactionInput,
   UpdateClassroomInput,
+  UpdateQuestionInput,
+  UpdateQuestionPaperInput,
+  UpdateSubjectChapterInput,
   UpdateEmployeeInput,
   UpdateAttendanceInput,
   UpdateExamInput,
@@ -254,6 +264,42 @@ export interface ErpApi {
     id: string,
     input: UpdateClassTestMarkInput,
   ) => Promise<ClassTestMark>
+
+  getSubjectChapters: () => Promise<SubjectChapter[]>
+  getSubjectChaptersByClassSubject: (
+    className: string,
+    subjectName: string,
+  ) => Promise<SubjectChapter[]>
+  createSubjectChapter: (
+    input: CreateSubjectChapterInput,
+  ) => Promise<SubjectChapter>
+  updateSubjectChapter: (
+    id: string,
+    input: UpdateSubjectChapterInput,
+  ) => Promise<SubjectChapter>
+  deleteSubjectChapter: (id: string) => Promise<{ success: boolean }>
+
+  getQuestions: () => Promise<QuestionBankItem[]>
+  getQuestionsByFilter: (
+    filter: QuestionFilter,
+  ) => Promise<QuestionBankItem[]>
+  createQuestion: (input: CreateQuestionInput) => Promise<QuestionBankItem>
+  updateQuestion: (
+    id: string,
+    input: UpdateQuestionInput,
+  ) => Promise<QuestionBankItem>
+  deleteQuestion: (id: string) => Promise<{ success: boolean }>
+
+  getQuestionPapers: () => Promise<QuestionPaper[]>
+  getQuestionPaperById: (id: string) => Promise<QuestionPaper | null>
+  createQuestionPaper: (
+    input: CreateQuestionPaperInput,
+  ) => Promise<QuestionPaper>
+  updateQuestionPaper: (
+    id: string,
+    input: UpdateQuestionPaperInput,
+  ) => Promise<QuestionPaper>
+  deleteQuestionPaper: (id: string) => Promise<{ success: boolean }>
 
   getSchoolSettings: () => Promise<SchoolSettings>
   saveSchoolSettings: (settings: SaveSchoolSettingsInput) => Promise<SchoolSettings>

@@ -16,6 +16,7 @@ const pagePermissions: Record<PermissionRole, readonly PageId[]> = {
     'timetable',
     'homework',
     'class-tests',
+    'question-paper',
     'placeholder',
   ],
   Admin: [
@@ -33,6 +34,7 @@ const pagePermissions: Record<PermissionRole, readonly PageId[]> = {
     'timetable',
     'homework',
     'class-tests',
+    'question-paper',
     'placeholder',
   ],
   Accountant: [
@@ -53,6 +55,7 @@ const pagePermissions: Record<PermissionRole, readonly PageId[]> = {
     'timetable',
     'homework',
     'class-tests',
+    'question-paper',
     'placeholder',
   ],
   Viewer: ['dashboard', 'students', 'reports', 'placeholder'],

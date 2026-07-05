@@ -54,6 +54,15 @@ const CLASS_TEST_RESULT_STATUSES = new Set([
   "Fail",
   "Absent",
 ]);
+const QUESTION_TYPES = new Set([
+  "Objective",
+  "Short Answer",
+  "Long Answer",
+  "Fill in the Blanks",
+  "True/False",
+  "Match the Following",
+]);
+const QUESTION_DIFFICULTIES = new Set(["Easy", "Medium", "Hard"]);
 const STUDENT_IMPORT_TEMPLATE_COLUMNS = [
   "Admission No",
   "Student Name",
@@ -402,6 +411,93 @@ function classTestMarkFromRow(row) {
     remarks: row.remarks ?? "",
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    syncStatus: row.sync_status,
+  };
+}
+
+function subjectChapterFromRow(row) {
+  return {
+    id: row.id,
+    className: row.class_name,
+    subjectId: row.subject_id ?? "",
+    subjectName: row.subject_name,
+    chapterName: row.chapter_name,
+    chapterNo: row.chapter_no ?? "",
+    description: row.description ?? "",
+    status: row.status,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at,
+    syncStatus: row.sync_status,
+  };
+}
+
+function questionFromRow(row) {
+  return {
+    id: row.id,
+    className: row.class_name,
+    subjectId: row.subject_id ?? "",
+    subjectName: row.subject_name,
+    chapterId: row.chapter_id ?? "",
+    chapterName: row.chapter_name ?? "",
+    questionType: row.question_type,
+    difficulty: row.difficulty,
+    questionText: row.question_text,
+    optionA: row.option_a ?? "",
+    optionB: row.option_b ?? "",
+    optionC: row.option_c ?? "",
+    optionD: row.option_d ?? "",
+    correctAnswer: row.correct_answer ?? "",
+    marks: Number(row.marks ?? 1),
+    status: row.status,
+    createdBy: row.created_by ?? "",
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at,
+    syncStatus: row.sync_status,
+  };
+}
+
+function questionPaperItemFromRow(row) {
+  return {
+    id: row.id,
+    paperId: row.paper_id,
+    questionId: row.question_id ?? "",
+    sectionTitle: row.section_title ?? "Section A",
+    displayOrder: Number(row.display_order ?? 0),
+    questionType: row.question_type ?? "",
+    questionText: row.question_text,
+    optionA: row.option_a ?? "",
+    optionB: row.option_b ?? "",
+    optionC: row.option_c ?? "",
+    optionD: row.option_d ?? "",
+    correctAnswer: row.correct_answer ?? "",
+    marks: Number(row.marks ?? 1),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    syncStatus: row.sync_status,
+  };
+}
+
+function questionPaperFromRow(row, items = []) {
+  return {
+    id: row.id,
+    paperNo: row.paper_no,
+    title: row.title,
+    className: row.class_name,
+    section: row.section ?? "",
+    subjectId: row.subject_id ?? "",
+    subjectName: row.subject_name,
+    examName: row.exam_name ?? "",
+    durationMinutes: Number(row.duration_minutes ?? 0),
+    totalMarks: Number(row.total_marks ?? 0),
+    instructions: row.instructions ?? "",
+    createdBy: row.created_by ?? "",
+    itemCount: Number(row.item_count ?? items.length),
+    items,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at,
     syncStatus: row.sync_status,
   };
 }
@@ -980,6 +1076,95 @@ function createDatabase(databasePath) {
       FOREIGN KEY (student_id) REFERENCES students(id)
     );
 
+    CREATE TABLE IF NOT EXISTS subject_chapters (
+      id TEXT PRIMARY KEY,
+      class_name TEXT NOT NULL,
+      subject_id TEXT,
+      subject_name TEXT NOT NULL,
+      chapter_name TEXT NOT NULL,
+      chapter_no TEXT,
+      description TEXT,
+      status TEXT DEFAULT 'Active' CHECK (status IN ('Active', 'Inactive')),
+      created_at TEXT,
+      updated_at TEXT,
+      deleted_at TEXT,
+      sync_status TEXT DEFAULT 'pending',
+      FOREIGN KEY (subject_id) REFERENCES subjects(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS question_bank (
+      id TEXT PRIMARY KEY,
+      class_name TEXT NOT NULL,
+      subject_id TEXT,
+      subject_name TEXT NOT NULL,
+      chapter_id TEXT,
+      chapter_name TEXT,
+      question_type TEXT NOT NULL CHECK (
+        question_type IN (
+          'Objective', 'Short Answer', 'Long Answer',
+          'Fill in the Blanks', 'True/False', 'Match the Following'
+        )
+      ),
+      difficulty TEXT DEFAULT 'Medium'
+        CHECK (difficulty IN ('Easy', 'Medium', 'Hard')),
+      question_text TEXT NOT NULL,
+      option_a TEXT,
+      option_b TEXT,
+      option_c TEXT,
+      option_d TEXT,
+      correct_answer TEXT,
+      marks INTEGER DEFAULT 1,
+      status TEXT DEFAULT 'Active' CHECK (status IN ('Active', 'Inactive')),
+      created_by TEXT,
+      created_at TEXT,
+      updated_at TEXT,
+      deleted_at TEXT,
+      sync_status TEXT DEFAULT 'pending',
+      FOREIGN KEY (subject_id) REFERENCES subjects(id),
+      FOREIGN KEY (chapter_id) REFERENCES subject_chapters(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS question_papers (
+      id TEXT PRIMARY KEY,
+      paper_no TEXT UNIQUE NOT NULL,
+      title TEXT NOT NULL,
+      class_name TEXT NOT NULL,
+      section TEXT,
+      subject_id TEXT,
+      subject_name TEXT NOT NULL,
+      exam_name TEXT,
+      duration_minutes INTEGER,
+      total_marks INTEGER,
+      instructions TEXT,
+      created_by TEXT,
+      created_at TEXT,
+      updated_at TEXT,
+      deleted_at TEXT,
+      sync_status TEXT DEFAULT 'pending',
+      FOREIGN KEY (subject_id) REFERENCES subjects(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS question_paper_items (
+      id TEXT PRIMARY KEY,
+      paper_id TEXT NOT NULL,
+      question_id TEXT,
+      section_title TEXT,
+      display_order INTEGER,
+      question_type TEXT,
+      question_text TEXT NOT NULL,
+      option_a TEXT,
+      option_b TEXT,
+      option_c TEXT,
+      option_d TEXT,
+      correct_answer TEXT,
+      marks INTEGER DEFAULT 1,
+      created_at TEXT,
+      updated_at TEXT,
+      sync_status TEXT DEFAULT 'pending',
+      FOREIGN KEY (paper_id) REFERENCES question_papers(id),
+      FOREIGN KEY (question_id) REFERENCES question_bank(id)
+    );
+
     CREATE TABLE IF NOT EXISTS fee_payments (
       id TEXT PRIMARY KEY,
       receipt_no TEXT UNIQUE NOT NULL,
@@ -1303,6 +1488,17 @@ function createDatabase(databasePath) {
       ON class_test_marks(test_id, student_id);
     CREATE INDEX IF NOT EXISTS idx_class_test_marks_result
       ON class_test_marks(test_id, result_status, student_name);
+    CREATE INDEX IF NOT EXISTS idx_subject_chapters_filter
+      ON subject_chapters(class_name, subject_id, status, deleted_at);
+    CREATE INDEX IF NOT EXISTS idx_question_bank_filter
+      ON question_bank(
+        class_name, subject_id, chapter_id, question_type, difficulty,
+        status, deleted_at
+      );
+    CREATE INDEX IF NOT EXISTS idx_question_papers_class
+      ON question_papers(class_name, subject_id, created_at, deleted_at);
+    CREATE INDEX IF NOT EXISTS idx_question_paper_items_order
+      ON question_paper_items(paper_id, display_order);
   `);
 
   const timestamp = now();
@@ -1656,6 +1852,22 @@ function createDatabase(databasePath) {
       .get(transactionStem, transactionStem, transactionStem);
     const nextSequence = Number(sequence?.last_sequence ?? 0) + 1;
     return `${transactionStem}${String(nextSequence).padStart(4, "0")}`;
+  }
+
+  function generateQuestionPaperNumber() {
+    const year = new Date().getFullYear();
+    const paperStem = `QP-${year}-`;
+    const sequence = db
+      .prepare(`
+        SELECT MAX(
+          CAST(substr(paper_no, length(?) + 1) AS INTEGER)
+        ) AS last_sequence
+        FROM question_papers
+        WHERE substr(paper_no, 1, length(?)) = ?
+      `)
+      .get(paperStem, paperStem, paperStem);
+    const nextSequence = Number(sequence?.last_sequence ?? 0) + 1;
+    return `${paperStem}${String(nextSequence).padStart(4, "0")}`;
   }
 
   function getActiveAccountCategory(type, names) {
@@ -2255,6 +2467,374 @@ function createDatabase(databasePath) {
           ? existing.remarks ?? ""
           : optionalText(input.remarks),
     };
+  }
+
+  function resolveSubjectChapterValues(input, existing = null) {
+    const className =
+      input?.className === undefined && existing
+        ? existing.class_name
+        : requiredText(input?.className, "Class");
+    const schoolClass = getActiveClassByName.get(className);
+    if (!schoolClass || schoolClass.status !== "Active") {
+      throw new Error("Select an active class.");
+    }
+    const subjectId =
+      input?.subjectId === undefined && existing
+        ? existing.subject_id
+        : requiredText(input?.subjectId, "Subject");
+    const subject = getActiveSubjectById.get(subjectId);
+    if (
+      !subject ||
+      subject.status !== "Active" ||
+      subject.class_name !== schoolClass.name
+    ) {
+      throw new Error("Select an active subject for the chosen class.");
+    }
+    const status =
+      input?.status === undefined && existing
+        ? existing.status
+        : optionalText(input?.status) || "Active";
+    if (!MASTER_STATUSES.has(status)) {
+      throw new Error("Subject chapter status is invalid.");
+    }
+    return {
+      className: schoolClass.name,
+      subjectId: subject.id,
+      subjectName: subject.name,
+      chapterName:
+        input?.chapterName === undefined && existing
+          ? existing.chapter_name
+          : requiredText(input?.chapterName, "Chapter name"),
+      chapterNo:
+        input?.chapterNo === undefined && existing
+          ? existing.chapter_no ?? ""
+          : optionalText(input?.chapterNo),
+      description:
+        input?.description === undefined && existing
+          ? existing.description ?? ""
+          : optionalText(input?.description),
+      status,
+    };
+  }
+
+  function resolveQuestionValues(input, existing = null) {
+    const className =
+      input?.className === undefined && existing
+        ? existing.class_name
+        : requiredText(input?.className, "Class");
+    const schoolClass = getActiveClassByName.get(className);
+    if (!schoolClass || schoolClass.status !== "Active") {
+      throw new Error("Select an active class.");
+    }
+    const subjectId =
+      input?.subjectId === undefined && existing
+        ? existing.subject_id
+        : requiredText(input?.subjectId, "Subject");
+    const subject = getActiveSubjectById.get(subjectId);
+    if (
+      !subject ||
+      subject.status !== "Active" ||
+      subject.class_name !== schoolClass.name
+    ) {
+      throw new Error("Select an active subject for the chosen class.");
+    }
+    const chapterId =
+      input?.chapterId === undefined && existing
+        ? existing.chapter_id ?? ""
+        : optionalText(input?.chapterId);
+    const chapter = chapterId
+      ? db
+          .prepare(`
+            SELECT *
+            FROM subject_chapters
+            WHERE id = ? AND status = 'Active' AND deleted_at IS NULL
+          `)
+          .get(chapterId)
+      : null;
+    if (
+      chapterId &&
+      (!chapter ||
+        chapter.class_name !== schoolClass.name ||
+        chapter.subject_id !== subject.id)
+    ) {
+      throw new Error("Select an active chapter for the chosen subject.");
+    }
+    const questionType =
+      input?.questionType === undefined && existing
+        ? existing.question_type
+        : requiredText(input?.questionType, "Question type");
+    if (!QUESTION_TYPES.has(questionType)) {
+      throw new Error("Question type is invalid.");
+    }
+    const difficulty =
+      input?.difficulty === undefined && existing
+        ? existing.difficulty
+        : optionalText(input?.difficulty) || "Medium";
+    if (!QUESTION_DIFFICULTIES.has(difficulty)) {
+      throw new Error("Question difficulty is invalid.");
+    }
+    const optionA =
+      input?.optionA === undefined && existing
+        ? existing.option_a ?? ""
+        : optionalText(input?.optionA);
+    const optionB =
+      input?.optionB === undefined && existing
+        ? existing.option_b ?? ""
+        : optionalText(input?.optionB);
+    const optionC =
+      input?.optionC === undefined && existing
+        ? existing.option_c ?? ""
+        : optionalText(input?.optionC);
+    const optionD =
+      input?.optionD === undefined && existing
+        ? existing.option_d ?? ""
+        : optionalText(input?.optionD);
+    const correctAnswer =
+      input?.correctAnswer === undefined && existing
+        ? existing.correct_answer ?? ""
+        : optionalText(input?.correctAnswer);
+    if (questionType === "Objective" && (!optionA || !optionB)) {
+      throw new Error("Objective questions require at least options A and B.");
+    }
+    if (
+      ["Objective", "True/False", "Fill in the Blanks"].includes(
+        questionType,
+      ) &&
+      !correctAnswer
+    ) {
+      throw new Error("Correct answer is required for this question type.");
+    }
+    const status =
+      input?.status === undefined && existing
+        ? existing.status
+        : optionalText(input?.status) || "Active";
+    if (!MASTER_STATUSES.has(status)) {
+      throw new Error("Question status is invalid.");
+    }
+    return {
+      className: schoolClass.name,
+      subjectId: subject.id,
+      subjectName: subject.name,
+      chapterId: chapter?.id ?? null,
+      chapterName: chapter?.chapter_name ?? "",
+      questionType,
+      difficulty,
+      questionText:
+        input?.questionText === undefined && existing
+          ? existing.question_text
+          : requiredText(input?.questionText, "Question text"),
+      optionA,
+      optionB,
+      optionC,
+      optionD,
+      correctAnswer,
+      marks:
+        input?.marks === undefined && existing
+          ? Number(existing.marks ?? 1)
+          : wholeNumber(input?.marks ?? 1, "Question marks", 1),
+      status,
+    };
+  }
+
+  const questionPaperSelect = `
+    SELECT
+      question_papers.*,
+      (
+        SELECT COUNT(*)
+        FROM question_paper_items
+        WHERE question_paper_items.paper_id = question_papers.id
+      ) AS item_count
+    FROM question_papers
+  `;
+
+  function getQuestionPaperRow(id) {
+    return db
+      .prepare(`
+        ${questionPaperSelect}
+        WHERE question_papers.id = ? AND question_papers.deleted_at IS NULL
+      `)
+      .get(requiredText(id, "Question paper id"));
+  }
+
+  function getQuestionPaperItems(paperId) {
+    return db
+      .prepare(`
+        SELECT *
+        FROM question_paper_items
+        WHERE paper_id = ?
+        ORDER BY display_order, created_at
+      `)
+      .all(paperId)
+      .map(questionPaperItemFromRow);
+  }
+
+  function resolveQuestionPaperValues(input, existing = null) {
+    const className =
+      input?.className === undefined && existing
+        ? existing.class_name
+        : requiredText(input?.className, "Class");
+    const schoolClass = getActiveClassByName.get(className);
+    if (!schoolClass || schoolClass.status !== "Active") {
+      throw new Error("Select an active class.");
+    }
+    const section =
+      input?.section === undefined && existing
+        ? existing.section ?? ""
+        : optionalText(input?.section);
+    if (section) {
+      const schoolSection = db
+        .prepare(`
+          SELECT id
+          FROM sections
+          WHERE class_id = ?
+            AND name = ? COLLATE NOCASE
+            AND status = 'Active'
+            AND deleted_at IS NULL
+        `)
+        .get(schoolClass.id, section);
+      if (!schoolSection) {
+        throw new Error("Select an active section for the chosen class.");
+      }
+    }
+    const subjectId =
+      input?.subjectId === undefined && existing
+        ? existing.subject_id
+        : requiredText(input?.subjectId, "Subject");
+    const subject = getActiveSubjectById.get(subjectId);
+    if (
+      !subject ||
+      subject.status !== "Active" ||
+      subject.class_name !== schoolClass.name
+    ) {
+      throw new Error("Select an active subject for the chosen class.");
+    }
+    const sourceItems = input?.items;
+    if (
+      sourceItems === undefined &&
+      existing &&
+      (schoolClass.name !== existing.class_name ||
+        subject.id !== existing.subject_id)
+    ) {
+      throw new Error(
+        "Questions must be selected again when changing the paper class or subject.",
+      );
+    }
+    if (
+      sourceItems !== undefined &&
+      (!Array.isArray(sourceItems) || sourceItems.length === 0)
+    ) {
+      throw new Error("Select at least one question for the paper.");
+    }
+    const seenQuestionIds = new Set();
+    const items =
+      sourceItems === undefined && existing
+        ? getQuestionPaperItems(existing.id).map((item) => ({
+            questionId: item.questionId,
+            sectionTitle: item.sectionTitle,
+            displayOrder: item.displayOrder,
+            questionType: item.questionType,
+            questionText: item.questionText,
+            optionA: item.optionA,
+            optionB: item.optionB,
+            optionC: item.optionC,
+            optionD: item.optionD,
+            correctAnswer: item.correctAnswer,
+            marks: item.marks,
+          }))
+        : sourceItems.map((item, index) => {
+      const questionId = requiredText(item?.questionId, "Question");
+      if (seenQuestionIds.has(questionId)) {
+        throw new Error("A question can be added to a paper only once.");
+      }
+      seenQuestionIds.add(questionId);
+      const question = db
+        .prepare(`
+          SELECT *
+          FROM question_bank
+          WHERE id = ? AND status = 'Active' AND deleted_at IS NULL
+        `)
+        .get(questionId);
+      if (
+        !question ||
+        question.class_name !== schoolClass.name ||
+        question.subject_id !== subject.id
+      ) {
+        throw new Error(
+          "Every selected question must be active and belong to the paper class and subject.",
+        );
+      }
+      return {
+        questionId: question.id,
+        sectionTitle:
+          optionalText(item?.sectionTitle) || "Section A",
+        displayOrder:
+          item?.displayOrder === undefined
+            ? index + 1
+            : wholeNumber(item.displayOrder, "Question display order", 1),
+        questionType: question.question_type,
+        questionText: question.question_text,
+        optionA: question.option_a ?? "",
+        optionB: question.option_b ?? "",
+        optionC: question.option_c ?? "",
+        optionD: question.option_d ?? "",
+        correctAnswer: question.correct_answer ?? "",
+        marks: Number(question.marks ?? 1),
+      };
+          });
+    if (items.length === 0) {
+      throw new Error("Select at least one question for the paper.");
+    }
+    return {
+      title:
+        input?.title === undefined && existing
+          ? existing.title
+          : requiredText(input?.title, "Paper title"),
+      className: schoolClass.name,
+      section,
+      subjectId: subject.id,
+      subjectName: subject.name,
+      examName:
+        input?.examName === undefined && existing
+          ? existing.exam_name ?? ""
+          : optionalText(input?.examName),
+      durationMinutes:
+        input?.durationMinutes === undefined && existing
+          ? Number(existing.duration_minutes ?? 0)
+          : wholeNumber(
+              input?.durationMinutes ?? 0,
+              "Duration in minutes",
+              0,
+            ),
+      totalMarks: items.reduce((total, item) => total + item.marks, 0),
+      instructions:
+        input?.instructions === undefined && existing
+          ? existing.instructions ?? ""
+          : optionalText(input?.instructions),
+      items,
+    };
+  }
+
+  function insertQuestionPaperItems(paperId, items, timestamp) {
+    const insertItem = db.prepare(`
+      INSERT INTO question_paper_items (
+        id, paper_id, question_id, section_title, display_order,
+        question_type, question_text, option_a, option_b, option_c, option_d,
+        correct_answer, marks, created_at, updated_at, sync_status
+      ) VALUES (
+        @id, @paperId, @questionId, @sectionTitle, @displayOrder,
+        @questionType, @questionText, @optionA, @optionB, @optionC, @optionD,
+        @correctAnswer, @marks, @createdAt, @updatedAt, 'pending'
+      )
+    `);
+    for (const item of items) {
+      insertItem.run({
+        id: crypto.randomUUID(),
+        paperId,
+        ...item,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+    }
   }
 
   return {
@@ -3335,6 +3915,21 @@ function createDatabase(databasePath) {
             SET class_name = ?, updated_at = ?, sync_status = 'pending'
             WHERE class_name = ?
           `).run(name, updatedAt, existing.name);
+          db.prepare(`
+            UPDATE subject_chapters
+            SET class_name = ?, updated_at = ?, sync_status = 'pending'
+            WHERE class_name = ? AND deleted_at IS NULL
+          `).run(name, updatedAt, existing.name);
+          db.prepare(`
+            UPDATE question_bank
+            SET class_name = ?, updated_at = ?, sync_status = 'pending'
+            WHERE class_name = ? AND deleted_at IS NULL
+          `).run(name, updatedAt, existing.name);
+          db.prepare(`
+            UPDATE question_papers
+            SET class_name = ?, updated_at = ?, sync_status = 'pending'
+            WHERE class_name = ? AND deleted_at IS NULL
+          `).run(name, updatedAt, existing.name);
         }
       })();
 
@@ -3388,6 +3983,21 @@ function createDatabase(databasePath) {
         `).run(deletedAt, deletedAt, existing.name);
         db.prepare(`
           UPDATE class_tests
+          SET deleted_at = ?, updated_at = ?, sync_status = 'pending'
+          WHERE class_name = ? AND deleted_at IS NULL
+        `).run(deletedAt, deletedAt, existing.name);
+        db.prepare(`
+          UPDATE subject_chapters
+          SET deleted_at = ?, updated_at = ?, sync_status = 'pending'
+          WHERE class_name = ? AND deleted_at IS NULL
+        `).run(deletedAt, deletedAt, existing.name);
+        db.prepare(`
+          UPDATE question_bank
+          SET deleted_at = ?, updated_at = ?, sync_status = 'pending'
+          WHERE class_name = ? AND deleted_at IS NULL
+        `).run(deletedAt, deletedAt, existing.name);
+        db.prepare(`
+          UPDATE question_papers
           SET deleted_at = ?, updated_at = ?, sync_status = 'pending'
           WHERE class_name = ? AND deleted_at IS NULL
         `).run(deletedAt, deletedAt, existing.name);
@@ -3587,6 +4197,17 @@ function createDatabase(databasePath) {
           existing.class_name,
           existing.name,
         );
+        db.prepare(`
+          UPDATE question_papers
+          SET class_name = ?, section = ?, updated_at = ?, sync_status = 'pending'
+          WHERE class_name = ? AND section = ? AND deleted_at IS NULL
+        `).run(
+          schoolClass.name,
+          name,
+          updatedAt,
+          existing.class_name,
+          existing.name,
+        );
       }
 
       return sectionFromRow(
@@ -3624,6 +4245,11 @@ function createDatabase(databasePath) {
         `).run(timestamp, timestamp, existing.class_name, existing.name);
         db.prepare(`
           UPDATE class_tests
+          SET deleted_at = ?, updated_at = ?, sync_status = 'pending'
+          WHERE class_name = ? AND section = ? AND deleted_at IS NULL
+        `).run(timestamp, timestamp, existing.class_name, existing.name);
+        db.prepare(`
+          UPDATE question_papers
           SET deleted_at = ?, updated_at = ?, sync_status = 'pending'
           WHERE class_name = ? AND section = ? AND deleted_at IS NULL
         `).run(timestamp, timestamp, existing.class_name, existing.name);
@@ -4094,6 +4720,21 @@ function createDatabase(databasePath) {
             SET subject_name = ?, updated_at = ?, sync_status = 'pending'
             WHERE subject_id = ? AND deleted_at IS NULL
           `).run(name, updatedAt, subjectId);
+          db.prepare(`
+            UPDATE subject_chapters
+            SET subject_name = ?, updated_at = ?, sync_status = 'pending'
+            WHERE subject_id = ? AND deleted_at IS NULL
+          `).run(name, updatedAt, subjectId);
+          db.prepare(`
+            UPDATE question_bank
+            SET subject_name = ?, updated_at = ?, sync_status = 'pending'
+            WHERE subject_id = ? AND deleted_at IS NULL
+          `).run(name, updatedAt, subjectId);
+          db.prepare(`
+            UPDATE question_papers
+            SET subject_name = ?, updated_at = ?, sync_status = 'pending'
+            WHERE subject_id = ? AND deleted_at IS NULL
+          `).run(name, updatedAt, subjectId);
         } else {
           db.prepare(`
             UPDATE timetable_entries
@@ -4110,6 +4751,22 @@ function createDatabase(databasePath) {
           `).run(name, updatedAt, subjectId);
           db.prepare(`
             UPDATE class_tests
+            SET subject_name = ?,
+                status = 'Inactive',
+                updated_at = ?,
+                sync_status = 'pending'
+            WHERE subject_id = ? AND deleted_at IS NULL
+          `).run(name, updatedAt, subjectId);
+          db.prepare(`
+            UPDATE subject_chapters
+            SET subject_name = ?,
+                status = 'Inactive',
+                updated_at = ?,
+                sync_status = 'pending'
+            WHERE subject_id = ? AND deleted_at IS NULL
+          `).run(name, updatedAt, subjectId);
+          db.prepare(`
+            UPDATE question_bank
             SET subject_name = ?,
                 status = 'Inactive',
                 updated_at = ?,
@@ -7002,6 +7659,377 @@ function createDatabase(databasePath) {
       return classTestMarkFromRow(
         db.prepare("SELECT * FROM class_test_marks WHERE id = ?").get(markId),
       );
+    },
+
+    getSubjectChapters() {
+      return db
+        .prepare(`
+          SELECT *
+          FROM subject_chapters
+          WHERE deleted_at IS NULL
+          ORDER BY
+            class_name COLLATE NOCASE,
+            subject_name COLLATE NOCASE,
+            chapter_no COLLATE NOCASE,
+            chapter_name COLLATE NOCASE
+        `)
+        .all()
+        .map(subjectChapterFromRow);
+    },
+
+    getSubjectChaptersByClassSubject(className, subjectName) {
+      return db
+        .prepare(`
+          SELECT *
+          FROM subject_chapters
+          WHERE class_name = ?
+            AND subject_name = ? COLLATE NOCASE
+            AND deleted_at IS NULL
+          ORDER BY chapter_no COLLATE NOCASE, chapter_name COLLATE NOCASE
+        `)
+        .all(
+          requiredText(className, "Class"),
+          requiredText(subjectName, "Subject"),
+        )
+        .map(subjectChapterFromRow);
+    },
+
+    createSubjectChapter(input) {
+      const values = resolveSubjectChapterValues(input);
+      const duplicate = db
+        .prepare(`
+          SELECT id
+          FROM subject_chapters
+          WHERE class_name = ?
+            AND subject_id = ?
+            AND chapter_name = ? COLLATE NOCASE
+            AND deleted_at IS NULL
+        `)
+        .get(values.className, values.subjectId, values.chapterName);
+      if (duplicate) {
+        throw new Error("This chapter already exists for the selected subject.");
+      }
+      const id = crypto.randomUUID();
+      const timestamp = now();
+      db.prepare(`
+        INSERT INTO subject_chapters (
+          id, class_name, subject_id, subject_name, chapter_name, chapter_no,
+          description, status, created_at, updated_at, deleted_at, sync_status
+        ) VALUES (
+          @id, @className, @subjectId, @subjectName, @chapterName, @chapterNo,
+          @description, @status, @createdAt, @updatedAt, NULL, 'pending'
+        )
+      `).run({
+        id,
+        ...values,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+      return subjectChapterFromRow(
+        db.prepare("SELECT * FROM subject_chapters WHERE id = ?").get(id),
+      );
+    },
+
+    updateSubjectChapter(id, input) {
+      const chapterId = requiredText(id, "Subject chapter id");
+      const existing = db
+        .prepare(`
+          SELECT *
+          FROM subject_chapters
+          WHERE id = ? AND deleted_at IS NULL
+        `)
+        .get(chapterId);
+      if (!existing) throw new Error("Subject chapter was not found.");
+      const values = resolveSubjectChapterValues(input, existing);
+      const duplicate = db
+        .prepare(`
+          SELECT id
+          FROM subject_chapters
+          WHERE class_name = ?
+            AND subject_id = ?
+            AND chapter_name = ? COLLATE NOCASE
+            AND id <> ?
+            AND deleted_at IS NULL
+        `)
+        .get(
+          values.className,
+          values.subjectId,
+          values.chapterName,
+          chapterId,
+        );
+      if (duplicate) {
+        throw new Error("This chapter already exists for the selected subject.");
+      }
+      const timestamp = now();
+      db.transaction(() => {
+        db.prepare(`
+          UPDATE subject_chapters
+          SET class_name = @className,
+              subject_id = @subjectId,
+              subject_name = @subjectName,
+              chapter_name = @chapterName,
+              chapter_no = @chapterNo,
+              description = @description,
+              status = @status,
+              updated_at = @updatedAt,
+              sync_status = 'pending'
+          WHERE id = @id AND deleted_at IS NULL
+        `).run({ id: chapterId, ...values, updatedAt: timestamp });
+        db.prepare(`
+          UPDATE question_bank
+          SET class_name = @className,
+              subject_id = @subjectId,
+              subject_name = @subjectName,
+              chapter_name = @chapterName,
+              updated_at = @updatedAt,
+              sync_status = 'pending'
+          WHERE chapter_id = @id AND deleted_at IS NULL
+        `).run({ id: chapterId, ...values, updatedAt: timestamp });
+      })();
+      return subjectChapterFromRow(
+        db
+          .prepare("SELECT * FROM subject_chapters WHERE id = ?")
+          .get(chapterId),
+      );
+    },
+
+    deleteSubjectChapter(id) {
+      const timestamp = now();
+      const result = db
+        .prepare(`
+          UPDATE subject_chapters
+          SET deleted_at = ?, updated_at = ?, sync_status = 'pending'
+          WHERE id = ? AND deleted_at IS NULL
+        `)
+        .run(timestamp, timestamp, requiredText(id, "Subject chapter id"));
+      return { success: result.changes === 1 };
+    },
+
+    getQuestions() {
+      return db
+        .prepare(`
+          SELECT *
+          FROM question_bank
+          WHERE deleted_at IS NULL
+          ORDER BY created_at DESC, question_text COLLATE NOCASE
+        `)
+        .all()
+        .map(questionFromRow);
+    },
+
+    getQuestionsByFilter(filter) {
+      const className = optionalText(filter?.className);
+      const subjectId = optionalText(filter?.subjectId);
+      const subjectName = optionalText(filter?.subjectName);
+      const chapterId = optionalText(filter?.chapterId);
+      const questionType = optionalText(filter?.questionType);
+      const difficulty = optionalText(filter?.difficulty);
+      if (questionType && !QUESTION_TYPES.has(questionType)) {
+        throw new Error("Question type filter is invalid.");
+      }
+      if (difficulty && !QUESTION_DIFFICULTIES.has(difficulty)) {
+        throw new Error("Question difficulty filter is invalid.");
+      }
+      return db
+        .prepare(`
+          SELECT *
+          FROM question_bank
+          WHERE (? = '' OR class_name = ?)
+            AND (? = '' OR subject_id = ?)
+            AND (? = '' OR subject_name = ? COLLATE NOCASE)
+            AND (? = '' OR chapter_id = ?)
+            AND (? = '' OR question_type = ?)
+            AND (? = '' OR difficulty = ?)
+            AND deleted_at IS NULL
+          ORDER BY created_at DESC, question_text COLLATE NOCASE
+        `)
+        .all(
+          className,
+          className,
+          subjectId,
+          subjectId,
+          subjectName,
+          subjectName,
+          chapterId,
+          chapterId,
+          questionType,
+          questionType,
+          difficulty,
+          difficulty,
+        )
+        .map(questionFromRow);
+    },
+
+    createQuestion(input) {
+      const values = resolveQuestionValues(input);
+      const id = crypto.randomUUID();
+      const timestamp = now();
+      db.prepare(`
+        INSERT INTO question_bank (
+          id, class_name, subject_id, subject_name, chapter_id, chapter_name,
+          question_type, difficulty, question_text, option_a, option_b,
+          option_c, option_d, correct_answer, marks, status, created_by,
+          created_at, updated_at, deleted_at, sync_status
+        ) VALUES (
+          @id, @className, @subjectId, @subjectName, @chapterId, @chapterName,
+          @questionType, @difficulty, @questionText, @optionA, @optionB,
+          @optionC, @optionD, @correctAnswer, @marks, @status, @createdBy,
+          @createdAt, @updatedAt, NULL, 'pending'
+        )
+      `).run({
+        id,
+        ...values,
+        createdBy: optionalText(input?.createdBy),
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+      return questionFromRow(
+        db.prepare("SELECT * FROM question_bank WHERE id = ?").get(id),
+      );
+    },
+
+    updateQuestion(id, input) {
+      const questionId = requiredText(id, "Question id");
+      const existing = db
+        .prepare(`
+          SELECT *
+          FROM question_bank
+          WHERE id = ? AND deleted_at IS NULL
+        `)
+        .get(questionId);
+      if (!existing) throw new Error("Question was not found.");
+      const values = resolveQuestionValues(input, existing);
+      db.prepare(`
+        UPDATE question_bank
+        SET class_name = @className,
+            subject_id = @subjectId,
+            subject_name = @subjectName,
+            chapter_id = @chapterId,
+            chapter_name = @chapterName,
+            question_type = @questionType,
+            difficulty = @difficulty,
+            question_text = @questionText,
+            option_a = @optionA,
+            option_b = @optionB,
+            option_c = @optionC,
+            option_d = @optionD,
+            correct_answer = @correctAnswer,
+            marks = @marks,
+            status = @status,
+            updated_at = @updatedAt,
+            sync_status = 'pending'
+        WHERE id = @id AND deleted_at IS NULL
+      `).run({ id: questionId, ...values, updatedAt: now() });
+      return questionFromRow(
+        db
+          .prepare("SELECT * FROM question_bank WHERE id = ?")
+          .get(questionId),
+      );
+    },
+
+    deleteQuestion(id) {
+      const timestamp = now();
+      const result = db
+        .prepare(`
+          UPDATE question_bank
+          SET deleted_at = ?, updated_at = ?, sync_status = 'pending'
+          WHERE id = ? AND deleted_at IS NULL
+        `)
+        .run(timestamp, timestamp, requiredText(id, "Question id"));
+      return { success: result.changes === 1 };
+    },
+
+    getQuestionPapers() {
+      return db
+        .prepare(`
+          ${questionPaperSelect}
+          WHERE question_papers.deleted_at IS NULL
+          ORDER BY question_papers.created_at DESC
+        `)
+        .all()
+        .map((row) => questionPaperFromRow(row));
+    },
+
+    getQuestionPaperById(id) {
+      const row = getQuestionPaperRow(id);
+      if (!row) return null;
+      return questionPaperFromRow(row, getQuestionPaperItems(row.id));
+    },
+
+    createQuestionPaper(input) {
+      const values = resolveQuestionPaperValues(input);
+      const id = crypto.randomUUID();
+      const timestamp = now();
+      db.transaction(() => {
+        db.prepare(`
+          INSERT INTO question_papers (
+            id, paper_no, title, class_name, section, subject_id, subject_name,
+            exam_name, duration_minutes, total_marks, instructions, created_by,
+            created_at, updated_at, deleted_at, sync_status
+          ) VALUES (
+            @id, @paperNo, @title, @className, @section, @subjectId,
+            @subjectName, @examName, @durationMinutes, @totalMarks,
+            @instructions, @createdBy, @createdAt, @updatedAt, NULL, 'pending'
+          )
+        `).run({
+          id,
+          paperNo: generateQuestionPaperNumber(),
+          ...values,
+          createdBy: optionalText(input?.createdBy),
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        });
+        insertQuestionPaperItems(id, values.items, timestamp);
+      })();
+      return this.getQuestionPaperById(id);
+    },
+
+    updateQuestionPaper(id, input) {
+      const paperId = requiredText(id, "Question paper id");
+      const existing = db
+        .prepare(`
+          SELECT *
+          FROM question_papers
+          WHERE id = ? AND deleted_at IS NULL
+        `)
+        .get(paperId);
+      if (!existing) throw new Error("Question paper was not found.");
+      const values = resolveQuestionPaperValues(input, existing);
+      const timestamp = now();
+      db.transaction(() => {
+        db.prepare(`
+          UPDATE question_papers
+          SET title = @title,
+              class_name = @className,
+              section = @section,
+              subject_id = @subjectId,
+              subject_name = @subjectName,
+              exam_name = @examName,
+              duration_minutes = @durationMinutes,
+              total_marks = @totalMarks,
+              instructions = @instructions,
+              updated_at = @updatedAt,
+              sync_status = 'pending'
+          WHERE id = @id AND deleted_at IS NULL
+        `).run({ id: paperId, ...values, updatedAt: timestamp });
+        db.prepare("DELETE FROM question_paper_items WHERE paper_id = ?").run(
+          paperId,
+        );
+        insertQuestionPaperItems(paperId, values.items, timestamp);
+      })();
+      return this.getQuestionPaperById(paperId);
+    },
+
+    deleteQuestionPaper(id) {
+      const timestamp = now();
+      const result = db
+        .prepare(`
+          UPDATE question_papers
+          SET deleted_at = ?, updated_at = ?, sync_status = 'pending'
+          WHERE id = ? AND deleted_at IS NULL
+        `)
+        .run(timestamp, timestamp, requiredText(id, "Question paper id"));
+      return { success: result.changes === 1 };
     },
 
     getCertificateTemplates() {

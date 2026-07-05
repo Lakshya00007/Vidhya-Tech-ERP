@@ -33,6 +33,9 @@ export const HOMEWORK_API_UNAVAILABLE_MESSAGE =
 export const CLASS_TESTS_API_UNAVAILABLE_MESSAGE =
   'Class test management is available only inside the Electron desktop app.'
 
+export const QUESTION_PAPER_API_UNAVAILABLE_MESSAGE =
+  'Question paper management is available only inside the Electron desktop app.'
+
 const licenseApiMethods = [
   'getDeviceId',
   'getLicenseStatus',
@@ -146,6 +149,24 @@ const classTestsApiMethods = [
   'getClassTestMarks',
   'saveClassTestMarksBulk',
   'updateClassTestMark',
+] as const satisfies ReadonlyArray<keyof ErpApi>
+
+const questionPaperApiMethods = [
+  'getSubjectChapters',
+  'getSubjectChaptersByClassSubject',
+  'createSubjectChapter',
+  'updateSubjectChapter',
+  'deleteSubjectChapter',
+  'getQuestions',
+  'getQuestionsByFilter',
+  'createQuestion',
+  'updateQuestion',
+  'deleteQuestion',
+  'getQuestionPapers',
+  'getQuestionPaperById',
+  'createQuestionPaper',
+  'updateQuestionPaper',
+  'deleteQuestionPaper',
 ] as const satisfies ReadonlyArray<keyof ErpApi>
 
 export function getErpApi(): ErpApi {
@@ -269,6 +290,19 @@ export function getClassTestsErpApi(): ErpApi {
     classTestsApiMethods.some((method) => typeof api[method] !== 'function')
   ) {
     throw new Error(CLASS_TESTS_API_UNAVAILABLE_MESSAGE)
+  }
+  return api
+}
+
+export function getQuestionPaperErpApi(): ErpApi {
+  const api = window.erpApi
+  if (
+    !api ||
+    questionPaperApiMethods.some(
+      (method) => typeof api[method] !== 'function',
+    )
+  ) {
+    throw new Error(QUESTION_PAPER_API_UNAVAILABLE_MESSAGE)
   }
   return api
 }
