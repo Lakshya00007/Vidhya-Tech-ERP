@@ -40,6 +40,20 @@ const CERTIFICATE_TYPES = new Set([
   "Custom",
 ]);
 const ACCOUNT_TYPES = new Set(["Income", "Expense"]);
+const HOMEWORK_STATUSES = new Set(["Active", "Inactive"]);
+const HOMEWORK_SUBMISSION_STATUSES = new Set([
+  "Pending",
+  "Submitted",
+  "Checked",
+  "Late",
+  "Missing",
+]);
+const CLASS_TEST_RESULT_STATUSES = new Set([
+  "Pending",
+  "Pass",
+  "Fail",
+  "Absent",
+]);
 const STUDENT_IMPORT_TEMPLATE_COLUMNS = [
   "Admission No",
   "Student Name",
@@ -236,6 +250,158 @@ function accountTransactionFromRow(row) {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at,
+    syncStatus: row.sync_status,
+  };
+}
+
+function timetableWeekdayFromRow(row) {
+  return {
+    id: row.id,
+    name: row.name,
+    displayOrder: Number(row.display_order ?? 0),
+    isActive: Number(row.is_active ?? 1) === 1,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at,
+    syncStatus: row.sync_status,
+  };
+}
+
+function timetablePeriodFromRow(row) {
+  return {
+    id: row.id,
+    name: row.name,
+    startTime: row.start_time,
+    endTime: row.end_time,
+    displayOrder: Number(row.display_order ?? 0),
+    isBreak: Number(row.is_break ?? 0) === 1,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at,
+    syncStatus: row.sync_status,
+  };
+}
+
+function classroomFromRow(row) {
+  return {
+    id: row.id,
+    name: row.name,
+    capacity: Number(row.capacity ?? 0),
+    description: row.description ?? "",
+    status: row.status,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at,
+    syncStatus: row.sync_status,
+  };
+}
+
+function timetableEntryFromRow(row) {
+  return {
+    id: row.id,
+    className: row.class_name,
+    section: row.section ?? "",
+    weekdayId: row.weekday_id,
+    weekdayName: row.weekday_name,
+    periodId: row.period_id,
+    periodName: row.period_name,
+    startTime: row.start_time ?? "",
+    endTime: row.end_time ?? "",
+    subjectId: row.subject_id ?? "",
+    subjectName: row.subject_name ?? "",
+    teacherId: row.teacher_id ?? "",
+    teacherName: row.teacher_name ?? "",
+    classroomId: row.classroom_id ?? "",
+    classroomName: row.classroom_name ?? "",
+    notes: row.notes ?? "",
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at,
+    syncStatus: row.sync_status,
+  };
+}
+
+function homeworkFromRow(row) {
+  return {
+    id: row.id,
+    title: row.title,
+    className: row.class_name,
+    section: row.section ?? "",
+    subjectId: row.subject_id ?? "",
+    subjectName: row.subject_name ?? "",
+    teacherId: row.teacher_id ?? "",
+    teacherName: row.teacher_name ?? "",
+    homeworkDate: row.homework_date,
+    dueDate: row.due_date ?? "",
+    description: row.description ?? "",
+    instructions: row.instructions ?? "",
+    status: row.status,
+    createdBy: row.created_by ?? "",
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at,
+    syncStatus: row.sync_status,
+  };
+}
+
+function homeworkSubmissionFromRow(row) {
+  return {
+    id: row.id,
+    homeworkId: row.homework_id,
+    studentId: row.student_id,
+    studentName: row.student_name,
+    admissionNo: row.admission_no ?? "",
+    className: row.class_name ?? "",
+    section: row.section ?? "",
+    status: row.status,
+    submittedDate: row.submitted_date ?? "",
+    remarks: row.remarks ?? "",
+    marks: row.marks == null ? null : Number(row.marks),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    syncStatus: row.sync_status,
+  };
+}
+
+function classTestFromRow(row) {
+  return {
+    id: row.id,
+    testName: row.test_name,
+    className: row.class_name,
+    section: row.section ?? "",
+    subjectId: row.subject_id ?? "",
+    subjectName: row.subject_name ?? "",
+    teacherId: row.teacher_id ?? "",
+    teacherName: row.teacher_name ?? "",
+    testDate: row.test_date,
+    maxMarks: Number(row.max_marks),
+    passingMarks: Number(row.passing_marks ?? 0),
+    description: row.description ?? "",
+    status: row.status,
+    createdBy: row.created_by ?? "",
+    markCount: Number(row.mark_count ?? 0),
+    pendingMarkCount: Number(row.pending_mark_count ?? 0),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at,
+    syncStatus: row.sync_status,
+  };
+}
+
+function classTestMarkFromRow(row) {
+  return {
+    id: row.id,
+    testId: row.test_id,
+    studentId: row.student_id,
+    studentName: row.student_name,
+    admissionNo: row.admission_no ?? "",
+    className: row.class_name ?? "",
+    section: row.section ?? "",
+    marksObtained: Number(row.marks_obtained ?? 0),
+    resultStatus: row.result_status,
+    remarks: row.remarks ?? "",
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
     syncStatus: row.sync_status,
   };
 }
@@ -523,6 +689,14 @@ function wholeNumber(value, fieldName, minimum = 0) {
   return number;
 }
 
+function normalizeTime(value, fieldName) {
+  const time = requiredText(value, fieldName);
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) {
+    throw new Error(`${fieldName} must use HH:MM format.`);
+  }
+  return time;
+}
+
 function createDatabase(databasePath) {
   const db = new Database(databasePath);
   db.pragma("journal_mode = WAL");
@@ -655,6 +829,155 @@ function createDatabase(databasePath) {
       deleted_at TEXT,
       sync_status TEXT DEFAULT 'pending',
       FOREIGN KEY (category_id) REFERENCES account_categories(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS timetable_weekdays (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      display_order INTEGER,
+      is_active INTEGER DEFAULT 1,
+      created_at TEXT,
+      updated_at TEXT,
+      deleted_at TEXT,
+      sync_status TEXT DEFAULT 'pending'
+    );
+
+    CREATE TABLE IF NOT EXISTS timetable_periods (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      start_time TEXT NOT NULL,
+      end_time TEXT NOT NULL,
+      display_order INTEGER,
+      is_break INTEGER DEFAULT 0,
+      created_at TEXT,
+      updated_at TEXT,
+      deleted_at TEXT,
+      sync_status TEXT DEFAULT 'pending'
+    );
+
+    CREATE TABLE IF NOT EXISTS classrooms (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      capacity INTEGER,
+      description TEXT,
+      status TEXT DEFAULT 'Active' CHECK (status IN ('Active', 'Inactive')),
+      created_at TEXT,
+      updated_at TEXT,
+      deleted_at TEXT,
+      sync_status TEXT DEFAULT 'pending'
+    );
+
+    CREATE TABLE IF NOT EXISTS timetable_entries (
+      id TEXT PRIMARY KEY,
+      class_name TEXT NOT NULL,
+      section TEXT,
+      weekday_id TEXT NOT NULL,
+      weekday_name TEXT NOT NULL,
+      period_id TEXT NOT NULL,
+      period_name TEXT NOT NULL,
+      start_time TEXT,
+      end_time TEXT,
+      subject_id TEXT,
+      subject_name TEXT,
+      teacher_id TEXT,
+      teacher_name TEXT,
+      classroom_id TEXT,
+      classroom_name TEXT,
+      notes TEXT,
+      created_at TEXT,
+      updated_at TEXT,
+      deleted_at TEXT,
+      sync_status TEXT DEFAULT 'pending',
+      FOREIGN KEY (weekday_id) REFERENCES timetable_weekdays(id),
+      FOREIGN KEY (period_id) REFERENCES timetable_periods(id),
+      FOREIGN KEY (subject_id) REFERENCES subjects(id),
+      FOREIGN KEY (teacher_id) REFERENCES employees(id),
+      FOREIGN KEY (classroom_id) REFERENCES classrooms(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS homework (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      class_name TEXT NOT NULL,
+      section TEXT,
+      subject_id TEXT,
+      subject_name TEXT,
+      teacher_id TEXT,
+      teacher_name TEXT,
+      homework_date TEXT NOT NULL,
+      due_date TEXT,
+      description TEXT,
+      instructions TEXT,
+      status TEXT DEFAULT 'Active' CHECK (status IN ('Active', 'Inactive')),
+      created_by TEXT,
+      created_at TEXT,
+      updated_at TEXT,
+      deleted_at TEXT,
+      sync_status TEXT DEFAULT 'pending',
+      FOREIGN KEY (subject_id) REFERENCES subjects(id),
+      FOREIGN KEY (teacher_id) REFERENCES employees(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS homework_submissions (
+      id TEXT PRIMARY KEY,
+      homework_id TEXT NOT NULL,
+      student_id TEXT NOT NULL,
+      student_name TEXT NOT NULL,
+      admission_no TEXT,
+      class_name TEXT,
+      section TEXT,
+      status TEXT DEFAULT 'Pending'
+        CHECK (status IN ('Pending', 'Submitted', 'Checked', 'Late', 'Missing')),
+      submitted_date TEXT,
+      remarks TEXT,
+      marks INTEGER,
+      created_at TEXT,
+      updated_at TEXT,
+      sync_status TEXT DEFAULT 'pending',
+      FOREIGN KEY (homework_id) REFERENCES homework(id),
+      FOREIGN KEY (student_id) REFERENCES students(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS class_tests (
+      id TEXT PRIMARY KEY,
+      test_name TEXT NOT NULL,
+      class_name TEXT NOT NULL,
+      section TEXT,
+      subject_id TEXT,
+      subject_name TEXT,
+      teacher_id TEXT,
+      teacher_name TEXT,
+      test_date TEXT NOT NULL,
+      max_marks INTEGER NOT NULL,
+      passing_marks INTEGER DEFAULT 0,
+      description TEXT,
+      status TEXT DEFAULT 'Active' CHECK (status IN ('Active', 'Inactive')),
+      created_by TEXT,
+      created_at TEXT,
+      updated_at TEXT,
+      deleted_at TEXT,
+      sync_status TEXT DEFAULT 'pending',
+      FOREIGN KEY (subject_id) REFERENCES subjects(id),
+      FOREIGN KEY (teacher_id) REFERENCES employees(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS class_test_marks (
+      id TEXT PRIMARY KEY,
+      test_id TEXT NOT NULL,
+      student_id TEXT NOT NULL,
+      student_name TEXT NOT NULL,
+      admission_no TEXT,
+      class_name TEXT,
+      section TEXT,
+      marks_obtained INTEGER DEFAULT 0,
+      result_status TEXT DEFAULT 'Pending'
+        CHECK (result_status IN ('Pending', 'Pass', 'Fail', 'Absent')),
+      remarks TEXT,
+      created_at TEXT,
+      updated_at TEXT,
+      sync_status TEXT DEFAULT 'pending',
+      FOREIGN KEY (test_id) REFERENCES class_tests(id),
+      FOREIGN KEY (student_id) REFERENCES students(id)
     );
 
     CREATE TABLE IF NOT EXISTS fee_payments (
@@ -945,6 +1268,41 @@ function createDatabase(databasePath) {
       WHERE deleted_at IS NULL
         AND linked_record_id IS NOT NULL
         AND trim(linked_record_id) <> '';
+    CREATE INDEX IF NOT EXISTS idx_timetable_weekdays_order
+      ON timetable_weekdays(deleted_at, display_order, name);
+    CREATE INDEX IF NOT EXISTS idx_timetable_periods_order
+      ON timetable_periods(deleted_at, display_order, start_time);
+    CREATE INDEX IF NOT EXISTS idx_classrooms_active
+      ON classrooms(deleted_at, status, name);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_timetable_class_slot
+      ON timetable_entries(
+        class_name, COALESCE(section, ''), weekday_id, period_id
+      )
+      WHERE deleted_at IS NULL;
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_timetable_teacher_slot
+      ON timetable_entries(teacher_id, weekday_id, period_id)
+      WHERE deleted_at IS NULL
+        AND teacher_id IS NOT NULL
+        AND trim(teacher_id) <> '';
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_timetable_classroom_slot
+      ON timetable_entries(classroom_id, weekday_id, period_id)
+      WHERE deleted_at IS NULL
+        AND classroom_id IS NOT NULL
+        AND trim(classroom_id) <> '';
+    CREATE INDEX IF NOT EXISTS idx_homework_class_date
+      ON homework(class_name, section, homework_date, deleted_at);
+    CREATE INDEX IF NOT EXISTS idx_homework_due_status
+      ON homework(due_date, status, deleted_at);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_homework_submission_student
+      ON homework_submissions(homework_id, student_id);
+    CREATE INDEX IF NOT EXISTS idx_homework_submission_status
+      ON homework_submissions(homework_id, status, student_name);
+    CREATE INDEX IF NOT EXISTS idx_class_tests_class_date
+      ON class_tests(class_name, section, test_date, deleted_at);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_class_test_mark_student
+      ON class_test_marks(test_id, student_id);
+    CREATE INDEX IF NOT EXISTS idx_class_test_marks_result
+      ON class_test_marks(test_id, result_status, student_name);
   `);
 
   const timestamp = now();
@@ -1039,6 +1397,25 @@ function createDatabase(databasePath) {
       updatedAt: timestamp,
     });
   }
+
+  const insertDefaultWeekday = db.prepare(`
+    INSERT OR IGNORE INTO timetable_weekdays (
+      id, name, display_order, is_active, created_at, updated_at,
+      deleted_at, sync_status
+    ) VALUES (
+      @id, @name, @displayOrder, 1, @createdAt, @updatedAt, NULL, 'pending'
+    )
+  `);
+  ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+    .forEach((name, index) => {
+      insertDefaultWeekday.run({
+        id: `default-weekday-${name.toLowerCase()}`,
+        name,
+        displayOrder: index + 1,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+    });
 
   if (!hadClassesTable) {
     const legacyClasses = db
@@ -1474,6 +1851,412 @@ function createDatabase(databasePath) {
     );
   }
 
+  const homeworkSelect = `
+    SELECT
+      homework.*,
+      (
+        SELECT COUNT(*)
+        FROM homework_submissions
+        WHERE homework_submissions.homework_id = homework.id
+      ) AS submission_count,
+      (
+        SELECT COUNT(*)
+        FROM homework_submissions
+        WHERE homework_submissions.homework_id = homework.id
+          AND homework_submissions.status IN ('Pending', 'Missing')
+      ) AS pending_submission_count
+    FROM homework
+  `;
+
+  function homeworkWithCountsFromRow(row) {
+    return {
+      ...homeworkFromRow(row),
+      submissionCount: Number(row.submission_count ?? 0),
+      pendingSubmissionCount: Number(row.pending_submission_count ?? 0),
+    };
+  }
+
+  function getHomeworkRow(id) {
+    return db
+      .prepare(`
+        ${homeworkSelect}
+        WHERE homework.id = ? AND homework.deleted_at IS NULL
+      `)
+      .get(requiredText(id, "Homework id"));
+  }
+
+  function resolveHomeworkValues(input, existing = null) {
+    const className =
+      input?.className === undefined && existing
+        ? existing.class_name
+        : requiredText(input?.className, "Class");
+    const schoolClass = getActiveClassByName.get(className);
+    if (!schoolClass || schoolClass.status !== "Active") {
+      throw new Error("Select an active class.");
+    }
+    const section =
+      input?.section === undefined && existing
+        ? existing.section ?? ""
+        : optionalText(input?.section);
+    if (section) {
+      const schoolSection = db
+        .prepare(`
+          SELECT id
+          FROM sections
+          WHERE class_id = ?
+            AND name = ? COLLATE NOCASE
+            AND status = 'Active'
+            AND deleted_at IS NULL
+        `)
+        .get(schoolClass.id, section);
+      if (!schoolSection) {
+        throw new Error("Select an active section for the chosen class.");
+      }
+    }
+    const subjectId =
+      input?.subjectId === undefined && existing
+        ? existing.subject_id
+        : requiredText(input?.subjectId, "Subject");
+    const subject = getActiveSubjectById.get(subjectId);
+    if (
+      !subject ||
+      subject.status !== "Active" ||
+      subject.class_name !== schoolClass.name
+    ) {
+      throw new Error("Select an active subject for the chosen class.");
+    }
+    const teacherId =
+      input?.teacherId === undefined && existing
+        ? existing.teacher_id
+        : requiredText(input?.teacherId, "Teacher");
+    const teacher = db
+      .prepare(`
+        SELECT *
+        FROM employees
+        WHERE id = ? AND status = 'Active' AND deleted_at IS NULL
+      `)
+      .get(teacherId);
+    if (!teacher) throw new Error("Select an active teacher.");
+    const homeworkDate =
+      input?.homeworkDate === undefined && existing
+        ? existing.homework_date
+        : normalizeDate(input?.homeworkDate, "Homework date");
+    const dueDateText =
+      input?.dueDate === undefined && existing
+        ? existing.due_date ?? ""
+        : optionalText(input?.dueDate);
+    const dueDate = dueDateText
+      ? normalizeDate(dueDateText, "Due date")
+      : "";
+    if (dueDate && dueDate < homeworkDate) {
+      throw new Error("Due date cannot be before the homework date.");
+    }
+    const status =
+      input?.status === undefined && existing
+        ? existing.status
+        : optionalText(input?.status) || "Active";
+    if (!HOMEWORK_STATUSES.has(status)) {
+      throw new Error("Homework status is invalid.");
+    }
+    return {
+      title:
+        input?.title === undefined && existing
+          ? existing.title
+          : requiredText(input?.title, "Homework title"),
+      className: schoolClass.name,
+      section,
+      subjectId: subject.id,
+      subjectName: subject.name,
+      teacherId: teacher.id,
+      teacherName: teacher.name,
+      homeworkDate,
+      dueDate,
+      description:
+        input?.description === undefined && existing
+          ? existing.description ?? ""
+          : optionalText(input?.description),
+      instructions:
+        input?.instructions === undefined && existing
+          ? existing.instructions ?? ""
+          : optionalText(input?.instructions),
+      status,
+    };
+  }
+
+  function createPendingHomeworkSubmissions(
+    homeworkId,
+    className,
+    section,
+    timestamp,
+  ) {
+    const students = db
+      .prepare(`
+        SELECT *
+        FROM students
+        WHERE class_name = ?
+          AND (? = '' OR COALESCE(section, '') = ?)
+          AND status = 'Active'
+          AND deleted_at IS NULL
+        ORDER BY admission_no COLLATE NOCASE, name COLLATE NOCASE
+      `)
+      .all(className, section, section);
+    const insertSubmission = db.prepare(`
+      INSERT OR IGNORE INTO homework_submissions (
+        id, homework_id, student_id, student_name, admission_no, class_name,
+        section, status, submitted_date, remarks, marks, created_at,
+        updated_at, sync_status
+      ) VALUES (
+        @id, @homeworkId, @studentId, @studentName, @admissionNo,
+        @className, @section, 'Pending', NULL, '', NULL, @createdAt,
+        @updatedAt, 'pending'
+      )
+    `);
+    for (const student of students) {
+      insertSubmission.run({
+        id: crypto.randomUUID(),
+        homeworkId,
+        studentId: student.id,
+        studentName: student.name,
+        admissionNo: student.admission_no,
+        className: student.class_name,
+        section: student.section ?? "",
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+    }
+    return students.length;
+  }
+
+  function resolveHomeworkSubmissionValues(input, existing) {
+    const status =
+      input?.status === undefined
+        ? existing.status
+        : requiredText(input.status, "Submission status");
+    if (!HOMEWORK_SUBMISSION_STATUSES.has(status)) {
+      throw new Error("Homework submission status is invalid.");
+    }
+    const submittedDateText =
+      input?.submittedDate === undefined
+        ? existing.submitted_date ?? ""
+        : optionalText(input.submittedDate);
+    const marksValue =
+      input?.marks === undefined
+        ? existing.marks
+        : input.marks === null || input.marks === ""
+          ? null
+          : wholeNumber(input.marks, "Homework marks", 0);
+    return {
+      status,
+      submittedDate: submittedDateText
+        ? normalizeDate(submittedDateText, "Submitted date")
+        : null,
+      remarks:
+        input?.remarks === undefined
+          ? existing.remarks ?? ""
+          : optionalText(input.remarks),
+      marks: marksValue == null ? null : Number(marksValue),
+    };
+  }
+
+  const classTestSelect = `
+    SELECT
+      class_tests.*,
+      (
+        SELECT COUNT(*)
+        FROM class_test_marks
+        WHERE class_test_marks.test_id = class_tests.id
+      ) AS mark_count,
+      (
+        SELECT COUNT(*)
+        FROM class_test_marks
+        WHERE class_test_marks.test_id = class_tests.id
+          AND class_test_marks.result_status = 'Pending'
+      ) AS pending_mark_count
+    FROM class_tests
+  `;
+
+  function getClassTestRow(id) {
+    return db
+      .prepare(`
+        ${classTestSelect}
+        WHERE class_tests.id = ? AND class_tests.deleted_at IS NULL
+      `)
+      .get(requiredText(id, "Class test id"));
+  }
+
+  function resolveClassTestValues(input, existing = null) {
+    const className =
+      input?.className === undefined && existing
+        ? existing.class_name
+        : requiredText(input?.className, "Class");
+    const schoolClass = getActiveClassByName.get(className);
+    if (!schoolClass || schoolClass.status !== "Active") {
+      throw new Error("Select an active class.");
+    }
+    const section =
+      input?.section === undefined && existing
+        ? existing.section ?? ""
+        : optionalText(input?.section);
+    if (section) {
+      const schoolSection = db
+        .prepare(`
+          SELECT id
+          FROM sections
+          WHERE class_id = ?
+            AND name = ? COLLATE NOCASE
+            AND status = 'Active'
+            AND deleted_at IS NULL
+        `)
+        .get(schoolClass.id, section);
+      if (!schoolSection) {
+        throw new Error("Select an active section for the chosen class.");
+      }
+    }
+    const subjectId =
+      input?.subjectId === undefined && existing
+        ? existing.subject_id
+        : requiredText(input?.subjectId, "Subject");
+    const subject = getActiveSubjectById.get(subjectId);
+    if (
+      !subject ||
+      subject.status !== "Active" ||
+      subject.class_name !== schoolClass.name
+    ) {
+      throw new Error("Select an active subject for the chosen class.");
+    }
+    const teacherId =
+      input?.teacherId === undefined && existing
+        ? existing.teacher_id
+        : requiredText(input?.teacherId, "Teacher");
+    const teacher = db
+      .prepare(`
+        SELECT *
+        FROM employees
+        WHERE id = ? AND status = 'Active' AND deleted_at IS NULL
+      `)
+      .get(teacherId);
+    if (!teacher) throw new Error("Select an active teacher.");
+    const maxMarks =
+      input?.maxMarks === undefined && existing
+        ? Number(existing.max_marks)
+        : wholeNumber(input?.maxMarks, "Maximum marks", 1);
+    const passingMarks =
+      input?.passingMarks === undefined && existing
+        ? Number(existing.passing_marks ?? 0)
+        : wholeNumber(input?.passingMarks ?? 0, "Passing marks", 0);
+    if (passingMarks > maxMarks) {
+      throw new Error("Passing marks cannot exceed maximum marks.");
+    }
+    const status =
+      input?.status === undefined && existing
+        ? existing.status
+        : optionalText(input?.status) || "Active";
+    if (!MASTER_STATUSES.has(status)) {
+      throw new Error("Class test status is invalid.");
+    }
+    return {
+      testName:
+        input?.testName === undefined && existing
+          ? existing.test_name
+          : requiredText(input?.testName, "Test name"),
+      className: schoolClass.name,
+      section,
+      subjectId: subject.id,
+      subjectName: subject.name,
+      teacherId: teacher.id,
+      teacherName: teacher.name,
+      testDate:
+        input?.testDate === undefined && existing
+          ? existing.test_date
+          : normalizeDate(input?.testDate, "Test date"),
+      maxMarks,
+      passingMarks,
+      description:
+        input?.description === undefined && existing
+          ? existing.description ?? ""
+          : optionalText(input?.description),
+      status,
+    };
+  }
+
+  function createPendingClassTestMarks(
+    testId,
+    className,
+    section,
+    timestamp,
+  ) {
+    const students = db
+      .prepare(`
+        SELECT *
+        FROM students
+        WHERE class_name = ?
+          AND (? = '' OR COALESCE(section, '') = ?)
+          AND status = 'Active'
+          AND deleted_at IS NULL
+        ORDER BY admission_no COLLATE NOCASE, name COLLATE NOCASE
+      `)
+      .all(className, section, section);
+    const insertMark = db.prepare(`
+      INSERT OR IGNORE INTO class_test_marks (
+        id, test_id, student_id, student_name, admission_no, class_name,
+        section, marks_obtained, result_status, remarks, created_at,
+        updated_at, sync_status
+      ) VALUES (
+        @id, @testId, @studentId, @studentName, @admissionNo, @className,
+        @section, 0, 'Pending', '', @createdAt, @updatedAt, 'pending'
+      )
+    `);
+    for (const student of students) {
+      insertMark.run({
+        id: crypto.randomUUID(),
+        testId,
+        studentId: student.id,
+        studentName: student.name,
+        admissionNo: student.admission_no,
+        className: student.class_name,
+        section: student.section ?? "",
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+    }
+    return students.length;
+  }
+
+  function resolveClassTestMarkValues(input, existing, test) {
+    const marksObtained =
+      input?.marksObtained === undefined
+        ? Number(existing.marks_obtained ?? 0)
+        : wholeNumber(input.marksObtained, "Marks obtained", 0);
+    if (marksObtained > Number(test.max_marks)) {
+      throw new Error(
+        `Marks obtained cannot exceed ${Number(test.max_marks)}.`,
+      );
+    }
+    const requestedStatus =
+      input?.resultStatus === undefined
+        ? existing.result_status
+        : requiredText(input.resultStatus, "Result status");
+    if (!CLASS_TEST_RESULT_STATUSES.has(requestedStatus)) {
+      throw new Error("Class test result status is invalid.");
+    }
+    const resultStatus =
+      requestedStatus === "Absent"
+        ? "Absent"
+        : requestedStatus === "Pending"
+          ? "Pending"
+          : marksObtained >= Number(test.passing_marks ?? 0)
+            ? "Pass"
+            : "Fail";
+    return {
+      marksObtained: resultStatus === "Absent" ? 0 : marksObtained,
+      resultStatus,
+      remarks:
+        input?.remarks === undefined
+          ? existing.remarks ?? ""
+          : optionalText(input.remarks),
+    };
+  }
+
   return {
     getStudents() {
       return getStudentsStatement.all().map(studentFromRow);
@@ -1645,7 +2428,42 @@ function createDatabase(databasePath) {
         updatedAt: now(),
       });
 
-      return studentFromRow(getStudentStatement.get(studentId));
+      const updatedStudent = studentFromRow(getStudentStatement.get(studentId));
+      db.prepare(`
+        UPDATE homework_submissions
+        SET student_name = ?,
+            admission_no = ?,
+            class_name = ?,
+            section = ?,
+            updated_at = ?,
+            sync_status = 'pending'
+        WHERE student_id = ?
+      `).run(
+        updatedStudent.name,
+        updatedStudent.admissionNo,
+        updatedStudent.className,
+        updatedStudent.section,
+        now(),
+        studentId,
+      );
+      db.prepare(`
+        UPDATE class_test_marks
+        SET student_name = ?,
+            admission_no = ?,
+            class_name = ?,
+            section = ?,
+            updated_at = ?,
+            sync_status = 'pending'
+        WHERE student_id = ?
+      `).run(
+        updatedStudent.name,
+        updatedStudent.admissionNo,
+        updatedStudent.className,
+        updatedStudent.section,
+        now(),
+        studentId,
+      );
+      return updatedStudent;
     },
 
     deleteStudent(id) {
@@ -2492,6 +3310,31 @@ function createDatabase(databasePath) {
             SET class_name = ?, updated_at = ?, sync_status = 'pending'
             WHERE class_name = ?
           `).run(name, updatedAt, existing.name);
+          db.prepare(`
+            UPDATE timetable_entries
+            SET class_name = ?, updated_at = ?, sync_status = 'pending'
+            WHERE class_name = ? AND deleted_at IS NULL
+          `).run(name, updatedAt, existing.name);
+          db.prepare(`
+            UPDATE homework
+            SET class_name = ?, updated_at = ?, sync_status = 'pending'
+            WHERE class_name = ? AND deleted_at IS NULL
+          `).run(name, updatedAt, existing.name);
+          db.prepare(`
+            UPDATE homework_submissions
+            SET class_name = ?, updated_at = ?, sync_status = 'pending'
+            WHERE class_name = ?
+          `).run(name, updatedAt, existing.name);
+          db.prepare(`
+            UPDATE class_tests
+            SET class_name = ?, updated_at = ?, sync_status = 'pending'
+            WHERE class_name = ? AND deleted_at IS NULL
+          `).run(name, updatedAt, existing.name);
+          db.prepare(`
+            UPDATE class_test_marks
+            SET class_name = ?, updated_at = ?, sync_status = 'pending'
+            WHERE class_name = ?
+          `).run(name, updatedAt, existing.name);
         }
       })();
 
@@ -2530,6 +3373,21 @@ function createDatabase(databasePath) {
         `).run(deletedAt, deletedAt, existing.name);
         db.prepare(`
           UPDATE exams
+          SET deleted_at = ?, updated_at = ?, sync_status = 'pending'
+          WHERE class_name = ? AND deleted_at IS NULL
+        `).run(deletedAt, deletedAt, existing.name);
+        db.prepare(`
+          UPDATE timetable_entries
+          SET deleted_at = ?, updated_at = ?, sync_status = 'pending'
+          WHERE class_name = ? AND deleted_at IS NULL
+        `).run(deletedAt, deletedAt, existing.name);
+        db.prepare(`
+          UPDATE homework
+          SET deleted_at = ?, updated_at = ?, sync_status = 'pending'
+          WHERE class_name = ? AND deleted_at IS NULL
+        `).run(deletedAt, deletedAt, existing.name);
+        db.prepare(`
+          UPDATE class_tests
           SET deleted_at = ?, updated_at = ?, sync_status = 'pending'
           WHERE class_name = ? AND deleted_at IS NULL
         `).run(deletedAt, deletedAt, existing.name);
@@ -2674,6 +3532,61 @@ function createDatabase(databasePath) {
           existing.class_name,
           existing.name,
         );
+        db.prepare(`
+          UPDATE timetable_entries
+          SET class_name = ?, section = ?, updated_at = ?, sync_status = 'pending'
+          WHERE class_name = ? AND section = ? AND deleted_at IS NULL
+        `).run(
+          schoolClass.name,
+          name,
+          updatedAt,
+          existing.class_name,
+          existing.name,
+        );
+        db.prepare(`
+          UPDATE homework
+          SET class_name = ?, section = ?, updated_at = ?, sync_status = 'pending'
+          WHERE class_name = ? AND section = ? AND deleted_at IS NULL
+        `).run(
+          schoolClass.name,
+          name,
+          updatedAt,
+          existing.class_name,
+          existing.name,
+        );
+        db.prepare(`
+          UPDATE homework_submissions
+          SET class_name = ?, section = ?, updated_at = ?, sync_status = 'pending'
+          WHERE class_name = ? AND section = ?
+        `).run(
+          schoolClass.name,
+          name,
+          updatedAt,
+          existing.class_name,
+          existing.name,
+        );
+        db.prepare(`
+          UPDATE class_tests
+          SET class_name = ?, section = ?, updated_at = ?, sync_status = 'pending'
+          WHERE class_name = ? AND section = ? AND deleted_at IS NULL
+        `).run(
+          schoolClass.name,
+          name,
+          updatedAt,
+          existing.class_name,
+          existing.name,
+        );
+        db.prepare(`
+          UPDATE class_test_marks
+          SET class_name = ?, section = ?, updated_at = ?, sync_status = 'pending'
+          WHERE class_name = ? AND section = ?
+        `).run(
+          schoolClass.name,
+          name,
+          updatedAt,
+          existing.class_name,
+          existing.name,
+        );
       }
 
       return sectionFromRow(
@@ -2684,14 +3597,37 @@ function createDatabase(databasePath) {
     },
 
     deleteSection(id) {
+      const sectionId = requiredText(id, "Section id");
+      const existing = db
+        .prepare("SELECT * FROM sections WHERE id = ? AND deleted_at IS NULL")
+        .get(sectionId);
+      if (!existing) return { success: false };
       const timestamp = now();
-      const result = db
-        .prepare(`
-          UPDATE sections
+      let result;
+      db.transaction(() => {
+        result = db
+          .prepare(`
+            UPDATE sections
+            SET deleted_at = ?, updated_at = ?, sync_status = 'pending'
+            WHERE id = ? AND deleted_at IS NULL
+          `)
+          .run(timestamp, timestamp, sectionId);
+        db.prepare(`
+          UPDATE timetable_entries
           SET deleted_at = ?, updated_at = ?, sync_status = 'pending'
-          WHERE id = ? AND deleted_at IS NULL
-        `)
-        .run(timestamp, timestamp, requiredText(id, "Section id"));
+          WHERE class_name = ? AND section = ? AND deleted_at IS NULL
+        `).run(timestamp, timestamp, existing.class_name, existing.name);
+        db.prepare(`
+          UPDATE homework
+          SET deleted_at = ?, updated_at = ?, sync_status = 'pending'
+          WHERE class_name = ? AND section = ? AND deleted_at IS NULL
+        `).run(timestamp, timestamp, existing.class_name, existing.name);
+        db.prepare(`
+          UPDATE class_tests
+          SET deleted_at = ?, updated_at = ?, sync_status = 'pending'
+          WHERE class_name = ? AND section = ? AND deleted_at IS NULL
+        `).run(timestamp, timestamp, existing.class_name, existing.name);
+      })();
       return { success: result.changes === 1 };
     },
 
@@ -3116,43 +4052,96 @@ function createDatabase(databasePath) {
         throw new Error("This subject already exists for the selected class.");
       }
 
-      db.prepare(`
-        UPDATE subjects
-        SET name = @name,
-            code = @code,
-            class_name = @className,
-            max_marks = @maxMarks,
-            passing_marks = @passingMarks,
-            status = @status,
-            updated_at = @updatedAt,
-            sync_status = 'pending'
-        WHERE id = @id AND deleted_at IS NULL
-      `).run({
-        id: subjectId,
-        name,
-        code:
-          input?.code === undefined
-            ? existing.code ?? ""
-            : optionalText(input.code),
-        className: schoolClass.name,
-        maxMarks,
-        passingMarks,
-        status: masterStatus(input?.status, existing.status),
-        updatedAt: now(),
-      });
+      const updatedAt = now();
+      db.transaction(() => {
+        db.prepare(`
+          UPDATE subjects
+          SET name = @name,
+              code = @code,
+              class_name = @className,
+              max_marks = @maxMarks,
+              passing_marks = @passingMarks,
+              status = @status,
+              updated_at = @updatedAt,
+              sync_status = 'pending'
+          WHERE id = @id AND deleted_at IS NULL
+        `).run({
+          id: subjectId,
+          name,
+          code:
+            input?.code === undefined
+              ? existing.code ?? ""
+              : optionalText(input.code),
+          className: schoolClass.name,
+          maxMarks,
+          passingMarks,
+          status: masterStatus(input?.status, existing.status),
+          updatedAt,
+        });
+        if (schoolClass.name === existing.class_name) {
+          db.prepare(`
+            UPDATE timetable_entries
+            SET subject_name = ?, updated_at = ?, sync_status = 'pending'
+            WHERE subject_id = ? AND deleted_at IS NULL
+          `).run(name, updatedAt, subjectId);
+          db.prepare(`
+            UPDATE homework
+            SET subject_name = ?, updated_at = ?, sync_status = 'pending'
+            WHERE subject_id = ? AND deleted_at IS NULL
+          `).run(name, updatedAt, subjectId);
+          db.prepare(`
+            UPDATE class_tests
+            SET subject_name = ?, updated_at = ?, sync_status = 'pending'
+            WHERE subject_id = ? AND deleted_at IS NULL
+          `).run(name, updatedAt, subjectId);
+        } else {
+          db.prepare(`
+            UPDATE timetable_entries
+            SET deleted_at = ?, updated_at = ?, sync_status = 'pending'
+            WHERE subject_id = ? AND deleted_at IS NULL
+          `).run(updatedAt, updatedAt, subjectId);
+          db.prepare(`
+            UPDATE homework
+            SET subject_name = ?,
+                status = 'Inactive',
+                updated_at = ?,
+                sync_status = 'pending'
+            WHERE subject_id = ? AND deleted_at IS NULL
+          `).run(name, updatedAt, subjectId);
+          db.prepare(`
+            UPDATE class_tests
+            SET subject_name = ?,
+                status = 'Inactive',
+                updated_at = ?,
+                sync_status = 'pending'
+            WHERE subject_id = ? AND deleted_at IS NULL
+          `).run(name, updatedAt, subjectId);
+        }
+      })();
 
       return subjectFromRow(getActiveSubjectById.get(subjectId));
     },
 
     deleteSubject(id) {
+      const subjectId = requiredText(id, "Subject id");
       const timestamp = now();
-      const result = db
-        .prepare(`
-          UPDATE subjects
-          SET deleted_at = ?, updated_at = ?, sync_status = 'pending'
-          WHERE id = ? AND deleted_at IS NULL
-        `)
-        .run(timestamp, timestamp, requiredText(id, "Subject id"));
+      let result;
+      db.transaction(() => {
+        result = db
+          .prepare(`
+            UPDATE subjects
+            SET deleted_at = ?, updated_at = ?, sync_status = 'pending'
+            WHERE id = ? AND deleted_at IS NULL
+          `)
+          .run(timestamp, timestamp, subjectId);
+        if (result.changes === 1) {
+          db.prepare(`
+            UPDATE timetable_entries
+            SET deleted_at = ?, updated_at = ?, sync_status = 'pending'
+            WHERE subject_id = ? AND deleted_at IS NULL
+          `).run(timestamp, timestamp, subjectId);
+        }
+      })();
       return { success: result.changes === 1 };
     },
 
@@ -4023,34 +5012,15 @@ function createDatabase(databasePath) {
       ) {
         throw new Error("The linked user account was not found.");
       }
-
-      db.prepare(`
-        UPDATE employees
-        SET employee_no = @employeeNo,
-            name = @name,
-            designation = @designation,
-            department = @department,
-            mobile = @mobile,
-            email = @email,
-            gender = @gender,
-            date_of_birth = @dateOfBirth,
-            joining_date = @joiningDate,
-            qualification = @qualification,
-            experience = @experience,
-            address = @address,
-            salary_amount = @salaryAmount,
-            status = @status,
-            user_id = @userId,
-            updated_at = @updatedAt,
-            sync_status = 'pending'
-        WHERE id = @id AND deleted_at IS NULL
-      `).run({
+      const name =
+        input?.name === undefined
+          ? existing.name
+          : requiredText(input.name, "Employee name");
+      const updatedAt = now();
+      const updateValues = {
         id: employeeId,
         employeeNo,
-        name:
-          input?.name === undefined
-            ? existing.name
-            : requiredText(input.name, "Employee name"),
+        name,
         designation:
           input?.designation === undefined
             ? existing.designation ?? ""
@@ -4092,22 +5062,73 @@ function createDatabase(databasePath) {
             : wholeNumber(input.salaryAmount, "Salary amount", 0),
         status: masterStatus(input?.status, existing.status),
         userId: userId || null,
-        updatedAt: now(),
-      });
+        updatedAt,
+      };
+      db.transaction(() => {
+        db.prepare(`
+          UPDATE employees
+          SET employee_no = @employeeNo,
+              name = @name,
+              designation = @designation,
+              department = @department,
+              mobile = @mobile,
+              email = @email,
+              gender = @gender,
+              date_of_birth = @dateOfBirth,
+              joining_date = @joiningDate,
+              qualification = @qualification,
+              experience = @experience,
+              address = @address,
+              salary_amount = @salaryAmount,
+              status = @status,
+              user_id = @userId,
+              updated_at = @updatedAt,
+              sync_status = 'pending'
+          WHERE id = @id AND deleted_at IS NULL
+        `).run(updateValues);
+        if (name !== existing.name) {
+          db.prepare(`
+            UPDATE timetable_entries
+            SET teacher_name = ?, updated_at = ?, sync_status = 'pending'
+            WHERE teacher_id = ? AND deleted_at IS NULL
+          `).run(name, updatedAt, employeeId);
+          db.prepare(`
+            UPDATE homework
+            SET teacher_name = ?, updated_at = ?, sync_status = 'pending'
+            WHERE teacher_id = ? AND deleted_at IS NULL
+          `).run(name, updatedAt, employeeId);
+          db.prepare(`
+            UPDATE class_tests
+            SET teacher_name = ?, updated_at = ?, sync_status = 'pending'
+            WHERE teacher_id = ? AND deleted_at IS NULL
+          `).run(name, updatedAt, employeeId);
+        }
+      })();
       return this.getEmployeeById(employeeId);
     },
 
     deleteEmployee(id) {
+      const employeeId = requiredText(id, "Employee id");
       const timestamp = now();
-      const result = db
-        .prepare(`
-          UPDATE employees
-          SET deleted_at = ?,
-              updated_at = ?,
-              sync_status = 'pending'
-          WHERE id = ? AND deleted_at IS NULL
-        `)
-        .run(timestamp, timestamp, requiredText(id, "Employee id"));
+      let result;
+      db.transaction(() => {
+        result = db
+          .prepare(`
+            UPDATE employees
+            SET deleted_at = ?,
+                updated_at = ?,
+                sync_status = 'pending'
+            WHERE id = ? AND deleted_at IS NULL
+          `)
+          .run(timestamp, timestamp, employeeId);
+        if (result.changes === 1) {
+          db.prepare(`
+            UPDATE timetable_entries
+            SET deleted_at = ?, updated_at = ?, sync_status = 'pending'
+            WHERE teacher_id = ? AND deleted_at IS NULL
+          `).run(timestamp, timestamp, employeeId);
+        }
+      })();
       return { success: result.changes === 1 };
     },
 
@@ -4796,6 +5817,1191 @@ function createDatabase(databasePath) {
         `)
         .run(timestamp, timestamp, transactionId);
       return { success: result.changes === 1 };
+    },
+
+    getTimetableWeekdays() {
+      return db
+        .prepare(`
+          SELECT *
+          FROM timetable_weekdays
+          WHERE deleted_at IS NULL
+          ORDER BY display_order, name COLLATE NOCASE
+        `)
+        .all()
+        .map(timetableWeekdayFromRow);
+    },
+
+    createTimetableWeekday(input) {
+      const name = requiredText(input?.name, "Weekday name");
+      const duplicate = db
+        .prepare(`
+          SELECT id
+          FROM timetable_weekdays
+          WHERE name = ? COLLATE NOCASE AND deleted_at IS NULL
+        `)
+        .get(name);
+      if (duplicate) {
+        throw new Error("This timetable weekday already exists.");
+      }
+      const id = crypto.randomUUID();
+      const timestamp = now();
+      db.prepare(`
+        INSERT INTO timetable_weekdays (
+          id, name, display_order, is_active, created_at, updated_at,
+          deleted_at, sync_status
+        ) VALUES (
+          @id, @name, @displayOrder, @isActive, @createdAt, @updatedAt,
+          NULL, 'pending'
+        )
+      `).run({
+        id,
+        name,
+        displayOrder: displayOrder(input?.displayOrder),
+        isActive: input?.isActive === false ? 0 : 1,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+      return timetableWeekdayFromRow(
+        db.prepare("SELECT * FROM timetable_weekdays WHERE id = ?").get(id),
+      );
+    },
+
+    updateTimetableWeekday(id, input) {
+      const weekdayId = requiredText(id, "Weekday id");
+      const existing = db
+        .prepare(`
+          SELECT *
+          FROM timetable_weekdays
+          WHERE id = ? AND deleted_at IS NULL
+        `)
+        .get(weekdayId);
+      if (!existing) throw new Error("Timetable weekday was not found.");
+      const name =
+        input?.name === undefined
+          ? existing.name
+          : requiredText(input.name, "Weekday name");
+      const duplicate = db
+        .prepare(`
+          SELECT id
+          FROM timetable_weekdays
+          WHERE name = ? COLLATE NOCASE
+            AND id <> ?
+            AND deleted_at IS NULL
+        `)
+        .get(name, weekdayId);
+      if (duplicate) throw new Error("This timetable weekday already exists.");
+      const updatedAt = now();
+      const updateValues = {
+        id: weekdayId,
+        name,
+        displayOrder:
+          input?.displayOrder === undefined
+            ? Number(existing.display_order ?? 0)
+            : displayOrder(input.displayOrder),
+        isActive:
+          input?.isActive === undefined
+            ? Number(existing.is_active ?? 1)
+            : input.isActive
+              ? 1
+              : 0,
+        updatedAt,
+      };
+      db.transaction(() => {
+        db.prepare(`
+          UPDATE timetable_weekdays
+          SET name = @name,
+              display_order = @displayOrder,
+              is_active = @isActive,
+              updated_at = @updatedAt,
+              sync_status = 'pending'
+          WHERE id = @id AND deleted_at IS NULL
+        `).run(updateValues);
+        db.prepare(`
+          UPDATE timetable_entries
+          SET weekday_name = ?, updated_at = ?, sync_status = 'pending'
+          WHERE weekday_id = ? AND deleted_at IS NULL
+        `).run(name, updatedAt, weekdayId);
+      })();
+      return timetableWeekdayFromRow(
+        db
+          .prepare("SELECT * FROM timetable_weekdays WHERE id = ?")
+          .get(weekdayId),
+      );
+    },
+
+    deleteTimetableWeekday(id) {
+      const weekdayId = requiredText(id, "Weekday id");
+      const timestamp = now();
+      let result;
+      db.transaction(() => {
+        result = db
+          .prepare(`
+            UPDATE timetable_weekdays
+            SET deleted_at = ?, updated_at = ?, sync_status = 'pending'
+            WHERE id = ? AND deleted_at IS NULL
+          `)
+          .run(timestamp, timestamp, weekdayId);
+        if (result.changes === 1) {
+          db.prepare(`
+            UPDATE timetable_entries
+            SET deleted_at = ?, updated_at = ?, sync_status = 'pending'
+            WHERE weekday_id = ? AND deleted_at IS NULL
+          `).run(timestamp, timestamp, weekdayId);
+        }
+      })();
+      return { success: result.changes === 1 };
+    },
+
+    getTimetablePeriods() {
+      return db
+        .prepare(`
+          SELECT *
+          FROM timetable_periods
+          WHERE deleted_at IS NULL
+          ORDER BY display_order, start_time, name COLLATE NOCASE
+        `)
+        .all()
+        .map(timetablePeriodFromRow);
+    },
+
+    createTimetablePeriod(input) {
+      const name = requiredText(input?.name, "Period name");
+      const startTime = normalizeTime(input?.startTime, "Start time");
+      const endTime = normalizeTime(input?.endTime, "End time");
+      if (startTime >= endTime) {
+        throw new Error("Period end time must be after start time.");
+      }
+      const id = crypto.randomUUID();
+      const timestamp = now();
+      db.prepare(`
+        INSERT INTO timetable_periods (
+          id, name, start_time, end_time, display_order, is_break,
+          created_at, updated_at, deleted_at, sync_status
+        ) VALUES (
+          @id, @name, @startTime, @endTime, @displayOrder, @isBreak,
+          @createdAt, @updatedAt, NULL, 'pending'
+        )
+      `).run({
+        id,
+        name,
+        startTime,
+        endTime,
+        displayOrder: displayOrder(input?.displayOrder),
+        isBreak: input?.isBreak === true ? 1 : 0,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+      return timetablePeriodFromRow(
+        db.prepare("SELECT * FROM timetable_periods WHERE id = ?").get(id),
+      );
+    },
+
+    updateTimetablePeriod(id, input) {
+      const periodId = requiredText(id, "Period id");
+      const existing = db
+        .prepare(`
+          SELECT *
+          FROM timetable_periods
+          WHERE id = ? AND deleted_at IS NULL
+        `)
+        .get(periodId);
+      if (!existing) throw new Error("Timetable period was not found.");
+      const startTime =
+        input?.startTime === undefined
+          ? existing.start_time
+          : normalizeTime(input.startTime, "Start time");
+      const endTime =
+        input?.endTime === undefined
+          ? existing.end_time
+          : normalizeTime(input.endTime, "End time");
+      if (startTime >= endTime) {
+        throw new Error("Period end time must be after start time.");
+      }
+      const name =
+        input?.name === undefined
+          ? existing.name
+          : requiredText(input.name, "Period name");
+      const isBreak =
+        input?.isBreak === undefined
+          ? Number(existing.is_break ?? 0)
+          : input.isBreak
+            ? 1
+            : 0;
+      const updatedAt = now();
+      const updateValues = {
+        id: periodId,
+        name,
+        startTime,
+        endTime,
+        displayOrder:
+          input?.displayOrder === undefined
+            ? Number(existing.display_order ?? 0)
+            : displayOrder(input.displayOrder),
+        isBreak,
+        updatedAt,
+      };
+      db.transaction(() => {
+        db.prepare(`
+          UPDATE timetable_periods
+          SET name = @name,
+              start_time = @startTime,
+              end_time = @endTime,
+              display_order = @displayOrder,
+              is_break = @isBreak,
+              updated_at = @updatedAt,
+              sync_status = 'pending'
+          WHERE id = @id AND deleted_at IS NULL
+        `).run(updateValues);
+        if (isBreak === 1) {
+          db.prepare(`
+            UPDATE timetable_entries
+            SET deleted_at = ?, updated_at = ?, sync_status = 'pending'
+            WHERE period_id = ? AND deleted_at IS NULL
+          `).run(updatedAt, updatedAt, periodId);
+        } else {
+          db.prepare(`
+            UPDATE timetable_entries
+            SET period_name = ?,
+                start_time = ?,
+                end_time = ?,
+                updated_at = ?,
+                sync_status = 'pending'
+            WHERE period_id = ? AND deleted_at IS NULL
+          `).run(name, startTime, endTime, updatedAt, periodId);
+        }
+      })();
+      return timetablePeriodFromRow(
+        db
+          .prepare("SELECT * FROM timetable_periods WHERE id = ?")
+          .get(periodId),
+      );
+    },
+
+    deleteTimetablePeriod(id) {
+      const periodId = requiredText(id, "Period id");
+      const timestamp = now();
+      let result;
+      db.transaction(() => {
+        result = db
+          .prepare(`
+            UPDATE timetable_periods
+            SET deleted_at = ?, updated_at = ?, sync_status = 'pending'
+            WHERE id = ? AND deleted_at IS NULL
+          `)
+          .run(timestamp, timestamp, periodId);
+        if (result.changes === 1) {
+          db.prepare(`
+            UPDATE timetable_entries
+            SET deleted_at = ?, updated_at = ?, sync_status = 'pending'
+            WHERE period_id = ? AND deleted_at IS NULL
+          `).run(timestamp, timestamp, periodId);
+        }
+      })();
+      return { success: result.changes === 1 };
+    },
+
+    getClassrooms() {
+      return db
+        .prepare(`
+          SELECT *
+          FROM classrooms
+          WHERE deleted_at IS NULL
+          ORDER BY
+            CASE status WHEN 'Active' THEN 0 ELSE 1 END,
+            name COLLATE NOCASE
+        `)
+        .all()
+        .map(classroomFromRow);
+    },
+
+    createClassroom(input) {
+      const name = requiredText(input?.name, "Classroom name");
+      const duplicate = db
+        .prepare(`
+          SELECT id
+          FROM classrooms
+          WHERE name = ? COLLATE NOCASE AND deleted_at IS NULL
+        `)
+        .get(name);
+      if (duplicate) throw new Error("This classroom already exists.");
+      const id = crypto.randomUUID();
+      const timestamp = now();
+      db.prepare(`
+        INSERT INTO classrooms (
+          id, name, capacity, description, status, created_at, updated_at,
+          deleted_at, sync_status
+        ) VALUES (
+          @id, @name, @capacity, @description, @status, @createdAt,
+          @updatedAt, NULL, 'pending'
+        )
+      `).run({
+        id,
+        name,
+        capacity: wholeNumber(input?.capacity ?? 0, "Classroom capacity", 0),
+        description: optionalText(input?.description),
+        status: masterStatus(input?.status),
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+      return classroomFromRow(
+        db.prepare("SELECT * FROM classrooms WHERE id = ?").get(id),
+      );
+    },
+
+    updateClassroom(id, input) {
+      const classroomId = requiredText(id, "Classroom id");
+      const existing = db
+        .prepare(`
+          SELECT *
+          FROM classrooms
+          WHERE id = ? AND deleted_at IS NULL
+        `)
+        .get(classroomId);
+      if (!existing) throw new Error("Classroom was not found.");
+      const name =
+        input?.name === undefined
+          ? existing.name
+          : requiredText(input.name, "Classroom name");
+      const duplicate = db
+        .prepare(`
+          SELECT id
+          FROM classrooms
+          WHERE name = ? COLLATE NOCASE
+            AND id <> ?
+            AND deleted_at IS NULL
+        `)
+        .get(name, classroomId);
+      if (duplicate) throw new Error("This classroom already exists.");
+      const updatedAt = now();
+      const updateValues = {
+        id: classroomId,
+        name,
+        capacity:
+          input?.capacity === undefined
+            ? Number(existing.capacity ?? 0)
+            : wholeNumber(input.capacity, "Classroom capacity", 0),
+        description:
+          input?.description === undefined
+            ? existing.description ?? ""
+            : optionalText(input.description),
+        status: masterStatus(input?.status, existing.status),
+        updatedAt,
+      };
+      db.transaction(() => {
+        db.prepare(`
+          UPDATE classrooms
+          SET name = @name,
+              capacity = @capacity,
+              description = @description,
+              status = @status,
+              updated_at = @updatedAt,
+              sync_status = 'pending'
+          WHERE id = @id AND deleted_at IS NULL
+        `).run(updateValues);
+        db.prepare(`
+          UPDATE timetable_entries
+          SET classroom_name = ?, updated_at = ?, sync_status = 'pending'
+          WHERE classroom_id = ? AND deleted_at IS NULL
+        `).run(name, updatedAt, classroomId);
+      })();
+      return classroomFromRow(
+        db.prepare("SELECT * FROM classrooms WHERE id = ?").get(classroomId),
+      );
+    },
+
+    deleteClassroom(id) {
+      const timestamp = now();
+      const result = db
+        .prepare(`
+          UPDATE classrooms
+          SET deleted_at = ?, updated_at = ?, sync_status = 'pending'
+          WHERE id = ? AND deleted_at IS NULL
+        `)
+        .run(timestamp, timestamp, requiredText(id, "Classroom id"));
+      return { success: result.changes === 1 };
+    },
+
+    getTimetableEntries() {
+      return db
+        .prepare(`
+          SELECT timetable_entries.*
+          FROM timetable_entries
+          LEFT JOIN timetable_weekdays
+            ON timetable_weekdays.id = timetable_entries.weekday_id
+          LEFT JOIN timetable_periods
+            ON timetable_periods.id = timetable_entries.period_id
+          WHERE timetable_entries.deleted_at IS NULL
+          ORDER BY
+            timetable_weekdays.display_order,
+            timetable_periods.display_order,
+            timetable_entries.class_name,
+            timetable_entries.section
+        `)
+        .all()
+        .map(timetableEntryFromRow);
+    },
+
+    getTimetableByClass(className, section) {
+      const normalizedClass = requiredText(className, "Class");
+      const sectionValue = optionalText(section);
+      const normalizedSection =
+        sectionValue.toLowerCase() === "all" ? "" : sectionValue;
+      return db
+        .prepare(`
+          SELECT timetable_entries.*
+          FROM timetable_entries
+          LEFT JOIN timetable_weekdays
+            ON timetable_weekdays.id = timetable_entries.weekday_id
+          LEFT JOIN timetable_periods
+            ON timetable_periods.id = timetable_entries.period_id
+          WHERE timetable_entries.class_name = ?
+            AND COALESCE(timetable_entries.section, '') = ?
+            AND timetable_entries.deleted_at IS NULL
+          ORDER BY
+            timetable_weekdays.display_order,
+            timetable_periods.display_order
+        `)
+        .all(normalizedClass, normalizedSection)
+        .map(timetableEntryFromRow);
+    },
+
+    getTimetableByTeacher(teacherId) {
+      return db
+        .prepare(`
+          SELECT timetable_entries.*
+          FROM timetable_entries
+          LEFT JOIN timetable_weekdays
+            ON timetable_weekdays.id = timetable_entries.weekday_id
+          LEFT JOIN timetable_periods
+            ON timetable_periods.id = timetable_entries.period_id
+          WHERE timetable_entries.teacher_id = ?
+            AND timetable_entries.deleted_at IS NULL
+          ORDER BY
+            timetable_weekdays.display_order,
+            timetable_periods.display_order,
+            timetable_entries.class_name,
+            timetable_entries.section
+        `)
+        .all(requiredText(teacherId, "Teacher id"))
+        .map(timetableEntryFromRow);
+    },
+
+    createOrUpdateTimetableEntry(input) {
+      const className = requiredText(input?.className, "Class");
+      const schoolClass = getActiveClassByName.get(className);
+      if (!schoolClass || schoolClass.status !== "Active") {
+        throw new Error("Select an active class.");
+      }
+      const section = optionalText(input?.section);
+      if (section) {
+        const schoolSection = db
+          .prepare(`
+            SELECT id
+            FROM sections
+            WHERE class_id = ?
+              AND name = ? COLLATE NOCASE
+              AND status = 'Active'
+              AND deleted_at IS NULL
+          `)
+          .get(schoolClass.id, section);
+        if (!schoolSection) {
+          throw new Error("Select an active section for the chosen class.");
+        }
+      }
+      const weekday = db
+        .prepare(`
+          SELECT *
+          FROM timetable_weekdays
+          WHERE id = ? AND is_active = 1 AND deleted_at IS NULL
+        `)
+        .get(requiredText(input?.weekdayId, "Weekday"));
+      if (!weekday) throw new Error("Select an active timetable weekday.");
+      const period = db
+        .prepare(`
+          SELECT *
+          FROM timetable_periods
+          WHERE id = ? AND deleted_at IS NULL
+        `)
+        .get(requiredText(input?.periodId, "Period"));
+      if (!period) throw new Error("Select an active timetable period.");
+      if (Number(period.is_break) === 1) {
+        throw new Error("Break periods do not require timetable entries.");
+      }
+      const subject = getActiveSubjectById.get(
+        requiredText(input?.subjectId, "Subject"),
+      );
+      if (
+        !subject ||
+        subject.status !== "Active" ||
+        subject.class_name !== schoolClass.name
+      ) {
+        throw new Error("Select an active subject for the chosen class.");
+      }
+      const teacher = db
+        .prepare(`
+          SELECT *
+          FROM employees
+          WHERE id = ? AND status = 'Active' AND deleted_at IS NULL
+        `)
+        .get(requiredText(input?.teacherId, "Teacher"));
+      if (!teacher) throw new Error("Select an active teacher.");
+      const classroomId = optionalText(input?.classroomId);
+      const classroom = classroomId
+        ? db
+            .prepare(`
+              SELECT *
+              FROM classrooms
+              WHERE id = ? AND status = 'Active' AND deleted_at IS NULL
+            `)
+            .get(classroomId)
+        : null;
+      if (classroomId && !classroom) {
+        throw new Error("Select an active classroom.");
+      }
+      const existing = db
+        .prepare(`
+          SELECT *
+          FROM timetable_entries
+          WHERE class_name = ?
+            AND COALESCE(section, '') = ?
+            AND weekday_id = ?
+            AND period_id = ?
+            AND deleted_at IS NULL
+        `)
+        .get(schoolClass.name, section, weekday.id, period.id);
+      const existingId = existing?.id ?? "";
+      const teacherConflict = db
+        .prepare(`
+          SELECT class_name, section
+          FROM timetable_entries
+          WHERE teacher_id = ?
+            AND weekday_id = ?
+            AND period_id = ?
+            AND id <> ?
+            AND deleted_at IS NULL
+        `)
+        .get(teacher.id, weekday.id, period.id, existingId);
+      if (teacherConflict) {
+        throw new Error(
+          `Teacher is already assigned to Class ${teacherConflict.class_name}${teacherConflict.section ? `-${teacherConflict.section}` : ""} for this weekday and period.`,
+        );
+      }
+      if (classroom) {
+        const classroomConflict = db
+          .prepare(`
+            SELECT class_name, section
+            FROM timetable_entries
+            WHERE classroom_id = ?
+              AND weekday_id = ?
+              AND period_id = ?
+              AND id <> ?
+              AND deleted_at IS NULL
+          `)
+          .get(classroom.id, weekday.id, period.id, existingId);
+        if (classroomConflict) {
+          throw new Error(
+            `Classroom is already assigned to Class ${classroomConflict.class_name}${classroomConflict.section ? `-${classroomConflict.section}` : ""} for this weekday and period.`,
+          );
+        }
+      }
+
+      const timestamp = now();
+      const entryId = existing?.id ?? crypto.randomUUID();
+      if (existing) {
+        db.prepare(`
+          UPDATE timetable_entries
+          SET weekday_name = @weekdayName,
+              period_name = @periodName,
+              start_time = @startTime,
+              end_time = @endTime,
+              subject_id = @subjectId,
+              subject_name = @subjectName,
+              teacher_id = @teacherId,
+              teacher_name = @teacherName,
+              classroom_id = @classroomId,
+              classroom_name = @classroomName,
+              notes = @notes,
+              updated_at = @updatedAt,
+              sync_status = 'pending'
+          WHERE id = @id AND deleted_at IS NULL
+        `).run({
+          id: entryId,
+          weekdayName: weekday.name,
+          periodName: period.name,
+          startTime: period.start_time,
+          endTime: period.end_time,
+          subjectId: subject.id,
+          subjectName: subject.name,
+          teacherId: teacher.id,
+          teacherName: teacher.name,
+          classroomId: classroom?.id ?? null,
+          classroomName: classroom?.name ?? "",
+          notes: optionalText(input?.notes),
+          updatedAt: timestamp,
+        });
+      } else {
+        db.prepare(`
+          INSERT INTO timetable_entries (
+            id, class_name, section, weekday_id, weekday_name, period_id,
+            period_name, start_time, end_time, subject_id, subject_name,
+            teacher_id, teacher_name, classroom_id, classroom_name, notes,
+            created_at, updated_at, deleted_at, sync_status
+          ) VALUES (
+            @id, @className, @section, @weekdayId, @weekdayName, @periodId,
+            @periodName, @startTime, @endTime, @subjectId, @subjectName,
+            @teacherId, @teacherName, @classroomId, @classroomName, @notes,
+            @createdAt, @updatedAt, NULL, 'pending'
+          )
+        `).run({
+          id: entryId,
+          className: schoolClass.name,
+          section,
+          weekdayId: weekday.id,
+          weekdayName: weekday.name,
+          periodId: period.id,
+          periodName: period.name,
+          startTime: period.start_time,
+          endTime: period.end_time,
+          subjectId: subject.id,
+          subjectName: subject.name,
+          teacherId: teacher.id,
+          teacherName: teacher.name,
+          classroomId: classroom?.id ?? null,
+          classroomName: classroom?.name ?? "",
+          notes: optionalText(input?.notes),
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        });
+      }
+      return timetableEntryFromRow(
+        db.prepare("SELECT * FROM timetable_entries WHERE id = ?").get(entryId),
+      );
+    },
+
+    deleteTimetableEntry(id) {
+      const timestamp = now();
+      const result = db
+        .prepare(`
+          UPDATE timetable_entries
+          SET deleted_at = ?, updated_at = ?, sync_status = 'pending'
+          WHERE id = ? AND deleted_at IS NULL
+        `)
+        .run(timestamp, timestamp, requiredText(id, "Timetable entry id"));
+      return { success: result.changes === 1 };
+    },
+
+    getHomework() {
+      return db
+        .prepare(`
+          ${homeworkSelect}
+          WHERE homework.deleted_at IS NULL
+          ORDER BY homework.homework_date DESC, homework.created_at DESC
+        `)
+        .all()
+        .map(homeworkWithCountsFromRow);
+    },
+
+    getHomeworkByClass(className, section) {
+      const normalizedClass = requiredText(className, "Class");
+      const sectionValue = optionalText(section);
+      const normalizedSection =
+        sectionValue.toLowerCase() === "all" ? "" : sectionValue;
+      return db
+        .prepare(`
+          ${homeworkSelect}
+          WHERE homework.class_name = ?
+            AND (
+              ? = ''
+              OR COALESCE(homework.section, '') = ?
+              OR COALESCE(homework.section, '') = ''
+            )
+            AND homework.deleted_at IS NULL
+          ORDER BY homework.homework_date DESC, homework.created_at DESC
+        `)
+        .all(normalizedClass, normalizedSection, normalizedSection)
+        .map(homeworkWithCountsFromRow);
+    },
+
+    createHomework(input) {
+      const values = resolveHomeworkValues(input);
+      const id = crypto.randomUUID();
+      const timestamp = now();
+      db.transaction(() => {
+        db.prepare(`
+          INSERT INTO homework (
+            id, title, class_name, section, subject_id, subject_name,
+            teacher_id, teacher_name, homework_date, due_date, description,
+            instructions, status, created_by, created_at, updated_at,
+            deleted_at, sync_status
+          ) VALUES (
+            @id, @title, @className, @section, @subjectId, @subjectName,
+            @teacherId, @teacherName, @homeworkDate, @dueDate, @description,
+            @instructions, @status, @createdBy, @createdAt, @updatedAt,
+            NULL, 'pending'
+          )
+        `).run({
+          id,
+          ...values,
+          dueDate: values.dueDate || null,
+          createdBy: optionalText(input?.createdBy),
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        });
+        createPendingHomeworkSubmissions(
+          id,
+          values.className,
+          values.section,
+          timestamp,
+        );
+      })();
+      return homeworkWithCountsFromRow(getHomeworkRow(id));
+    },
+
+    updateHomework(id, input) {
+      const homeworkId = requiredText(id, "Homework id");
+      const existing = db
+        .prepare(`
+          SELECT *
+          FROM homework
+          WHERE id = ? AND deleted_at IS NULL
+        `)
+        .get(homeworkId);
+      if (!existing) throw new Error("Homework record was not found.");
+      const values = resolveHomeworkValues(input, existing);
+      const groupChanged =
+        values.className !== existing.class_name ||
+        values.section !== (existing.section ?? "");
+      if (groupChanged) {
+        const trackedSubmission = db
+          .prepare(`
+            SELECT id
+            FROM homework_submissions
+            WHERE homework_id = ? AND status <> 'Pending'
+            LIMIT 1
+          `)
+          .get(homeworkId);
+        if (trackedSubmission) {
+          throw new Error(
+            "Class or section cannot be changed after submission tracking has started.",
+          );
+        }
+      }
+      const timestamp = now();
+      db.transaction(() => {
+        db.prepare(`
+          UPDATE homework
+          SET title = @title,
+              class_name = @className,
+              section = @section,
+              subject_id = @subjectId,
+              subject_name = @subjectName,
+              teacher_id = @teacherId,
+              teacher_name = @teacherName,
+              homework_date = @homeworkDate,
+              due_date = @dueDate,
+              description = @description,
+              instructions = @instructions,
+              status = @status,
+              updated_at = @updatedAt,
+              sync_status = 'pending'
+          WHERE id = @id AND deleted_at IS NULL
+        `).run({
+          id: homeworkId,
+          ...values,
+          dueDate: values.dueDate || null,
+          updatedAt: timestamp,
+        });
+        if (groupChanged) {
+          db.prepare(`
+            DELETE FROM homework_submissions
+            WHERE homework_id = ?
+          `).run(homeworkId);
+        }
+        createPendingHomeworkSubmissions(
+          homeworkId,
+          values.className,
+          values.section,
+          timestamp,
+        );
+      })();
+      return homeworkWithCountsFromRow(getHomeworkRow(homeworkId));
+    },
+
+    deleteHomework(id) {
+      const homeworkId = requiredText(id, "Homework id");
+      const timestamp = now();
+      const result = db
+        .prepare(`
+          UPDATE homework
+          SET deleted_at = ?, updated_at = ?, sync_status = 'pending'
+          WHERE id = ? AND deleted_at IS NULL
+        `)
+        .run(timestamp, timestamp, homeworkId);
+      return { success: result.changes === 1 };
+    },
+
+    getHomeworkSubmissions(homeworkId) {
+      const normalizedHomeworkId = requiredText(homeworkId, "Homework id");
+      const homeworkRecord = getHomeworkRow(normalizedHomeworkId);
+      if (!homeworkRecord) return [];
+      return db
+        .prepare(`
+          SELECT *
+          FROM homework_submissions
+          WHERE homework_id = ?
+          ORDER BY admission_no COLLATE NOCASE, student_name COLLATE NOCASE
+        `)
+        .all(normalizedHomeworkId)
+        .map(homeworkSubmissionFromRow);
+    },
+
+    saveHomeworkSubmissionsBulk(records) {
+      if (!Array.isArray(records) || records.length === 0) {
+        throw new Error("At least one homework submission is required.");
+      }
+      const savedIds = [];
+      db.transaction(() => {
+        for (const input of records) {
+          const homeworkId = requiredText(input?.homeworkId, "Homework id");
+          const studentId = requiredText(input?.studentId, "Student id");
+          const existing = db
+            .prepare(`
+              SELECT homework_submissions.*
+              FROM homework_submissions
+              INNER JOIN homework
+                ON homework.id = homework_submissions.homework_id
+              WHERE homework_submissions.homework_id = ?
+                AND homework_submissions.student_id = ?
+                AND homework.deleted_at IS NULL
+            `)
+            .get(homeworkId, studentId);
+          if (!existing) {
+            throw new Error(
+              "A homework submission record was not found for one of the students.",
+            );
+          }
+          const values = resolveHomeworkSubmissionValues(input, existing);
+          db.prepare(`
+            UPDATE homework_submissions
+            SET status = @status,
+                submitted_date = @submittedDate,
+                remarks = @remarks,
+                marks = @marks,
+                updated_at = @updatedAt,
+                sync_status = 'pending'
+            WHERE id = @id
+          `).run({
+            id: existing.id,
+            ...values,
+            updatedAt: now(),
+          });
+          savedIds.push(existing.id);
+        }
+      })();
+      const getSaved = db.prepare(
+        "SELECT * FROM homework_submissions WHERE id = ?",
+      );
+      return savedIds.map((id) =>
+        homeworkSubmissionFromRow(getSaved.get(id)),
+      );
+    },
+
+    updateHomeworkSubmission(id, input) {
+      const submissionId = requiredText(id, "Homework submission id");
+      const existing = db
+        .prepare(`
+          SELECT homework_submissions.*
+          FROM homework_submissions
+          INNER JOIN homework
+            ON homework.id = homework_submissions.homework_id
+          WHERE homework_submissions.id = ?
+            AND homework.deleted_at IS NULL
+        `)
+        .get(submissionId);
+      if (!existing) {
+        throw new Error("Homework submission record was not found.");
+      }
+      const values = resolveHomeworkSubmissionValues(input, existing);
+      db.prepare(`
+        UPDATE homework_submissions
+        SET status = @status,
+            submitted_date = @submittedDate,
+            remarks = @remarks,
+            marks = @marks,
+            updated_at = @updatedAt,
+            sync_status = 'pending'
+        WHERE id = @id
+      `).run({
+        id: submissionId,
+        ...values,
+        updatedAt: now(),
+      });
+      return homeworkSubmissionFromRow(
+        db
+          .prepare("SELECT * FROM homework_submissions WHERE id = ?")
+          .get(submissionId),
+      );
+    },
+
+    getClassTests() {
+      return db
+        .prepare(`
+          ${classTestSelect}
+          WHERE class_tests.deleted_at IS NULL
+          ORDER BY class_tests.test_date DESC, class_tests.created_at DESC
+        `)
+        .all()
+        .map(classTestFromRow);
+    },
+
+    getClassTestsByClass(className, section) {
+      const normalizedClass = requiredText(className, "Class");
+      const sectionValue = optionalText(section);
+      const normalizedSection =
+        sectionValue.toLowerCase() === "all" ? "" : sectionValue;
+      return db
+        .prepare(`
+          ${classTestSelect}
+          WHERE class_tests.class_name = ?
+            AND (
+              ? = ''
+              OR COALESCE(class_tests.section, '') = ?
+              OR COALESCE(class_tests.section, '') = ''
+            )
+            AND class_tests.deleted_at IS NULL
+          ORDER BY class_tests.test_date DESC, class_tests.created_at DESC
+        `)
+        .all(normalizedClass, normalizedSection, normalizedSection)
+        .map(classTestFromRow);
+    },
+
+    createClassTest(input) {
+      const values = resolveClassTestValues(input);
+      const id = crypto.randomUUID();
+      const timestamp = now();
+      db.transaction(() => {
+        db.prepare(`
+          INSERT INTO class_tests (
+            id, test_name, class_name, section, subject_id, subject_name,
+            teacher_id, teacher_name, test_date, max_marks, passing_marks,
+            description, status, created_by, created_at, updated_at,
+            deleted_at, sync_status
+          ) VALUES (
+            @id, @testName, @className, @section, @subjectId, @subjectName,
+            @teacherId, @teacherName, @testDate, @maxMarks, @passingMarks,
+            @description, @status, @createdBy, @createdAt, @updatedAt,
+            NULL, 'pending'
+          )
+        `).run({
+          id,
+          ...values,
+          createdBy: optionalText(input?.createdBy),
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        });
+        createPendingClassTestMarks(
+          id,
+          values.className,
+          values.section,
+          timestamp,
+        );
+      })();
+      return classTestFromRow(getClassTestRow(id));
+    },
+
+    updateClassTest(id, input) {
+      const testId = requiredText(id, "Class test id");
+      const existing = db
+        .prepare(`
+          SELECT *
+          FROM class_tests
+          WHERE id = ? AND deleted_at IS NULL
+        `)
+        .get(testId);
+      if (!existing) throw new Error("Class test record was not found.");
+      const values = resolveClassTestValues(input, existing);
+      const groupChanged =
+        values.className !== existing.class_name ||
+        values.section !== (existing.section ?? "");
+      if (groupChanged) {
+        const enteredMark = db
+          .prepare(`
+            SELECT id
+            FROM class_test_marks
+            WHERE test_id = ? AND result_status <> 'Pending'
+            LIMIT 1
+          `)
+          .get(testId);
+        if (enteredMark) {
+          throw new Error(
+            "Class or section cannot be changed after test marks have been entered.",
+          );
+        }
+      }
+      const timestamp = now();
+      db.transaction(() => {
+        db.prepare(`
+          UPDATE class_tests
+          SET test_name = @testName,
+              class_name = @className,
+              section = @section,
+              subject_id = @subjectId,
+              subject_name = @subjectName,
+              teacher_id = @teacherId,
+              teacher_name = @teacherName,
+              test_date = @testDate,
+              max_marks = @maxMarks,
+              passing_marks = @passingMarks,
+              description = @description,
+              status = @status,
+              updated_at = @updatedAt,
+              sync_status = 'pending'
+          WHERE id = @id AND deleted_at IS NULL
+        `).run({
+          id: testId,
+          ...values,
+          updatedAt: timestamp,
+        });
+        if (groupChanged) {
+          db.prepare(`
+            DELETE FROM class_test_marks
+            WHERE test_id = ?
+          `).run(testId);
+        } else {
+          db.prepare(`
+            UPDATE class_test_marks
+            SET result_status = CASE
+                  WHEN result_status IN ('Pass', 'Fail') THEN
+                    CASE WHEN marks_obtained >= ? THEN 'Pass' ELSE 'Fail' END
+                  ELSE result_status
+                END,
+                updated_at = ?,
+                sync_status = 'pending'
+            WHERE test_id = ?
+          `).run(values.passingMarks, timestamp, testId);
+        }
+        createPendingClassTestMarks(
+          testId,
+          values.className,
+          values.section,
+          timestamp,
+        );
+      })();
+      return classTestFromRow(getClassTestRow(testId));
+    },
+
+    deleteClassTest(id) {
+      const timestamp = now();
+      const result = db
+        .prepare(`
+          UPDATE class_tests
+          SET deleted_at = ?, updated_at = ?, sync_status = 'pending'
+          WHERE id = ? AND deleted_at IS NULL
+        `)
+        .run(timestamp, timestamp, requiredText(id, "Class test id"));
+      return { success: result.changes === 1 };
+    },
+
+    getClassTestMarks(testId) {
+      const normalizedTestId = requiredText(testId, "Class test id");
+      if (!getClassTestRow(normalizedTestId)) return [];
+      return db
+        .prepare(`
+          SELECT *
+          FROM class_test_marks
+          WHERE test_id = ?
+          ORDER BY admission_no COLLATE NOCASE, student_name COLLATE NOCASE
+        `)
+        .all(normalizedTestId)
+        .map(classTestMarkFromRow);
+    },
+
+    saveClassTestMarksBulk(records) {
+      if (!Array.isArray(records)) {
+        throw new Error("Class test mark records must be an array.");
+      }
+      if (records.length === 0) return [];
+      const savedIds = [];
+      db.transaction(() => {
+        for (const input of records) {
+          const testId = requiredText(input?.testId, "Class test id");
+          const studentId = requiredText(input?.studentId, "Student id");
+          const test = db
+            .prepare(`
+              SELECT *
+              FROM class_tests
+              WHERE id = ? AND deleted_at IS NULL
+            `)
+            .get(testId);
+          if (!test) throw new Error("Class test record was not found.");
+          const existing = db
+            .prepare(`
+              SELECT *
+              FROM class_test_marks
+              WHERE test_id = ? AND student_id = ?
+            `)
+            .get(testId, studentId);
+          if (!existing) {
+            throw new Error(
+              "A class test mark row was not found for one of the students.",
+            );
+          }
+          const values = resolveClassTestMarkValues(input, existing, test);
+          db.prepare(`
+            UPDATE class_test_marks
+            SET marks_obtained = @marksObtained,
+                result_status = @resultStatus,
+                remarks = @remarks,
+                updated_at = @updatedAt,
+                sync_status = 'pending'
+            WHERE id = @id
+          `).run({
+            id: existing.id,
+            ...values,
+            updatedAt: now(),
+          });
+          savedIds.push(existing.id);
+        }
+      })();
+      const getSaved = db.prepare("SELECT * FROM class_test_marks WHERE id = ?");
+      return savedIds.map((id) => classTestMarkFromRow(getSaved.get(id)));
+    },
+
+    updateClassTestMark(id, input) {
+      const markId = requiredText(id, "Class test mark id");
+      const existing = db
+        .prepare(`
+          SELECT *
+          FROM class_test_marks
+          WHERE id = ?
+        `)
+        .get(markId);
+      if (!existing) throw new Error("Class test mark row was not found.");
+      const test = db
+        .prepare(`
+          SELECT *
+          FROM class_tests
+          WHERE id = ? AND deleted_at IS NULL
+        `)
+        .get(existing.test_id);
+      if (!test) throw new Error("Class test record was not found.");
+      const values = resolveClassTestMarkValues(input, existing, test);
+      db.prepare(`
+        UPDATE class_test_marks
+        SET marks_obtained = @marksObtained,
+            result_status = @resultStatus,
+            remarks = @remarks,
+            updated_at = @updatedAt,
+            sync_status = 'pending'
+        WHERE id = @id
+      `).run({
+        id: markId,
+        ...values,
+        updatedAt: now(),
+      });
+      return classTestMarkFromRow(
+        db.prepare("SELECT * FROM class_test_marks WHERE id = ?").get(markId),
+      );
     },
 
     getCertificateTemplates() {

@@ -6,11 +6,16 @@ import type {
   AttendanceSummary,
   AuthUser,
   ClassItem,
+  ClassTest,
+  ClassTestMark,
+  Classroom,
   CertificateTemplate,
   CreateCertificateTemplateInput,
   CreateAccountCategoryInput,
   CreateAccountTransactionInput,
   CreateClassInput,
+  CreateClassTestInput,
+  CreateClassroomInput,
   CreateEmployeeInput,
   CreateExamInput,
   CreateFirstOwnerInput,
@@ -21,6 +26,8 @@ import type {
   CreateSalaryPaymentInput,
   CreateStudentInput,
   CreateSubjectInput,
+  CreateTimetablePeriodInput,
+  CreateTimetableWeekdayInput,
   CreateUserInput,
   DatabaseActionResult,
   DatabaseInfo,
@@ -30,38 +37,54 @@ import type {
   FeeHead,
   FeePayment,
   FeeStructure,
+  Homework,
+  HomeworkSubmission,
   IssueCertificateInput,
   IssuedCertificate,
   MarkRecord,
   LicenseStatus,
   SaveMarkInput,
   SaveAttendanceInput,
+  SaveClassTestMarkInput,
+  SaveHomeworkSubmissionInput,
   SaveSchoolSettingsInput,
   SalaryPayment,
   SchoolSettings,
   SectionItem,
+  SaveTimetableEntryInput,
   Student,
   StudentImportOptions,
   StudentImportResult,
   StudentImportRow,
   StudentImportTemplate,
   Subject,
+  TimetableEntry,
+  TimetablePeriod,
+  TimetableWeekday,
   User,
   UpdateClassInput,
+  UpdateClassTestInput,
+  UpdateClassTestMarkInput,
   UpdateCertificateTemplateInput,
   UpdateAccountCategoryInput,
   UpdateAccountTransactionInput,
+  UpdateClassroomInput,
   UpdateEmployeeInput,
   UpdateAttendanceInput,
   UpdateExamInput,
   UpdateFeeHeadInput,
   UpdateFeeStructureInput,
+  UpdateHomeworkInput,
+  UpdateHomeworkSubmissionInput,
   UpdateSectionInput,
   UpdateSalaryPaymentInput,
   UpdateStudentInput,
   UpdateSubjectInput,
+  UpdateTimetablePeriodInput,
+  UpdateTimetableWeekdayInput,
   UpdateMarkInput,
   UpdateUserInput,
+  CreateHomeworkInput,
 } from './index'
 
 export interface ErpApi {
@@ -148,6 +171,89 @@ export interface ErpApi {
     input: UpdateAccountTransactionInput,
   ) => Promise<AccountTransaction>
   deleteAccountTransaction: (id: string) => Promise<{ success: boolean }>
+
+  getTimetableWeekdays: () => Promise<TimetableWeekday[]>
+  createTimetableWeekday: (
+    input: CreateTimetableWeekdayInput,
+  ) => Promise<TimetableWeekday>
+  updateTimetableWeekday: (
+    id: string,
+    input: UpdateTimetableWeekdayInput,
+  ) => Promise<TimetableWeekday>
+  deleteTimetableWeekday: (id: string) => Promise<{ success: boolean }>
+
+  getTimetablePeriods: () => Promise<TimetablePeriod[]>
+  createTimetablePeriod: (
+    input: CreateTimetablePeriodInput,
+  ) => Promise<TimetablePeriod>
+  updateTimetablePeriod: (
+    id: string,
+    input: UpdateTimetablePeriodInput,
+  ) => Promise<TimetablePeriod>
+  deleteTimetablePeriod: (id: string) => Promise<{ success: boolean }>
+
+  getClassrooms: () => Promise<Classroom[]>
+  createClassroom: (input: CreateClassroomInput) => Promise<Classroom>
+  updateClassroom: (
+    id: string,
+    input: UpdateClassroomInput,
+  ) => Promise<Classroom>
+  deleteClassroom: (id: string) => Promise<{ success: boolean }>
+
+  getTimetableEntries: () => Promise<TimetableEntry[]>
+  getTimetableByClass: (
+    className: string,
+    section: string,
+  ) => Promise<TimetableEntry[]>
+  getTimetableByTeacher: (
+    teacherId: string,
+  ) => Promise<TimetableEntry[]>
+  createOrUpdateTimetableEntry: (
+    input: SaveTimetableEntryInput,
+  ) => Promise<TimetableEntry>
+  deleteTimetableEntry: (id: string) => Promise<{ success: boolean }>
+
+  getHomework: () => Promise<Homework[]>
+  getHomeworkByClass: (
+    className: string,
+    section: string,
+  ) => Promise<Homework[]>
+  createHomework: (input: CreateHomeworkInput) => Promise<Homework>
+  updateHomework: (
+    id: string,
+    input: UpdateHomeworkInput,
+  ) => Promise<Homework>
+  deleteHomework: (id: string) => Promise<{ success: boolean }>
+  getHomeworkSubmissions: (
+    homeworkId: string,
+  ) => Promise<HomeworkSubmission[]>
+  saveHomeworkSubmissionsBulk: (
+    records: SaveHomeworkSubmissionInput[],
+  ) => Promise<HomeworkSubmission[]>
+  updateHomeworkSubmission: (
+    id: string,
+    input: UpdateHomeworkSubmissionInput,
+  ) => Promise<HomeworkSubmission>
+
+  getClassTests: () => Promise<ClassTest[]>
+  getClassTestsByClass: (
+    className: string,
+    section: string,
+  ) => Promise<ClassTest[]>
+  createClassTest: (input: CreateClassTestInput) => Promise<ClassTest>
+  updateClassTest: (
+    id: string,
+    input: UpdateClassTestInput,
+  ) => Promise<ClassTest>
+  deleteClassTest: (id: string) => Promise<{ success: boolean }>
+  getClassTestMarks: (testId: string) => Promise<ClassTestMark[]>
+  saveClassTestMarksBulk: (
+    records: SaveClassTestMarkInput[],
+  ) => Promise<ClassTestMark[]>
+  updateClassTestMark: (
+    id: string,
+    input: UpdateClassTestMarkInput,
+  ) => Promise<ClassTestMark>
 
   getSchoolSettings: () => Promise<SchoolSettings>
   saveSchoolSettings: (settings: SaveSchoolSettingsInput) => Promise<SchoolSettings>

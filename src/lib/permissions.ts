@@ -13,6 +13,9 @@ const pagePermissions: Record<PermissionRole, readonly PageId[]> = {
     'employees',
     'salary',
     'accounts',
+    'timetable',
+    'homework',
+    'class-tests',
     'placeholder',
   ],
   Admin: [
@@ -27,6 +30,9 @@ const pagePermissions: Record<PermissionRole, readonly PageId[]> = {
     'employees',
     'salary',
     'accounts',
+    'timetable',
+    'homework',
+    'class-tests',
     'placeholder',
   ],
   Accountant: [
@@ -39,7 +45,16 @@ const pagePermissions: Record<PermissionRole, readonly PageId[]> = {
     'accounts',
     'placeholder',
   ],
-  Teacher: ['dashboard', 'students', 'attendance', 'exams', 'placeholder'],
+  Teacher: [
+    'dashboard',
+    'students',
+    'attendance',
+    'exams',
+    'timetable',
+    'homework',
+    'class-tests',
+    'placeholder',
+  ],
   Viewer: ['dashboard', 'students', 'reports', 'placeholder'],
 }
 
@@ -61,4 +76,8 @@ export function canManageUsers(role: PermissionRole) {
 
 export function canRestoreDatabase(role: PermissionRole) {
   return role === 'Owner'
+}
+
+export function canManageTimetable(role: PermissionRole) {
+  return role === 'Owner' || role === 'Admin'
 }

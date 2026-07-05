@@ -8,22 +8,29 @@ import {
   getErrorMessage,
   getLicenseErpApi,
 } from './lib/erpApi'
-import { canAccessPage, canManageStudents } from './lib/permissions'
+import {
+  canAccessPage,
+  canManageStudents,
+  canManageTimetable,
+} from './lib/permissions'
 import type { NavigationTarget } from './lib/navigation'
 import { Attendance } from './pages/Attendance'
 import { Accounts } from './pages/Accounts'
 import { CreateOwner } from './pages/CreateOwner'
+import { ClassTests } from './pages/ClassTests'
 import { Dashboard } from './pages/Dashboard'
 import { Exams } from './pages/Exams'
 import { Employees } from './pages/Employees'
 import { Fees } from './pages/Fees'
 import { Login } from './pages/Login'
 import { LicenseActivation } from './pages/LicenseActivation'
+import { Homework } from './pages/Homework'
 import { Reports } from './pages/Reports'
 import { Settings } from './pages/Settings'
 import { Salary } from './pages/Salary'
 import { Students } from './pages/Students'
 import { StudentDocuments } from './pages/StudentDocuments'
+import { Timetable } from './pages/Timetable'
 import type {
   AuthUser,
   LicenseStatus,
@@ -37,6 +44,9 @@ import type { ReportTab } from './pages/Reports'
 import type { SettingsTab } from './pages/Settings'
 import type { SalaryView } from './pages/Salary'
 import type { StudentDocumentsView } from './pages/StudentDocuments'
+import type { TimetableView } from './pages/Timetable'
+import type { HomeworkView } from './pages/Homework'
+import type { ClassTestsView } from './pages/ClassTests'
 
 function App() {
   const [activePage, setActivePage] = useState<PageId>('dashboard')
@@ -231,6 +241,28 @@ function App() {
           <Accounts
             initialView={(activeView || 'chart') as AccountsView}
             key={`accounts-${activeView}-${navigationRevision}`}
+          />
+        )
+      case 'timetable':
+        return (
+          <Timetable
+            canManage={canManageTimetable(currentUser.role)}
+            initialView={(activeView || 'class') as TimetableView}
+            key={`timetable-${activeView}-${navigationRevision}`}
+          />
+        )
+      case 'homework':
+        return (
+          <Homework
+            initialView={(activeView || 'dashboard') as HomeworkView}
+            key={`homework-${activeView}-${navigationRevision}`}
+          />
+        )
+      case 'class-tests':
+        return (
+          <ClassTests
+            initialView={(activeView || 'manage') as ClassTestsView}
+            key={`class-tests-${activeView}-${navigationRevision}`}
           />
         )
       case 'dashboard':

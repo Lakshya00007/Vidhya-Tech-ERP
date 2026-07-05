@@ -294,6 +294,45 @@ app.whenReady().then(async () => {
           "updateAccountTransaction",
           "deleteAccountTransaction"
         ].every((method) => typeof window.erpApi[method] === "function");
+        const timetableApiAvailable = [
+          "getTimetableWeekdays",
+          "createTimetableWeekday",
+          "updateTimetableWeekday",
+          "deleteTimetableWeekday",
+          "getTimetablePeriods",
+          "createTimetablePeriod",
+          "updateTimetablePeriod",
+          "deleteTimetablePeriod",
+          "getClassrooms",
+          "createClassroom",
+          "updateClassroom",
+          "deleteClassroom",
+          "getTimetableEntries",
+          "getTimetableByClass",
+          "getTimetableByTeacher",
+          "createOrUpdateTimetableEntry",
+          "deleteTimetableEntry"
+        ].every((method) => typeof window.erpApi[method] === "function");
+        const homeworkApiAvailable = [
+          "getHomework",
+          "getHomeworkByClass",
+          "createHomework",
+          "updateHomework",
+          "deleteHomework",
+          "getHomeworkSubmissions",
+          "saveHomeworkSubmissionsBulk",
+          "updateHomeworkSubmission"
+        ].every((method) => typeof window.erpApi[method] === "function");
+        const classTestsApiAvailable = [
+          "getClassTests",
+          "getClassTestsByClass",
+          "createClassTest",
+          "updateClassTest",
+          "deleteClassTest",
+          "getClassTestMarks",
+          "saveClassTestMarksBulk",
+          "updateClassTestMark"
+        ].every((method) => typeof window.erpApi[method] === "function");
         const licenseApiAvailable = [
           "getDeviceId",
           "getLicenseStatus",
@@ -543,6 +582,182 @@ app.whenReady().then(async () => {
           passingMarks: 33,
           status: "Active"
         });
+        const createdWeekday =
+          await window.erpApi.createTimetableWeekday({
+            name: "Sunday",
+            displayOrder: 8,
+            isActive: false
+          });
+        const updatedWeekday =
+          await window.erpApi.updateTimetableWeekday(
+            createdWeekday.id,
+            { displayOrder: 7, isActive: true }
+          );
+        const timetablePeriod =
+          await window.erpApi.createTimetablePeriod({
+            name: "Period 1",
+            startTime: "08:00",
+            endTime: "08:45",
+            displayOrder: 1,
+            isBreak: false
+          });
+        const classroom = await window.erpApi.createClassroom({
+          name: "Room 101",
+          capacity: 40,
+          description: "Main academic block",
+          status: "Active"
+        });
+        const defaultMonday = (
+          await window.erpApi.getTimetableWeekdays()
+        ).find((weekday) => weekday.name === "Monday");
+        if (!defaultMonday) {
+          throw new Error("Default Monday weekday was not created.");
+        }
+        const timetableEntry =
+          await window.erpApi.createOrUpdateTimetableEntry({
+            className: "10",
+            section: "A",
+            weekdayId: defaultMonday.id,
+            periodId: timetablePeriod.id,
+            subjectId: subject.id,
+            teacherId: employee.id,
+            classroomId: classroom.id,
+            notes: "Initial timetable entry"
+          });
+        const updatedTimetableEntry =
+          await window.erpApi.createOrUpdateTimetableEntry({
+            className: "10",
+            section: "A",
+            weekdayId: defaultMonday.id,
+            periodId: timetablePeriod.id,
+            subjectId: subject.id,
+            teacherId: employee.id,
+            classroomId: classroom.id,
+            notes: "Updated timetable entry"
+          });
+        const classTimetable =
+          await window.erpApi.getTimetableByClass("10", "A");
+        const teacherTimetable =
+          await window.erpApi.getTimetableByTeacher(employee.id);
+        const homework = await window.erpApi.createHomework({
+          title: "Algebra Practice",
+          className: "10",
+          section: "A",
+          subjectId: subject.id,
+          teacherId: employee.id,
+          homeworkDate: "2026-07-05",
+          dueDate: "2026-07-07",
+          description: "Complete exercise 4.1.",
+          instructions: "Show all working.",
+          status: "Active"
+        });
+        const initialHomeworkSubmissions =
+          await window.erpApi.getHomeworkSubmissions(homework.id);
+        const updatedHomeworkSubmission =
+          await window.erpApi.updateHomeworkSubmission(
+            initialHomeworkSubmissions[0].id,
+            {
+              status: "Submitted",
+              submittedDate: "2026-07-06",
+              marks: 8,
+              remarks: "Submitted on time"
+            }
+          );
+        const bulkHomeworkSubmissions =
+          await window.erpApi.saveHomeworkSubmissionsBulk([
+            {
+              homeworkId: homework.id,
+              studentId: student.id,
+              status: "Checked",
+              submittedDate: "2026-07-06",
+              marks: 9,
+              remarks: "Checked and verified"
+            }
+          ]);
+        const classHomework =
+          await window.erpApi.getHomeworkByClass("10", "A");
+        const homeworkToDelete = await window.erpApi.createHomework({
+          title: "Delete Homework Test",
+          className: "10",
+          section: "A",
+          subjectId: subject.id,
+          teacherId: employee.id,
+          homeworkDate: "2026-07-05",
+          dueDate: "2026-07-08",
+          status: "Active"
+        });
+        const homeworkDeleteResult =
+          await window.erpApi.deleteHomework(homeworkToDelete.id);
+        const homeworkAfterDelete = await window.erpApi.getHomework();
+        const classTest = await window.erpApi.createClassTest({
+          testName: "Weekly Algebra Test",
+          className: "10",
+          section: "A",
+          subjectId: subject.id,
+          teacherId: employee.id,
+          testDate: "2026-07-06",
+          maxMarks: 20,
+          passingMarks: 7,
+          description: "Algebra weekly assessment",
+          status: "Active"
+        });
+        const updatedClassTest = await window.erpApi.updateClassTest(
+          classTest.id,
+          {
+            passingMarks: 8,
+            description: "Updated algebra weekly assessment"
+          }
+        );
+        const initialClassTestMarks =
+          await window.erpApi.getClassTestMarks(classTest.id);
+        const failedClassTestMarks =
+          await window.erpApi.saveClassTestMarksBulk([
+            {
+              testId: classTest.id,
+              studentId: student.id,
+              marksObtained: 6,
+              resultStatus: "Pass",
+              remarks: "Below passing marks"
+            }
+          ]);
+        const passedClassTestMark =
+          await window.erpApi.updateClassTestMark(
+            initialClassTestMarks[0].id,
+            {
+              marksObtained: 9,
+              resultStatus: "Fail",
+              remarks: "Improved and verified"
+            }
+          );
+        const classTestsByClass =
+          await window.erpApi.getClassTestsByClass("10", "A");
+        const classTestMarksForSummary =
+          await window.erpApi.getClassTestMarks(classTest.id);
+        const appearedClassTestMarks = classTestMarksForSummary.filter(
+          (mark) => ["Pass", "Fail"].includes(mark.resultStatus)
+        );
+        const classTestAverage =
+          appearedClassTestMarks.reduce(
+            (total, mark) => total + mark.marksObtained,
+            0
+          ) / appearedClassTestMarks.length;
+        const classTestHighest = Math.max(
+          ...appearedClassTestMarks.map((mark) => mark.marksObtained)
+        );
+        const classTestToDelete = await window.erpApi.createClassTest({
+          testName: "Delete Class Test",
+          className: "10",
+          section: "A",
+          subjectId: subject.id,
+          teacherId: employee.id,
+          testDate: "2026-07-07",
+          maxMarks: 10,
+          passingMarks: 4,
+          status: "Active"
+        });
+        const classTestDeleteResult =
+          await window.erpApi.deleteClassTest(classTestToDelete.id);
+        const classTestsAfterDelete = await window.erpApi.getClassTests();
         const exam = await window.erpApi.createExam({
           name: "Unit Test I",
           className: "10",
@@ -660,6 +875,9 @@ app.whenReady().then(async () => {
           employeeApiAvailable,
           salaryApiAvailable,
           accountsApiAvailable,
+          timetableApiAvailable,
+          homeworkApiAvailable,
+          classTestsApiAvailable,
           licenseApiAvailable,
           deviceId,
           licenseBeforeActivation,
@@ -700,6 +918,63 @@ app.whenReady().then(async () => {
             employeeDeleteResult.success &&
             !employeesAfterDelete.some(
               (item) => item.id === deletedEmployee.id
+            ),
+          timetableWeekdayCount: (
+            await window.erpApi.getTimetableWeekdays()
+          ).length,
+          timetableWeekdayUpdated:
+            updatedWeekday.displayOrder === 7 &&
+            updatedWeekday.isActive === true,
+          timetablePeriodId: timetablePeriod.id,
+          classroomId: classroom.id,
+          timetableEntryId: timetableEntry.id,
+          timetableWeekdayId: defaultMonday.id,
+          timetableEntryCount: (
+            await window.erpApi.getTimetableEntries()
+          ).length,
+          timetableEntryUpdated:
+            updatedTimetableEntry.id === timetableEntry.id &&
+            updatedTimetableEntry.notes === "Updated timetable entry",
+          classTimetableCount: classTimetable.length,
+          teacherTimetableCount: teacherTimetable.length,
+          homeworkId: homework.id,
+          homeworkSubmissionId: initialHomeworkSubmissions[0].id,
+          homeworkSubmissionCount: initialHomeworkSubmissions.length,
+          homeworkPendingCreated:
+            initialHomeworkSubmissions[0]?.status === "Pending",
+          homeworkSubmissionUpdated:
+            updatedHomeworkSubmission.status === "Submitted" &&
+            updatedHomeworkSubmission.marks === 8,
+          homeworkBulkUpdated:
+            bulkHomeworkSubmissions[0]?.status === "Checked" &&
+            bulkHomeworkSubmissions[0]?.marks === 9,
+          classHomeworkCount: classHomework.length,
+          homeworkSoftDeleted:
+            homeworkDeleteResult.success &&
+            !homeworkAfterDelete.some(
+              (item) => item.id === homeworkToDelete.id
+            ),
+          classTestId: classTest.id,
+          classTestMarkId: initialClassTestMarks[0].id,
+          classTestMarkCount: initialClassTestMarks.length,
+          classTestPendingCreated:
+            initialClassTestMarks[0]?.resultStatus === "Pending",
+          classTestUpdated:
+            updatedClassTest.passingMarks === 8 &&
+            updatedClassTest.description ===
+              "Updated algebra weekly assessment",
+          classTestFailAutoCalculated:
+            failedClassTestMarks[0]?.resultStatus === "Fail",
+          classTestPassAutoCalculated:
+            passedClassTestMark.resultStatus === "Pass" &&
+            passedClassTestMark.marksObtained === 9,
+          classTestsByClassCount: classTestsByClass.length,
+          classTestAverage,
+          classTestHighest,
+          classTestSoftDeleted:
+            classTestDeleteResult.success &&
+            !classTestsAfterDelete.some(
+              (item) => item.id === classTestToDelete.id
             ),
           salaryPaymentId: salaryPayment.id,
           salaryNo: salaryPayment.salaryNo,
@@ -835,6 +1110,18 @@ app.whenReady().then(async () => {
       "Accounts APIs were not exposed by the preload bridge.",
     );
     assert(
+      bridgeResult.timetableApiAvailable,
+      "Timetable APIs were not exposed by the preload bridge.",
+    );
+    assert(
+      bridgeResult.homeworkApiAvailable,
+      "Homework APIs were not exposed by the preload bridge.",
+    );
+    assert(
+      bridgeResult.classTestsApiAvailable,
+      "Class test APIs were not exposed by the preload bridge.",
+    );
+    assert(
       bridgeResult.licenseApiAvailable &&
         bridgeResult.deviceId === firstDeviceId,
       "License APIs or device ID bridge failed.",
@@ -940,6 +1227,95 @@ app.whenReady().then(async () => {
         bridgeResult.employeeSoftDeleted,
       "Employee create, update, read, or soft delete failed.",
     );
+    assert(
+      bridgeResult.timetableWeekdayCount === 7 &&
+        bridgeResult.timetableWeekdayUpdated &&
+        bridgeResult.timetableEntryCount === 1 &&
+        bridgeResult.timetableEntryUpdated &&
+        bridgeResult.classTimetableCount === 1 &&
+        bridgeResult.teacherTimetableCount === 1,
+      "Timetable setup, upsert, class query, or teacher query failed.",
+    );
+    assert(
+      bridgeResult.homeworkSubmissionCount === 1 &&
+        bridgeResult.homeworkPendingCreated &&
+        bridgeResult.homeworkSubmissionUpdated &&
+        bridgeResult.homeworkBulkUpdated &&
+        bridgeResult.classHomeworkCount === 1 &&
+        bridgeResult.homeworkSoftDeleted,
+      "Homework creation, pending submissions, updates, class query, or soft delete failed.",
+    );
+    assert(
+      bridgeResult.classTestMarkCount === 1 &&
+        bridgeResult.classTestPendingCreated &&
+        bridgeResult.classTestUpdated &&
+        bridgeResult.classTestFailAutoCalculated &&
+        bridgeResult.classTestPassAutoCalculated &&
+        bridgeResult.classTestsByClassCount === 1 &&
+        bridgeResult.classTestAverage === 9 &&
+        bridgeResult.classTestHighest === 9 &&
+        bridgeResult.classTestSoftDeleted,
+      "Class test creation, mark rows, result calculation, summary, class query, or soft delete failed.",
+    );
+    const smokeClass = database
+      .getClasses()
+      .find((item) => item.name === "10");
+    assert(smokeClass, "Timetable conflict test class was not found.");
+    const conflictSection = database.createSection({
+      classId: smokeClass.id,
+      name: "B",
+      status: "Active",
+    });
+    let teacherConflictRejected = false;
+    try {
+      database.createOrUpdateTimetableEntry({
+        className: "10",
+        section: "B",
+        weekdayId: bridgeResult.timetableWeekdayId,
+        periodId: bridgeResult.timetablePeriodId,
+        subjectId: bridgeResult.subjectId,
+        teacherId: bridgeResult.employeeId,
+        classroomId: bridgeResult.classroomId,
+      });
+    } catch (error) {
+      teacherConflictRejected =
+        error instanceof Error &&
+        error.message.includes("Teacher is already assigned");
+    }
+    assert(
+      teacherConflictRejected,
+      "A teacher was assigned to two classes in the same timetable slot.",
+    );
+    const conflictTeacher = database.createEmployee({
+      employeeNo: "EMP-TIMETABLE-CONFLICT",
+      name: "Room Conflict Teacher",
+      designation: "Teacher",
+      department: "Academics",
+      status: "Active",
+    });
+    let classroomConflictRejected = false;
+    try {
+      database.createOrUpdateTimetableEntry({
+        className: "10",
+        section: "B",
+        weekdayId: bridgeResult.timetableWeekdayId,
+        periodId: bridgeResult.timetablePeriodId,
+        subjectId: bridgeResult.subjectId,
+        teacherId: conflictTeacher.id,
+        classroomId: bridgeResult.classroomId,
+      });
+    } catch (error) {
+      classroomConflictRejected =
+        error instanceof Error &&
+        error.message.includes("Classroom is already assigned");
+    }
+    assert(
+      classroomConflictRejected &&
+        database.getTimetableEntries().length === 1,
+      "A classroom was assigned twice in the same slot or a failed conflict wrote data.",
+    );
+    database.deleteEmployee(conflictTeacher.id);
+    database.deleteSection(conflictSection.id);
     assert(
       bridgeResult.salaryNo === "SAL-2026-0001" &&
         bridgeResult.secondSalaryNo === "SAL-2026-0002",
@@ -1112,6 +1488,35 @@ app.whenReady().then(async () => {
     assert(database.getSubjects().length === 1, "Subject did not persist.");
     assert(database.getExams().length === 1, "Exam did not persist.");
     assert(database.getMarks().length === 1, "Marks did not persist.");
+    assert(
+      database.getTimetableWeekdays().length === 7 &&
+        database.getTimetablePeriods().length === 1 &&
+        database.getClassrooms().length === 1 &&
+        database.getTimetableByClass("10", "A").length === 1 &&
+        database.getTimetableByTeacher(bridgeResult.employeeId).length === 1,
+      "Timetable setup or entries did not persist.",
+    );
+    assert(
+      database.getHomework().length === 1 &&
+        database.getHomework()[0].id === bridgeResult.homeworkId &&
+        database.getHomeworkSubmissions(bridgeResult.homeworkId).length ===
+          1 &&
+        database.getHomeworkSubmissions(bridgeResult.homeworkId)[0].status ===
+          "Checked" &&
+        database.getHomeworkSubmissions(bridgeResult.homeworkId)[0].marks ===
+          9,
+      "Homework or submission updates did not persist.",
+    );
+    assert(
+      database.getClassTests().length === 1 &&
+        database.getClassTests()[0].id === bridgeResult.classTestId &&
+        database.getClassTestMarks(bridgeResult.classTestId).length === 1 &&
+        database.getClassTestMarks(bridgeResult.classTestId)[0]
+          .resultStatus === "Pass" &&
+        database.getClassTestMarks(bridgeResult.classTestId)[0]
+          .marksObtained === 9,
+      "Class test or mark updates did not persist.",
+    );
     assert(
       database.getIssuedCertificates().length === 1 &&
         database.getIssuedCertificates()[0].certificateNo ===

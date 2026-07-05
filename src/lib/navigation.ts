@@ -188,12 +188,12 @@ export const erpNavigation: ErpMenuGroup[] = [
     icon: 'calendar',
     roles: academic,
     items: [
-      placeholder('weekdays', 'Weekdays', { locked: true, feature: 'timetable' }),
-      placeholder('time-periods', 'Time Periods', { locked: true, feature: 'timetable' }),
-      placeholder('class-rooms', 'Class Rooms', { locked: true, feature: 'timetable' }),
-      placeholder('create-timetable', 'Create Timetable', { locked: true, feature: 'timetable' }),
-      placeholder('timetable-class', 'Generate For Class', { locked: true, feature: 'timetable' }),
-      placeholder('timetable-teacher', 'Generate For Teacher', { locked: true, feature: 'timetable' }),
+      { id: 'weekdays', label: 'Weekdays', target: { page: 'timetable', view: 'weekdays' }, roles: owners },
+      { id: 'time-periods', label: 'Time Periods', target: { page: 'timetable', view: 'periods' }, roles: owners },
+      { id: 'class-rooms', label: 'Class Rooms', target: { page: 'timetable', view: 'classrooms' }, roles: owners },
+      { id: 'create-timetable', label: 'Create Timetable', target: { page: 'timetable', view: 'create' }, roles: owners },
+      { id: 'timetable-class', label: 'Generate For Class', target: { page: 'timetable', view: 'class' } },
+      { id: 'timetable-teacher', label: 'Generate For Teacher', target: { page: 'timetable', view: 'teacher' } },
     ],
   },
   {
@@ -202,9 +202,9 @@ export const erpNavigation: ErpMenuGroup[] = [
     icon: 'edit',
     roles: academic,
     items: [
-      placeholder('homework-dashboard', 'Homework Dashboard', { locked: true, feature: 'homework' }),
-      placeholder('assign-homework', 'Assign Homework', { locked: true, feature: 'homework' }),
-      placeholder('homework-report', 'Homework Report', { locked: true, feature: 'homework' }),
+      { id: 'homework-dashboard', label: 'Homework Dashboard', target: { page: 'homework', view: 'dashboard' } },
+      { id: 'assign-homework', label: 'Assign Homework', target: { page: 'homework', view: 'assign' } },
+      { id: 'homework-report', label: 'Homework Report', target: { page: 'homework', view: 'report' } },
     ],
   },
   {
@@ -302,8 +302,8 @@ export const erpNavigation: ErpMenuGroup[] = [
     icon: 'edit',
     roles: academic,
     items: [
-      placeholder('manage-test-marks', 'Manage Test Marks'),
-      placeholder('test-result', 'Test Result'),
+      { id: 'manage-test-marks', label: 'Manage Test Marks', target: { page: 'class-tests', view: 'manage' } },
+      { id: 'test-result', label: 'Test Result', target: { page: 'class-tests', view: 'result' } },
     ],
   },
   {

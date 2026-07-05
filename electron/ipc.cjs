@@ -45,6 +45,39 @@ const channels = [
   "accounts:transactions:create",
   "accounts:transactions:update",
   "accounts:transactions:delete",
+  "timetable:weekdays:get-all",
+  "timetable:weekdays:create",
+  "timetable:weekdays:update",
+  "timetable:weekdays:delete",
+  "timetable:periods:get-all",
+  "timetable:periods:create",
+  "timetable:periods:update",
+  "timetable:periods:delete",
+  "timetable:classrooms:get-all",
+  "timetable:classrooms:create",
+  "timetable:classrooms:update",
+  "timetable:classrooms:delete",
+  "timetable:entries:get-all",
+  "timetable:entries:get-by-class",
+  "timetable:entries:get-by-teacher",
+  "timetable:entries:save",
+  "timetable:entries:delete",
+  "homework:get-all",
+  "homework:get-by-class",
+  "homework:create",
+  "homework:update",
+  "homework:delete",
+  "homework:submissions:get",
+  "homework:submissions:save-bulk",
+  "homework:submissions:update",
+  "class-tests:get-all",
+  "class-tests:get-by-class",
+  "class-tests:create",
+  "class-tests:update",
+  "class-tests:delete",
+  "class-tests:marks:get",
+  "class-tests:marks:save-bulk",
+  "class-tests:marks:update",
   "settings:get",
   "settings:save",
   "fees:get-all",
@@ -254,14 +287,14 @@ function registerIpcHandlers(
   ipcMain.handle(
     "employees:get-all",
     authenticated(() => {
-      requireRoles(["Owner", "Admin", "Accountant"]);
+      requireRoles(["Owner", "Admin", "Accountant", "Teacher"]);
       return database.getEmployees();
     }),
   );
   ipcMain.handle(
     "employees:get-by-id",
     authenticated((_event, id) => {
-      requireRoles(["Owner", "Admin", "Accountant"]);
+      requireRoles(["Owner", "Admin", "Accountant", "Teacher"]);
       return database.getEmployeeById(id);
     }),
   );
@@ -527,6 +560,436 @@ function registerIpcHandlers(
         );
       }
       return result;
+    }),
+  );
+
+  ipcMain.handle(
+    "timetable:weekdays:get-all",
+    authenticated(() => {
+      requireRoles(["Owner", "Admin", "Teacher"]);
+      return database.getTimetableWeekdays();
+    }),
+  );
+  ipcMain.handle(
+    "timetable:weekdays:create",
+    authenticated((_event, input) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      const created = database.createTimetableWeekday(input);
+      authService?.audit(
+        "Timetable weekday created",
+        "Timetable",
+        `Created weekday "${created.name}".`,
+        actor,
+      );
+      return created;
+    }),
+  );
+  ipcMain.handle(
+    "timetable:weekdays:update",
+    authenticated((_event, id, input) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      const updated = database.updateTimetableWeekday(id, input);
+      authService?.audit(
+        "Timetable weekday updated",
+        "Timetable",
+        `Updated weekday "${updated.name}".`,
+        actor,
+      );
+      return updated;
+    }),
+  );
+  ipcMain.handle(
+    "timetable:weekdays:delete",
+    authenticated((_event, id) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      const weekday = database
+        .getTimetableWeekdays()
+        .find((item) => item.id === id);
+      const result = database.deleteTimetableWeekday(id);
+      if (result.success) {
+        authService?.audit(
+          "Timetable weekday deleted",
+          "Timetable",
+          weekday
+            ? `Soft-deleted weekday "${weekday.name}".`
+            : "Soft-deleted a weekday.",
+          actor,
+        );
+      }
+      return result;
+    }),
+  );
+
+  ipcMain.handle(
+    "timetable:periods:get-all",
+    authenticated(() => {
+      requireRoles(["Owner", "Admin", "Teacher"]);
+      return database.getTimetablePeriods();
+    }),
+  );
+  ipcMain.handle(
+    "timetable:periods:create",
+    authenticated((_event, input) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      const created = database.createTimetablePeriod(input);
+      authService?.audit(
+        "Timetable period created",
+        "Timetable",
+        `Created period "${created.name}" (${created.startTime}-${created.endTime}).`,
+        actor,
+      );
+      return created;
+    }),
+  );
+  ipcMain.handle(
+    "timetable:periods:update",
+    authenticated((_event, id, input) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      const updated = database.updateTimetablePeriod(id, input);
+      authService?.audit(
+        "Timetable period updated",
+        "Timetable",
+        `Updated period "${updated.name}".`,
+        actor,
+      );
+      return updated;
+    }),
+  );
+  ipcMain.handle(
+    "timetable:periods:delete",
+    authenticated((_event, id) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      const period = database
+        .getTimetablePeriods()
+        .find((item) => item.id === id);
+      const result = database.deleteTimetablePeriod(id);
+      if (result.success) {
+        authService?.audit(
+          "Timetable period deleted",
+          "Timetable",
+          period
+            ? `Soft-deleted period "${period.name}".`
+            : "Soft-deleted a timetable period.",
+          actor,
+        );
+      }
+      return result;
+    }),
+  );
+
+  ipcMain.handle(
+    "timetable:classrooms:get-all",
+    authenticated(() => {
+      requireRoles(["Owner", "Admin", "Teacher"]);
+      return database.getClassrooms();
+    }),
+  );
+  ipcMain.handle(
+    "timetable:classrooms:create",
+    authenticated((_event, input) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      const created = database.createClassroom(input);
+      authService?.audit(
+        "Classroom created",
+        "Timetable",
+        `Created classroom "${created.name}".`,
+        actor,
+      );
+      return created;
+    }),
+  );
+  ipcMain.handle(
+    "timetable:classrooms:update",
+    authenticated((_event, id, input) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      const updated = database.updateClassroom(id, input);
+      authService?.audit(
+        "Classroom updated",
+        "Timetable",
+        `Updated classroom "${updated.name}".`,
+        actor,
+      );
+      return updated;
+    }),
+  );
+  ipcMain.handle(
+    "timetable:classrooms:delete",
+    authenticated((_event, id) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      const classroom = database
+        .getClassrooms()
+        .find((item) => item.id === id);
+      const result = database.deleteClassroom(id);
+      if (result.success) {
+        authService?.audit(
+          "Classroom deleted",
+          "Timetable",
+          classroom
+            ? `Soft-deleted classroom "${classroom.name}".`
+            : "Soft-deleted a classroom.",
+          actor,
+        );
+      }
+      return result;
+    }),
+  );
+
+  ipcMain.handle(
+    "timetable:entries:get-all",
+    authenticated(() => {
+      requireRoles(["Owner", "Admin", "Teacher"]);
+      return database.getTimetableEntries();
+    }),
+  );
+  ipcMain.handle(
+    "timetable:entries:get-by-class",
+    authenticated((_event, className, section) => {
+      requireRoles(["Owner", "Admin", "Teacher"]);
+      return database.getTimetableByClass(className, section);
+    }),
+  );
+  ipcMain.handle(
+    "timetable:entries:get-by-teacher",
+    authenticated((_event, teacherId) => {
+      requireRoles(["Owner", "Admin", "Teacher"]);
+      return database.getTimetableByTeacher(teacherId);
+    }),
+  );
+  ipcMain.handle(
+    "timetable:entries:save",
+    authenticated((_event, input) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      const saved = database.createOrUpdateTimetableEntry(input);
+      authService?.audit(
+        "Timetable entry saved",
+        "Timetable",
+        `Saved ${saved.className}${saved.section ? `-${saved.section}` : ""}, ${saved.weekdayName} ${saved.periodName}: ${saved.subjectName} with ${saved.teacherName}.`,
+        actor,
+      );
+      return saved;
+    }),
+  );
+  ipcMain.handle(
+    "timetable:entries:delete",
+    authenticated((_event, id) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      const entry = database
+        .getTimetableEntries()
+        .find((item) => item.id === id);
+      const result = database.deleteTimetableEntry(id);
+      if (result.success) {
+        authService?.audit(
+          "Timetable entry deleted",
+          "Timetable",
+          entry
+            ? `Removed ${entry.className}${entry.section ? `-${entry.section}` : ""}, ${entry.weekdayName} ${entry.periodName}.`
+            : "Removed a timetable entry.",
+          actor,
+        );
+      }
+      return result;
+    }),
+  );
+
+  ipcMain.handle(
+    "homework:get-all",
+    authenticated(() => {
+      requireRoles(["Owner", "Admin", "Teacher"]);
+      return database.getHomework();
+    }),
+  );
+  ipcMain.handle(
+    "homework:get-by-class",
+    authenticated((_event, className, section) => {
+      requireRoles(["Owner", "Admin", "Teacher"]);
+      return database.getHomeworkByClass(className, section);
+    }),
+  );
+  ipcMain.handle(
+    "homework:create",
+    authenticated((_event, input) => {
+      const actor = requireRoles(["Owner", "Admin", "Teacher"]);
+      const created = database.createHomework({
+        ...input,
+        createdBy: actor?.name ?? "",
+      });
+      authService?.audit(
+        "Homework created",
+        "Homework",
+        `Assigned "${created.title}" to Class ${created.className}${created.section ? `-${created.section}` : " (all sections)"} for ${created.submissionCount} student(s).`,
+        actor,
+      );
+      return created;
+    }),
+  );
+  ipcMain.handle(
+    "homework:update",
+    authenticated((_event, id, input) => {
+      const actor = requireRoles(["Owner", "Admin", "Teacher"]);
+      const updated = database.updateHomework(id, input);
+      authService?.audit(
+        "Homework updated",
+        "Homework",
+        `Updated "${updated.title}" for Class ${updated.className}${updated.section ? `-${updated.section}` : " (all sections)"}.`,
+        actor,
+      );
+      return updated;
+    }),
+  );
+  ipcMain.handle(
+    "homework:delete",
+    authenticated((_event, id) => {
+      const actor = requireRoles(["Owner", "Admin", "Teacher"]);
+      const homework = database
+        .getHomework()
+        .find((item) => item.id === id);
+      const result = database.deleteHomework(id);
+      if (result.success) {
+        authService?.audit(
+          "Homework deleted",
+          "Homework",
+          homework
+            ? `Soft-deleted "${homework.title}" for Class ${homework.className}.`
+            : "Soft-deleted a homework record.",
+          actor,
+        );
+      }
+      return result;
+    }),
+  );
+  ipcMain.handle(
+    "homework:submissions:get",
+    authenticated((_event, homeworkId) => {
+      requireRoles(["Owner", "Admin", "Teacher"]);
+      return database.getHomeworkSubmissions(homeworkId);
+    }),
+  );
+  ipcMain.handle(
+    "homework:submissions:save-bulk",
+    authenticated((_event, records) => {
+      const actor = requireRoles(["Owner", "Admin", "Teacher"]);
+      const saved = database.saveHomeworkSubmissionsBulk(records);
+      authService?.audit(
+        "Homework submissions updated",
+        "Homework",
+        `Updated ${saved.length} homework submission record(s).`,
+        actor,
+      );
+      return saved;
+    }),
+  );
+  ipcMain.handle(
+    "homework:submissions:update",
+    authenticated((_event, id, input) => {
+      const actor = requireRoles(["Owner", "Admin", "Teacher"]);
+      const updated = database.updateHomeworkSubmission(id, input);
+      authService?.audit(
+        "Homework submission updated",
+        "Homework",
+        `Updated homework submission for ${updated.studentName}.`,
+        actor,
+      );
+      return updated;
+    }),
+  );
+
+  ipcMain.handle(
+    "class-tests:get-all",
+    authenticated(() => {
+      requireRoles(["Owner", "Admin", "Teacher"]);
+      return database.getClassTests();
+    }),
+  );
+  ipcMain.handle(
+    "class-tests:get-by-class",
+    authenticated((_event, className, section) => {
+      requireRoles(["Owner", "Admin", "Teacher"]);
+      return database.getClassTestsByClass(className, section);
+    }),
+  );
+  ipcMain.handle(
+    "class-tests:create",
+    authenticated((_event, input) => {
+      const actor = requireRoles(["Owner", "Admin", "Teacher"]);
+      const created = database.createClassTest({
+        ...input,
+        createdBy: actor?.name ?? "",
+      });
+      authService?.audit(
+        "Class test created",
+        "Class Tests",
+        `Created "${created.testName}" for Class ${created.className}${created.section ? `-${created.section}` : " (all sections)"} with ${created.markCount} student row(s).`,
+        actor,
+      );
+      return created;
+    }),
+  );
+  ipcMain.handle(
+    "class-tests:update",
+    authenticated((_event, id, input) => {
+      const actor = requireRoles(["Owner", "Admin", "Teacher"]);
+      const updated = database.updateClassTest(id, input);
+      authService?.audit(
+        "Class test updated",
+        "Class Tests",
+        `Updated "${updated.testName}" for Class ${updated.className}.`,
+        actor,
+      );
+      return updated;
+    }),
+  );
+  ipcMain.handle(
+    "class-tests:delete",
+    authenticated((_event, id) => {
+      const actor = requireRoles(["Owner", "Admin", "Teacher"]);
+      const test = database.getClassTests().find((item) => item.id === id);
+      const result = database.deleteClassTest(id);
+      if (result.success) {
+        authService?.audit(
+          "Class test deleted",
+          "Class Tests",
+          test
+            ? `Soft-deleted "${test.testName}" for Class ${test.className}.`
+            : "Soft-deleted a class test.",
+          actor,
+        );
+      }
+      return result;
+    }),
+  );
+  ipcMain.handle(
+    "class-tests:marks:get",
+    authenticated((_event, testId) => {
+      requireRoles(["Owner", "Admin", "Teacher"]);
+      return database.getClassTestMarks(testId);
+    }),
+  );
+  ipcMain.handle(
+    "class-tests:marks:save-bulk",
+    authenticated((_event, records) => {
+      const actor = requireRoles(["Owner", "Admin", "Teacher"]);
+      const saved = database.saveClassTestMarksBulk(records);
+      authService?.audit(
+        "Class test marks updated",
+        "Class Tests",
+        `Updated ${saved.length} class test mark row(s).`,
+        actor,
+      );
+      return saved;
+    }),
+  );
+  ipcMain.handle(
+    "class-tests:marks:update",
+    authenticated((_event, id, input) => {
+      const actor = requireRoles(["Owner", "Admin", "Teacher"]);
+      const updated = database.updateClassTestMark(id, input);
+      authService?.audit(
+        "Class test mark updated",
+        "Class Tests",
+        `Updated class test marks for ${updated.studentName}.`,
+        actor,
+      );
+      return updated;
     }),
   );
 

@@ -10,6 +10,9 @@ export type PageId =
   | 'employees'
   | 'salary'
   | 'accounts'
+  | 'timetable'
+  | 'homework'
+  | 'class-tests'
   | 'placeholder'
 
 export interface ModulePlaceholderInfo {
@@ -201,6 +204,255 @@ export interface CreateEmployeeInput {
 }
 
 export type UpdateEmployeeInput = Partial<CreateEmployeeInput>
+
+export interface TimetableWeekday {
+  id: string
+  name: string
+  displayOrder: number
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+  deletedAt: string | null
+  syncStatus: SyncStatus
+}
+
+export interface CreateTimetableWeekdayInput {
+  name: string
+  displayOrder?: number
+  isActive?: boolean
+}
+
+export type UpdateTimetableWeekdayInput =
+  Partial<CreateTimetableWeekdayInput>
+
+export interface TimetablePeriod {
+  id: string
+  name: string
+  startTime: string
+  endTime: string
+  displayOrder: number
+  isBreak: boolean
+  createdAt: string
+  updatedAt: string
+  deletedAt: string | null
+  syncStatus: SyncStatus
+}
+
+export interface CreateTimetablePeriodInput {
+  name: string
+  startTime: string
+  endTime: string
+  displayOrder?: number
+  isBreak?: boolean
+}
+
+export type UpdateTimetablePeriodInput =
+  Partial<CreateTimetablePeriodInput>
+
+export interface Classroom {
+  id: string
+  name: string
+  capacity: number
+  description: string
+  status: MasterStatus
+  createdAt: string
+  updatedAt: string
+  deletedAt: string | null
+  syncStatus: SyncStatus
+}
+
+export interface CreateClassroomInput {
+  name: string
+  capacity?: number
+  description?: string
+  status?: MasterStatus
+}
+
+export type UpdateClassroomInput = Partial<CreateClassroomInput>
+
+export interface TimetableEntry {
+  id: string
+  className: string
+  section: string
+  weekdayId: string
+  weekdayName: string
+  periodId: string
+  periodName: string
+  startTime: string
+  endTime: string
+  subjectId: string
+  subjectName: string
+  teacherId: string
+  teacherName: string
+  classroomId: string
+  classroomName: string
+  notes: string
+  createdAt: string
+  updatedAt: string
+  deletedAt: string | null
+  syncStatus: SyncStatus
+}
+
+export interface SaveTimetableEntryInput {
+  className: string
+  section?: string
+  weekdayId: string
+  periodId: string
+  subjectId: string
+  teacherId: string
+  classroomId?: string
+  notes?: string
+}
+
+export type HomeworkStatus = 'Active' | 'Inactive'
+export type HomeworkSubmissionStatus =
+  | 'Pending'
+  | 'Submitted'
+  | 'Checked'
+  | 'Late'
+  | 'Missing'
+
+export interface Homework {
+  id: string
+  title: string
+  className: string
+  section: string
+  subjectId: string
+  subjectName: string
+  teacherId: string
+  teacherName: string
+  homeworkDate: string
+  dueDate: string
+  description: string
+  instructions: string
+  status: HomeworkStatus
+  createdBy: string
+  submissionCount: number
+  pendingSubmissionCount: number
+  createdAt: string
+  updatedAt: string
+  deletedAt: string | null
+  syncStatus: SyncStatus
+}
+
+export interface CreateHomeworkInput {
+  title: string
+  className: string
+  section?: string
+  subjectId: string
+  teacherId: string
+  homeworkDate: string
+  dueDate?: string
+  description?: string
+  instructions?: string
+  status?: HomeworkStatus
+}
+
+export type UpdateHomeworkInput = Partial<CreateHomeworkInput>
+
+export interface HomeworkSubmission {
+  id: string
+  homeworkId: string
+  studentId: string
+  studentName: string
+  admissionNo: string
+  className: string
+  section: string
+  status: HomeworkSubmissionStatus
+  submittedDate: string
+  remarks: string
+  marks: number | null
+  createdAt: string
+  updatedAt: string
+  syncStatus: SyncStatus
+}
+
+export interface SaveHomeworkSubmissionInput {
+  homeworkId: string
+  studentId: string
+  status: HomeworkSubmissionStatus
+  submittedDate?: string
+  remarks?: string
+  marks?: number | null
+}
+
+export interface UpdateHomeworkSubmissionInput {
+  status?: HomeworkSubmissionStatus
+  submittedDate?: string
+  remarks?: string
+  marks?: number | null
+}
+
+export type ClassTestStatus = 'Active' | 'Inactive'
+export type ClassTestResultStatus = 'Pending' | 'Pass' | 'Fail' | 'Absent'
+
+export interface ClassTest {
+  id: string
+  testName: string
+  className: string
+  section: string
+  subjectId: string
+  subjectName: string
+  teacherId: string
+  teacherName: string
+  testDate: string
+  maxMarks: number
+  passingMarks: number
+  description: string
+  status: ClassTestStatus
+  createdBy: string
+  markCount: number
+  pendingMarkCount: number
+  createdAt: string
+  updatedAt: string
+  deletedAt: string | null
+  syncStatus: SyncStatus
+}
+
+export interface CreateClassTestInput {
+  testName: string
+  className: string
+  section?: string
+  subjectId: string
+  teacherId: string
+  testDate: string
+  maxMarks: number
+  passingMarks?: number
+  description?: string
+  status?: ClassTestStatus
+}
+
+export type UpdateClassTestInput = Partial<CreateClassTestInput>
+
+export interface ClassTestMark {
+  id: string
+  testId: string
+  studentId: string
+  studentName: string
+  admissionNo: string
+  className: string
+  section: string
+  marksObtained: number
+  resultStatus: ClassTestResultStatus
+  remarks: string
+  createdAt: string
+  updatedAt: string
+  syncStatus: SyncStatus
+}
+
+export interface SaveClassTestMarkInput {
+  testId: string
+  studentId: string
+  marksObtained: number
+  resultStatus: ClassTestResultStatus
+  remarks?: string
+}
+
+export interface UpdateClassTestMarkInput {
+  marksObtained?: number
+  resultStatus?: ClassTestResultStatus
+  remarks?: string
+}
 
 export type SalaryPaymentMode = 'Cash' | 'UPI' | 'Bank Transfer' | 'Cheque'
 

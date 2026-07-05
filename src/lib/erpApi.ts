@@ -24,6 +24,15 @@ export const SALARY_API_UNAVAILABLE_MESSAGE =
 export const ACCOUNTS_API_UNAVAILABLE_MESSAGE =
   'Accounts management is available only inside the Electron desktop app.'
 
+export const TIMETABLE_API_UNAVAILABLE_MESSAGE =
+  'Timetable management is available only inside the Electron desktop app.'
+
+export const HOMEWORK_API_UNAVAILABLE_MESSAGE =
+  'Homework management is available only inside the Electron desktop app.'
+
+export const CLASS_TESTS_API_UNAVAILABLE_MESSAGE =
+  'Class test management is available only inside the Electron desktop app.'
+
 const licenseApiMethods = [
   'getDeviceId',
   'getLicenseStatus',
@@ -95,6 +104,48 @@ const accountApiMethods = [
   'createAccountTransaction',
   'updateAccountTransaction',
   'deleteAccountTransaction',
+] as const satisfies ReadonlyArray<keyof ErpApi>
+
+const timetableApiMethods = [
+  'getTimetableWeekdays',
+  'createTimetableWeekday',
+  'updateTimetableWeekday',
+  'deleteTimetableWeekday',
+  'getTimetablePeriods',
+  'createTimetablePeriod',
+  'updateTimetablePeriod',
+  'deleteTimetablePeriod',
+  'getClassrooms',
+  'createClassroom',
+  'updateClassroom',
+  'deleteClassroom',
+  'getTimetableEntries',
+  'getTimetableByClass',
+  'getTimetableByTeacher',
+  'createOrUpdateTimetableEntry',
+  'deleteTimetableEntry',
+] as const satisfies ReadonlyArray<keyof ErpApi>
+
+const homeworkApiMethods = [
+  'getHomework',
+  'getHomeworkByClass',
+  'createHomework',
+  'updateHomework',
+  'deleteHomework',
+  'getHomeworkSubmissions',
+  'saveHomeworkSubmissionsBulk',
+  'updateHomeworkSubmission',
+] as const satisfies ReadonlyArray<keyof ErpApi>
+
+const classTestsApiMethods = [
+  'getClassTests',
+  'getClassTestsByClass',
+  'createClassTest',
+  'updateClassTest',
+  'deleteClassTest',
+  'getClassTestMarks',
+  'saveClassTestMarksBulk',
+  'updateClassTestMark',
 ] as const satisfies ReadonlyArray<keyof ErpApi>
 
 export function getErpApi(): ErpApi {
@@ -185,6 +236,39 @@ export function getAccountsErpApi(): ErpApi {
     accountApiMethods.some((method) => typeof api[method] !== 'function')
   ) {
     throw new Error(ACCOUNTS_API_UNAVAILABLE_MESSAGE)
+  }
+  return api
+}
+
+export function getTimetableErpApi(): ErpApi {
+  const api = window.erpApi
+  if (
+    !api ||
+    timetableApiMethods.some((method) => typeof api[method] !== 'function')
+  ) {
+    throw new Error(TIMETABLE_API_UNAVAILABLE_MESSAGE)
+  }
+  return api
+}
+
+export function getHomeworkErpApi(): ErpApi {
+  const api = window.erpApi
+  if (
+    !api ||
+    homeworkApiMethods.some((method) => typeof api[method] !== 'function')
+  ) {
+    throw new Error(HOMEWORK_API_UNAVAILABLE_MESSAGE)
+  }
+  return api
+}
+
+export function getClassTestsErpApi(): ErpApi {
+  const api = window.erpApi
+  if (
+    !api ||
+    classTestsApiMethods.some((method) => typeof api[method] !== 'function')
+  ) {
+    throw new Error(CLASS_TESTS_API_UNAVAILABLE_MESSAGE)
   }
   return api
 }

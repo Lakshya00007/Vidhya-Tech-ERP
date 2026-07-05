@@ -22,6 +22,9 @@ const pageTitles: Record<PageId, string> = {
   employees: 'Employee Management',
   salary: 'Salary & Payroll',
   accounts: 'Accounts',
+  timetable: 'Timetable',
+  homework: 'Homework',
+  'class-tests': 'Class Tests',
   placeholder: 'Advanced Module',
 }
 

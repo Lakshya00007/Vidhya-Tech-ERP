@@ -84,6 +84,79 @@ contextBridge.exposeInMainWorld("erpApi", {
   deleteAccountTransaction: (id) =>
     ipcRenderer.invoke("accounts:transactions:delete", id),
 
+  getTimetableWeekdays: () =>
+    ipcRenderer.invoke("timetable:weekdays:get-all"),
+  createTimetableWeekday: (input) =>
+    ipcRenderer.invoke("timetable:weekdays:create", input),
+  updateTimetableWeekday: (id, input) =>
+    ipcRenderer.invoke("timetable:weekdays:update", id, input),
+  deleteTimetableWeekday: (id) =>
+    ipcRenderer.invoke("timetable:weekdays:delete", id),
+
+  getTimetablePeriods: () =>
+    ipcRenderer.invoke("timetable:periods:get-all"),
+  createTimetablePeriod: (input) =>
+    ipcRenderer.invoke("timetable:periods:create", input),
+  updateTimetablePeriod: (id, input) =>
+    ipcRenderer.invoke("timetable:periods:update", id, input),
+  deleteTimetablePeriod: (id) =>
+    ipcRenderer.invoke("timetable:periods:delete", id),
+
+  getClassrooms: () =>
+    ipcRenderer.invoke("timetable:classrooms:get-all"),
+  createClassroom: (input) =>
+    ipcRenderer.invoke("timetable:classrooms:create", input),
+  updateClassroom: (id, input) =>
+    ipcRenderer.invoke("timetable:classrooms:update", id, input),
+  deleteClassroom: (id) =>
+    ipcRenderer.invoke("timetable:classrooms:delete", id),
+
+  getTimetableEntries: () =>
+    ipcRenderer.invoke("timetable:entries:get-all"),
+  getTimetableByClass: (className, section) =>
+    ipcRenderer.invoke(
+      "timetable:entries:get-by-class",
+      className,
+      section,
+    ),
+  getTimetableByTeacher: (teacherId) =>
+    ipcRenderer.invoke("timetable:entries:get-by-teacher", teacherId),
+  createOrUpdateTimetableEntry: (input) =>
+    ipcRenderer.invoke("timetable:entries:save", input),
+  deleteTimetableEntry: (id) =>
+    ipcRenderer.invoke("timetable:entries:delete", id),
+
+  getHomework: () => ipcRenderer.invoke("homework:get-all"),
+  getHomeworkByClass: (className, section) =>
+    ipcRenderer.invoke("homework:get-by-class", className, section),
+  createHomework: (input) =>
+    ipcRenderer.invoke("homework:create", input),
+  updateHomework: (id, input) =>
+    ipcRenderer.invoke("homework:update", id, input),
+  deleteHomework: (id) => ipcRenderer.invoke("homework:delete", id),
+  getHomeworkSubmissions: (homeworkId) =>
+    ipcRenderer.invoke("homework:submissions:get", homeworkId),
+  saveHomeworkSubmissionsBulk: (records) =>
+    ipcRenderer.invoke("homework:submissions:save-bulk", records),
+  updateHomeworkSubmission: (id, input) =>
+    ipcRenderer.invoke("homework:submissions:update", id, input),
+
+  getClassTests: () => ipcRenderer.invoke("class-tests:get-all"),
+  getClassTestsByClass: (className, section) =>
+    ipcRenderer.invoke("class-tests:get-by-class", className, section),
+  createClassTest: (input) =>
+    ipcRenderer.invoke("class-tests:create", input),
+  updateClassTest: (id, input) =>
+    ipcRenderer.invoke("class-tests:update", id, input),
+  deleteClassTest: (id) =>
+    ipcRenderer.invoke("class-tests:delete", id),
+  getClassTestMarks: (testId) =>
+    ipcRenderer.invoke("class-tests:marks:get", testId),
+  saveClassTestMarksBulk: (records) =>
+    ipcRenderer.invoke("class-tests:marks:save-bulk", records),
+  updateClassTestMark: (id, input) =>
+    ipcRenderer.invoke("class-tests:marks:update", id, input),
+
   getSchoolSettings: () => ipcRenderer.invoke("settings:get"),
   saveSchoolSettings: (settings) =>
     ipcRenderer.invoke("settings:save", settings),
