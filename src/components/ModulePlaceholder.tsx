@@ -7,6 +7,8 @@ interface ModulePlaceholderProps {
 }
 
 export function ModulePlaceholder({ info, onBack }: ModulePlaceholderProps) {
+  const isOnlineIntegration = info.status === 'online'
+
   return (
     <div className="page-stack">
       <section className="page-header">
@@ -18,13 +20,21 @@ export function ModulePlaceholder({ info, onBack }: ModulePlaceholderProps) {
 
       <section className="panel module-placeholder">
         <span className="module-placeholder__icon">
-          <Icon name="clock" size={30} />
+          <Icon name={isOnlineIntegration ? 'bell' : 'clock'} size={30} />
         </span>
-        <span className="module-placeholder__eyebrow">Advanced module placeholder</span>
-        <h3>Coming in next version</h3>
+        <span className="module-placeholder__eyebrow">
+          {isOnlineIntegration ? 'Online integration' : 'Not implemented'}
+        </span>
+        <h3>
+          {isOnlineIntegration
+            ? 'Online integration required'
+            : 'Not implemented'}
+        </h3>
         <p>
           {info.description ||
-            `${info.title} is included in the ERP navigation roadmap and is not implemented in this release.`}
+            (isOnlineIntegration
+              ? `${info.title} depends on an online service or API integration and is not available in the offline desktop module.`
+              : `${info.title} is not implemented in this release.`)}
         </p>
         <button className="secondary-button" type="button" onClick={onBack}>
           <Icon name="arrow" size={16} />

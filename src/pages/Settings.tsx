@@ -9,7 +9,14 @@ import { UsersRolesSettings } from './settings/UsersRolesSettings'
 import { AboutSettings } from './settings/AboutSettings'
 import { DemoToolsSettings } from './settings/DemoToolsSettings'
 import { LicenseSettings } from './settings/LicenseSettings'
-import type { AuthUser, LicenseStatus } from '../types'
+import { DiscountTypesSettings } from './settings/DiscountTypesSettings'
+import { FeeInvoiceAccountsSettings } from './settings/FeeInvoiceAccountsSettings'
+import { MarksGradingSettings } from './settings/MarksGradingSettings'
+import { SchoolRulesSettings } from './settings/SchoolRulesSettings'
+import { ThemeLanguageSettings } from './settings/ThemeLanguageSettings'
+import { AccountSettings } from './settings/AccountSettings'
+import { translateText } from '../lib/i18n'
+import type { AppPreference, AuthUser, LicenseStatus } from '../types'
 
 export type SettingsNotice = {
   type: 'success' | 'error'
@@ -25,6 +32,12 @@ export type SettingsTab =
   | 'classes'
   | 'fee-heads'
   | 'fee-structure'
+  | 'discount-types'
+  | 'fee-invoice-accounts'
+  | 'rules'
+  | 'marks-grading'
+  | 'theme-language'
+  | 'account'
   | 'users'
   | 'backup'
   | 'demo'
@@ -36,6 +49,12 @@ const tabs: { id: SettingsTab; label: string; icon: IconName }[] = [
   { id: 'classes', label: 'Classes & Sections', icon: 'building' },
   { id: 'fee-heads', label: 'Fee Heads', icon: 'wallet' },
   { id: 'fee-structure', label: 'Fee Structure', icon: 'fees' },
+  { id: 'discount-types', label: 'Discount Types', icon: 'minus' },
+  { id: 'fee-invoice-accounts', label: 'Fee Invoice Accounts', icon: 'reports' },
+  { id: 'rules', label: 'Rules & Regulations', icon: 'reports' },
+  { id: 'marks-grading', label: 'Marks Grading', icon: 'exams' },
+  { id: 'theme-language', label: 'Theme & Language', icon: 'settings' },
+  { id: 'account', label: 'Account Settings', icon: 'user' },
   { id: 'users', label: 'Users & Roles', icon: 'user' },
   { id: 'backup', label: 'Backup & Restore', icon: 'download' },
   { id: 'demo', label: 'Demo Tools', icon: 'settings' },
@@ -45,15 +64,23 @@ const tabs: { id: SettingsTab; label: string; icon: IconName }[] = [
 
 interface SettingsProps {
   currentUser: AuthUser
+  preferences: AppPreference
   licenseStatus: LicenseStatus
+  onCurrentUserChange: (user: AuthUser) => void
   onLicenseStatusChange: (status: LicenseStatus) => void
+  onLogout: () => void
+  onPreferencesChange: (preferences: AppPreference) => void
   initialTab?: SettingsTab
 }
 
 export function Settings({
   currentUser,
+  preferences,
   licenseStatus,
+  onCurrentUserChange,
   onLicenseStatusChange,
+  onLogout,
+  onPreferencesChange,
   initialTab = 'profile',
 }: SettingsProps) {
   const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab)
@@ -66,13 +93,39 @@ export function Settings({
 
   const visibleTabs =
     currentUser.role === 'Accountant'
-      ? tabs.filter(
-          (tab) =>
-            tab.id === 'profile' ||
-            tab.id === 'license' ||
-            tab.id === 'about',
+      ? tabs.filter((tab) =>
+          [
+            'profile',
+            'discount-types',
+            'fee-invoice-accounts',
+            'rules',
+            'marks-grading',
+            'theme-language',
+            'account',
+            'license',
+            'about',
+          ].includes(tab.id),
         )
-      : tabs.filter((tab) => tab.id !== 'demo' || currentUser.role === 'Owner')
+      : currentUser.role === 'Teacher'
+        ? tabs.filter((tab) =>
+            [
+              'rules',
+              'marks-grading',
+              'theme-language',
+              'account',
+              'about',
+            ].includes(tab.id),
+          )
+        : currentUser.role === 'Viewer'
+          ? tabs.filter((tab) =>
+              ['rules', 'theme-language', 'account', 'about'].includes(tab.id),
+            )
+          : tabs.filter((tab) => tab.id !== 'demo' || currentUser.role === 'Owner')
+  const language = preferences.language
+  const t = (text: string) => translateText(text, language)
+  const selectedTab = visibleTabs.some((tab) => tab.id === activeTab)
+    ? activeTab
+    : visibleTabs[0]?.id ?? 'account'
 
   return (
     <div className="page-stack">
@@ -86,13 +139,13 @@ export function Settings({
       <nav className="settings-tabs" aria-label="Settings sections">
         {visibleTabs.map((tab) => (
           <button
-            className={`settings-tab${activeTab === tab.id ? ' settings-tab--active' : ''}`}
+            className={`settings-tab${selectedTab === tab.id ? ' settings-tab--active' : ''}`}
             key={tab.id}
             onClick={() => handleTabChange(tab.id)}
             type="button"
           >
             <Icon name={tab.icon} size={17} />
-            {tab.label}
+            {t(tab.label)}
           </button>
         ))}
       </nav>
@@ -109,28 +162,78 @@ export function Settings({
         </div>
       )}
 
-      {activeTab === 'profile' && (
+      {selectedTab === 'profile' && (
         <SchoolProfileSettings
           onNotice={setNotice}
           readOnly={currentUser.role === 'Accountant'}
         />
       )}
-      {activeTab === 'classes' && <ClassesSectionsSettings onNotice={setNotice} />}
-      {activeTab === 'fee-heads' && <FeeHeadsSettings onNotice={setNotice} />}
-      {activeTab === 'fee-structure' && <FeeStructureSettings onNotice={setNotice} />}
-      {activeTab === 'users' && (
+      {selectedTab === 'classes' && <ClassesSectionsSettings onNotice={setNotice} />}
+      {selectedTab === 'fee-heads' && <FeeHeadsSettings onNotice={setNotice} />}
+      {selectedTab === 'fee-structure' && <FeeStructureSettings onNotice={setNotice} />}
+      {selectedTab === 'discount-types' && (
+        <DiscountTypesSettings
+          onNotice={setNotice}
+          readOnly={currentUser.role === 'Accountant'}
+        />
+      )}
+      {selectedTab === 'fee-invoice-accounts' && (
+        <FeeInvoiceAccountsSettings
+          onNotice={setNotice}
+          readOnly={currentUser.role === 'Accountant'}
+        />
+      )}
+      {selectedTab === 'rules' && (
+        <SchoolRulesSettings
+          currentUser={currentUser}
+          language={language}
+          onNotice={setNotice}
+          preferences={preferences}
+          readOnly={
+            currentUser.role !== 'Owner' && currentUser.role !== 'Admin'
+          }
+        />
+      )}
+      {selectedTab === 'marks-grading' && (
+        <MarksGradingSettings
+          onNotice={setNotice}
+          readOnly={
+            currentUser.role === 'Accountant' ||
+            currentUser.role === 'Teacher'
+          }
+        />
+      )}
+      {selectedTab === 'theme-language' && (
+        <ThemeLanguageSettings
+          currentUser={currentUser}
+          onNotice={setNotice}
+          onPreferencesChange={onPreferencesChange}
+          preferences={preferences}
+        />
+      )}
+      {selectedTab === 'account' && (
+        <AccountSettings
+          currentUser={currentUser}
+          language={language}
+          onCurrentUserChange={onCurrentUserChange}
+          onLogout={onLogout}
+          onNotice={setNotice}
+          preferences={preferences}
+        />
+      )}
+      {selectedTab === 'users' && (
         <UsersRolesSettings currentUser={currentUser} onNotice={setNotice} />
       )}
-      {activeTab === 'backup' && (
+      {selectedTab === 'backup' && (
         <BackupRestoreSettings
           canRestore={currentUser.role === 'Owner'}
           onNotice={setNotice}
         />
       )}
-      {activeTab === 'demo' && currentUser.role === 'Owner' && (
+      {selectedTab === 'demo' && currentUser.role === 'Owner' && (
         <DemoToolsSettings onNotice={setNotice} />
       )}
-      {activeTab === 'license' && (
+      {selectedTab === 'license' && (
         <LicenseSettings
           currentUser={currentUser}
           initialStatus={licenseStatus}
@@ -138,7 +241,7 @@ export function Settings({
           onStatusChange={onLicenseStatusChange}
         />
       )}
-      {activeTab === 'about' && <AboutSettings />}
+      {selectedTab === 'about' && <AboutSettings />}
     </div>
   )
 }

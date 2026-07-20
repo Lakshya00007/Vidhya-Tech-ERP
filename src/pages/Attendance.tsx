@@ -8,10 +8,37 @@ import {
 import type {
   AttendanceRecord,
   AttendanceStatus,
+  AuthUser,
   ClassItem,
   SectionItem,
   Student,
 } from '../types'
+import {
+  EmployeeAttendance,
+  type EmployeeAttendanceTab,
+} from './attendance/EmployeeAttendance'
+
+export type AttendanceView =
+  | 'students'
+  | 'employee-entry'
+  | 'employee-daily'
+  | 'employee-monthly'
+  | 'employee-register'
+
+interface AttendanceProps {
+  currentUser: AuthUser
+  initialView?: AttendanceView
+}
+
+const employeeTabByView: Record<
+  Exclude<AttendanceView, 'students'>,
+  EmployeeAttendanceTab
+> = {
+  'employee-entry': 'entry',
+  'employee-daily': 'daily',
+  'employee-monthly': 'monthly',
+  'employee-register': 'register',
+}
 
 interface AttendanceDraft {
   recordId?: string
@@ -72,7 +99,7 @@ const buildDrafts = (
     }),
   )
 
-export function Attendance() {
+function StudentAttendance() {
   const [classes, setClasses] = useState<ClassItem[]>([])
   const [sections, setSections] = useState<SectionItem[]>([])
   const [students, setStudents] = useState<Student[]>([])
@@ -494,5 +521,35 @@ export function Attendance() {
         </div>
       </section>
     </div>
+  )
+}
+
+export function Attendance({
+  currentUser,
+  initialView = 'students',
+}: AttendanceProps) {
+  if (initialView === 'students') {
+    if (currentUser.role === 'Accountant') {
+      return (
+        <EmployeeAttendance
+          canManage={false}
+          canViewReports
+          initialTab="daily"
+        />
+      )
+    }
+    return <StudentAttendance />
+  }
+
+  const canManage =
+    currentUser.role === 'Owner' || currentUser.role === 'Admin'
+  const canViewReports = canManage || currentUser.role === 'Accountant'
+
+  return (
+    <EmployeeAttendance
+      canManage={canManage}
+      canViewReports={canViewReports}
+      initialTab={employeeTabByView[initialView]}
+    />
   )
 }

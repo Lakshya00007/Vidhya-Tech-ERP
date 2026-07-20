@@ -2,7 +2,11 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Icon } from '../../components/Icon'
 import { copyTextToClipboard } from '../../lib/clipboard'
 import { getErrorMessage, getLicenseErpApi } from '../../lib/erpApi'
-import { formatLicenseDate, licenseStatusLabels } from '../../lib/license'
+import {
+  formatLicenseDate,
+  licenseStatusLabels,
+  remoteLicenseStatusLabels,
+} from '../../lib/license'
 import type { AuthUser, LicenseStatus } from '../../types'
 import type { SettingsSectionProps } from '../Settings'
 
@@ -22,6 +26,7 @@ export function LicenseSettings({
   const [licenseKey, setLicenseKey] = useState('')
   const [isSaving, setIsSaving] = useState(false)
   const [isDeactivating, setIsDeactivating] = useState(false)
+  const [isCheckingRemote, setIsCheckingRemote] = useState(false)
 
   useEffect(() => {
     let isCurrent = true
@@ -56,12 +61,20 @@ export function LicenseSettings({
     event.preventDefault()
     setIsSaving(true)
     try {
-      const nextStatus = await getLicenseErpApi().activateLicense(licenseKey)
+      const nextStatus = await getLicenseErpApi().updateLicenseKey(licenseKey)
       setStatus(nextStatus)
       setLicenseKey('')
       onStatusChange(nextStatus)
       onNotice({ type: 'success', message: 'License updated successfully.' })
     } catch (error) {
+      setLicenseKey('')
+      try {
+        const nextStatus = await getLicenseErpApi().getLicenseInfo()
+        setStatus(nextStatus)
+        onStatusChange(nextStatus)
+      } catch {
+        // Keep the original license update error visible.
+      }
       onNotice({ type: 'error', message: getErrorMessage(error) })
     } finally {
       setIsSaving(false)
@@ -91,7 +104,26 @@ export function LicenseSettings({
     }
   }
 
+  const checkRemoteLicense = async () => {
+    setIsCheckingRemote(true)
+    try {
+      const remoteStatus = await getLicenseErpApi().checkRemoteLicenseNow()
+      const nextStatus = await getLicenseErpApi().getLicenseInfo()
+      setStatus(nextStatus)
+      onStatusChange(nextStatus)
+      onNotice({
+        type: remoteStatus.blocksUsage ? 'error' : 'success',
+        message: remoteStatus.message,
+      })
+    } catch (error) {
+      onNotice({ type: 'error', message: getErrorMessage(error) })
+    } finally {
+      setIsCheckingRemote(false)
+    }
+  }
+
   const license = status.license
+  const remote = status.remote
 
   return (
     <div className="license-settings-layout">
@@ -151,6 +183,56 @@ export function LicenseSettings({
               <span className="neutral-badge" key={feature}>{feature}</span>
             ))}
           </div>
+        </div>
+      </section>
+
+      <section className="panel">
+        <div className="panel-heading">
+          <div>
+            <h3>Remote License Control</h3>
+            <p>Online status from Vidhya Tech license server</p>
+          </div>
+          {remote && (
+            <span
+              className={`license-badge license-badge--${remote.displayStatus
+                .toLowerCase()
+                .replace(/\s+/g, '-')}`}
+            >
+              {remoteLicenseStatusLabels[remote.displayStatus]}
+            </span>
+          )}
+        </div>
+        <dl className="license-detail-grid">
+          <div>
+            <dt>Remote Status</dt>
+            <dd>{remote?.displayStatus || 'Check Required'}</dd>
+          </div>
+          <div>
+            <dt>Last Successful Check</dt>
+            <dd>{formatLicenseDate(remote?.lastOnlineCheckAt)}</dd>
+          </div>
+          <div>
+            <dt>Next Required Check</dt>
+            <dd>{formatLicenseDate(remote?.nextRequiredCheckAt)}</dd>
+          </div>
+          <div>
+            <dt>Grace Until</dt>
+            <dd>{formatLicenseDate(remote?.graceUntil)}</dd>
+          </div>
+        </dl>
+        <p className="license-remote-message">
+          {remote?.message || 'Online license status has not been checked yet.'}
+        </p>
+        <div className="license-actions">
+          <button
+            className="primary-button"
+            disabled={isCheckingRemote}
+            onClick={() => void checkRemoteLicense()}
+            type="button"
+          >
+            <Icon name="check" size={16} />
+            {isCheckingRemote ? 'Checking...' : 'Check License Status Now'}
+          </button>
         </div>
       </section>
 

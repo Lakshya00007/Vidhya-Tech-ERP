@@ -4,7 +4,15 @@ import { Icon } from '../components/Icon'
 import { StudentImportDialog } from '../components/StudentImportDialog'
 import { getErpApi, getErrorMessage } from '../lib/erpApi'
 import { downloadStudentImportTemplate } from '../lib/studentImport'
-import type { ClassItem, CreateStudentInput, SectionItem, Student } from '../types'
+import type {
+  ClassItem,
+  CreateStudentInput,
+  Family,
+  Guardian,
+  SectionItem,
+  Student,
+  StudentGuardianLink,
+} from '../types'
 
 const emptyForm: CreateStudentInput = {
   admissionNo: '',
@@ -18,23 +26,40 @@ const emptyForm: CreateStudentInput = {
 interface StudentsProps {
   canManage: boolean
   initialAction?: 'add' | 'import'
+  initialSessionFilter?: 'Current' | 'All'
+  initialStatusFilter?: StudentListStatusFilter
 }
+
+export type StudentListStatusFilter =
+  | 'Active'
+  | 'Inactive'
+  | 'TC'
+  | 'Left'
+  | 'All'
 
 const getStudentDisplayStatus = (student: Student) =>
   student.sessionStatus === 'TC' || student.sessionStatus === 'Left'
     ? student.sessionStatus
     : student.status
 
-export function Students({ canManage, initialAction }: StudentsProps) {
+export function Students({
+  canManage,
+  initialAction,
+  initialSessionFilter = 'Current',
+  initialStatusFilter = 'Active',
+}: StudentsProps) {
   const [studentRows, setStudentRows] = useState<Student[]>([])
   const [classes, setClasses] = useState<ClassItem[]>([])
   const [sections, setSections] = useState<SectionItem[]>([])
+  const [families, setFamilies] = useState<Family[]>([])
+  const [guardians, setGuardians] = useState<Guardian[]>([])
+  const [linkedGuardians, setLinkedGuardians] = useState<StudentGuardianLink[]>([])
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<
-    'Active' | 'Inactive' | 'TC' | 'Left' | 'All'
-  >('Active')
+    StudentListStatusFilter
+  >(initialStatusFilter)
   const [sessionFilter, setSessionFilter] = useState<'Current' | 'All'>(
-    'Current',
+    initialSessionFilter,
   )
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [isImportOpen, setIsImportOpen] = useState(
@@ -42,6 +67,8 @@ export function Students({ canManage, initialAction }: StudentsProps) {
   )
   const [editingStudentId, setEditingStudentId] = useState<string | null>(null)
   const [form, setForm] = useState<CreateStudentInput>(emptyForm)
+  const [selectedFamilyId, setSelectedFamilyId] = useState('')
+  const [createFamilyAfterSave, setCreateFamilyAfterSave] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [isTemplateDownloading, setIsTemplateDownloading] = useState(false)
@@ -50,7 +77,14 @@ export function Students({ canManage, initialAction }: StudentsProps) {
 
   const loadStudents = useCallback(async () => {
     try {
-      setStudentRows(await getErpApi().getStudents())
+      const [students, familyRows, guardianRows] = await Promise.all([
+        getErpApi().getStudents(),
+        getErpApi().getFamilies({}),
+        getErpApi().getGuardians({}),
+      ])
+      setStudentRows(students)
+      setFamilies(familyRows)
+      setGuardians(guardianRows)
       setError('')
     } catch (loadError) {
       setError(getErrorMessage(loadError))
@@ -60,14 +94,18 @@ export function Students({ canManage, initialAction }: StudentsProps) {
   }, [])
 
   const refreshImportedData = useCallback(async () => {
-    const [students, classRows, sectionRows] = await Promise.all([
+    const [students, classRows, sectionRows, familyRows, guardianRows] = await Promise.all([
       getErpApi().getStudents(),
       getErpApi().getClasses(),
       getErpApi().getSections(),
+      getErpApi().getFamilies({}),
+      getErpApi().getGuardians({}),
     ])
     setStudentRows(students)
     setClasses(classRows)
     setSections(sectionRows)
+    setFamilies(familyRows)
+    setGuardians(guardianRows)
     setError('')
   }, [])
 
@@ -80,13 +118,17 @@ export function Students({ canManage, initialAction }: StudentsProps) {
           getErpApi().getStudents(),
           getErpApi().getClasses(),
           getErpApi().getSections(),
+          getErpApi().getFamilies({}),
+          getErpApi().getGuardians({}),
         ]),
       )
-      .then(([students, classRows, sectionRows]) => {
+      .then(([students, classRows, sectionRows, familyRows, guardianRows]) => {
         if (isCurrent) {
           setStudentRows(students)
           setClasses(classRows)
           setSections(sectionRows)
+          setFamilies(familyRows)
+          setGuardians(guardianRows)
           setError('')
           if (canManage && initialAction === 'add') {
             const firstClass = classRows.find((item) => item.status === 'Active')
@@ -96,6 +138,9 @@ export function Students({ canManage, initialAction }: StudentsProps) {
                 section.classId === firstClass?.id,
             )
             setEditingStudentId(null)
+            setSelectedFamilyId('')
+            setCreateFamilyAfterSave(false)
+            setLinkedGuardians([])
             setForm({
               ...emptyForm,
               className: firstClass?.name ?? '',
@@ -137,12 +182,17 @@ export function Students({ canManage, initialAction }: StudentsProps) {
 
   const filteredStudents = useMemo(() => {
     const query = search.trim().toLowerCase()
+    const hasAssignedSession = studentRows.some(
+      (student) => student.academicSessionName,
+    )
     return studentRows.filter((student) => {
       const effectiveStatus = getStudentDisplayStatus(student)
       const matchesStatus =
         statusFilter === 'All' || effectiveStatus === statusFilter
       const matchesSession =
-        sessionFilter === 'All' || Boolean(student.academicSessionName)
+        sessionFilter === 'All' ||
+        !hasAssignedSession ||
+        Boolean(student.academicSessionName)
       const matchesSearch =
         !query ||
         [
@@ -183,6 +233,9 @@ export function Students({ canManage, initialAction }: StudentsProps) {
         section.status === 'Active' && section.classId === firstClass?.id,
     )
     setEditingStudentId(null)
+    setSelectedFamilyId('')
+    setCreateFamilyAfterSave(false)
+    setLinkedGuardians([])
     setForm({
       ...emptyForm,
       className: firstClass?.name ?? '',
@@ -193,6 +246,12 @@ export function Students({ canManage, initialAction }: StudentsProps) {
 
   const openEditForm = (student: Student) => {
     setEditingStudentId(student.id)
+    setSelectedFamilyId('')
+    setCreateFamilyAfterSave(false)
+    void getErpApi()
+      .getStudentGuardians(student.id)
+      .then(setLinkedGuardians)
+      .catch(() => setLinkedGuardians([]))
     setForm({
       admissionNo: student.admissionNo,
       name: student.name,
@@ -211,6 +270,9 @@ export function Students({ canManage, initialAction }: StudentsProps) {
   const closeForm = () => {
     setIsFormOpen(false)
     setEditingStudentId(null)
+    setSelectedFamilyId('')
+    setCreateFamilyAfterSave(false)
+    setLinkedGuardians([])
     setForm(emptyForm)
   }
 
@@ -287,6 +349,49 @@ export function Students({ canManage, initialAction }: StudentsProps) {
     } satisfies TableColumn<Student>] : []),
   ]
 
+  const linkSavedStudentToFamily = async (student: Student) => {
+    if (createFamilyAfterSave) {
+      await getErpApi().createFamilyFromStudentDetails(student.id)
+      return
+    }
+    if (!selectedFamilyId) return
+    let familyGuardians = guardians.filter(
+      (guardian) =>
+        guardian.familyId === selectedFamilyId && guardian.status === 'Active',
+    )
+    if (familyGuardians.length === 0) {
+      const guardian = await getErpApi().createGuardian({
+        familyId: selectedFamilyId,
+        fullName:
+          student.guardianName ||
+          student.fatherName ||
+          student.motherName ||
+          `${student.name} Guardian`,
+        relation: student.fatherName ? 'Father' : 'Guardian',
+        mobile: student.mobile,
+        email: student.email,
+        address: student.address,
+        isPrimary: true,
+        canPickupStudent: true,
+        emergencyContact: true,
+        status: 'Active',
+      })
+      familyGuardians = [guardian]
+    }
+    const guardian =
+      familyGuardians.find((item) => item.isPrimary) ?? familyGuardians[0]
+    await getErpApi().linkGuardianToStudent({
+      studentId: student.id,
+      guardianId: guardian.id,
+      familyId: selectedFamilyId,
+      relationToStudent: guardian.relation,
+      isPrimary: true,
+      livesWithStudent: true,
+      pickupAuthorized: guardian.canPickupStudent,
+      financialResponsibility: ['Father', 'Guardian'].includes(guardian.relation),
+    })
+  }
+
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault()
     setIsSaving(true)
@@ -295,6 +400,7 @@ export function Students({ canManage, initialAction }: StudentsProps) {
       const savedStudent = editingStudentId
         ? await getErpApi().updateStudent(editingStudentId, form)
         : await getErpApi().createStudent(form)
+      await linkSavedStudentToFamily(savedStudent)
       await loadStudents()
       closeForm()
       setMessage(
@@ -573,6 +679,58 @@ export function Students({ canManage, initialAction }: StudentsProps) {
                   value={form.mobile}
                 />
               </label>
+              <section className="student-family-section">
+                <div>
+                  <strong>Family / Guardians</strong>
+                  <span>Optional structured family linking.</span>
+                </div>
+                <label className="form-field">
+                  <span>Link Existing Family</span>
+                  <select
+                    value={selectedFamilyId}
+                    onChange={(event) => {
+                      setSelectedFamilyId(event.target.value)
+                      if (event.target.value) setCreateFamilyAfterSave(false)
+                    }}
+                  >
+                    <option value="">Do not link a family now</option>
+                    {families.map((family) => (
+                      <option key={family.id} value={family.id}>
+                        {family.familyCode} · {family.familyName || family.primaryContactName || 'Family'}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="form-checkbox-row">
+                  <input
+                    checked={createFamilyAfterSave}
+                    onChange={(event) => {
+                      setCreateFamilyAfterSave(event.target.checked)
+                      if (event.target.checked) setSelectedFamilyId('')
+                    }}
+                    type="checkbox"
+                  />
+                  <span>Create family from this student’s guardian details after save</span>
+                </label>
+                {editingStudentId && (
+                  <div className="linked-guardian-list">
+                    {linkedGuardians.length === 0 ? (
+                      <span>No structured guardians linked yet.</span>
+                    ) : (
+                      linkedGuardians.map((link) => (
+                        <div key={link.id}>
+                          <strong>{link.guardianFullName || link.guardianName}</strong>
+                          <span>
+                            {link.relationToStudent || link.relation}
+                            {link.familyCode ? ` · ${link.familyCode}` : ''}
+                            {link.isPrimary ? ' · Primary' : ''}
+                          </span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+              </section>
               <div className="form-note">
                 <Icon name="check" size={17} />
                 Additional student details can be added after creating the record.

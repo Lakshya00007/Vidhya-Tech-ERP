@@ -5,8 +5,14 @@ contextBridge.exposeInMainWorld("erpApi", {
   getLicenseStatus: () => ipcRenderer.invoke("license:get-status"),
   activateLicense: (licenseKey) =>
     ipcRenderer.invoke("license:activate", licenseKey),
+  updateLicenseKey: (licenseKey) =>
+    ipcRenderer.invoke("license:update-key", licenseKey),
   deactivateLicense: () => ipcRenderer.invoke("license:deactivate"),
   getLicenseInfo: () => ipcRenderer.invoke("license:get-info"),
+  checkRemoteLicenseNow: () =>
+    ipcRenderer.invoke("license:check-remote-now"),
+  getRemoteLicenseStatus: () =>
+    ipcRenderer.invoke("license:get-remote-status"),
 
   hasUsers: () => ipcRenderer.invoke("auth:has-users"),
   createFirstOwner: (input) =>
@@ -22,6 +28,19 @@ contextBridge.exposeInMainWorld("erpApi", {
       oldPassword,
       newPassword,
     ),
+  changeTemporaryPassword: (input) =>
+    ipcRenderer.invoke("auth:change-temporary-password", input),
+  getCurrentAccountProfile: () => ipcRenderer.invoke("account:get-profile"),
+  updateCurrentAccountProfile: (input) =>
+    ipcRenderer.invoke("account:update-profile", input),
+  changeCurrentPassword: (input) =>
+    ipcRenderer.invoke("account:change-password", input),
+  getCurrentLoginHistory: (filter) =>
+    ipcRenderer.invoke("account:login-history", filter),
+  getCurrentUserEntityLink: () => ipcRenderer.invoke("account:entity-link"),
+  getCurrentStudentPortalData: () => ipcRenderer.invoke("portal:student-data"),
+  getCurrentEmployeePortalData: () =>
+    ipcRenderer.invoke("portal:employee-data"),
 
   getUsers: () => ipcRenderer.invoke("users:get-all"),
   createUser: (input) => ipcRenderer.invoke("users:create", input),
@@ -30,6 +49,34 @@ contextBridge.exposeInMainWorld("erpApi", {
     ipcRenderer.invoke("users:reset-password", id, newPassword),
   deleteUser: (id) => ipcRenderer.invoke("users:delete", id),
   getAuditLogs: (limit) => ipcRenderer.invoke("audit:get", limit),
+  getStudentLoginAccounts: (filter) =>
+    ipcRenderer.invoke("student-logins:get", filter),
+  createStudentLoginAccount: (input) =>
+    ipcRenderer.invoke("student-logins:create", input),
+  updateStudentLoginAccount: (id, input) =>
+    ipcRenderer.invoke("student-logins:update", id, input),
+  disableStudentLoginAccount: (id, reason) =>
+    ipcRenderer.invoke("student-logins:disable", id, reason),
+  enableStudentLoginAccount: (id) =>
+    ipcRenderer.invoke("student-logins:enable", id),
+  resetStudentLoginPassword: (id, input) =>
+    ipcRenderer.invoke("student-logins:reset-password", id, input),
+  unlinkStudentLoginAccount: (id) =>
+    ipcRenderer.invoke("student-logins:unlink", id),
+  getEmployeeLoginAccounts: (filter) =>
+    ipcRenderer.invoke("employee-logins:get", filter),
+  createEmployeeLoginAccount: (input) =>
+    ipcRenderer.invoke("employee-logins:create", input),
+  updateEmployeeLoginAccount: (id, input) =>
+    ipcRenderer.invoke("employee-logins:update", id, input),
+  disableEmployeeLoginAccount: (id, reason) =>
+    ipcRenderer.invoke("employee-logins:disable", id, reason),
+  enableEmployeeLoginAccount: (id) =>
+    ipcRenderer.invoke("employee-logins:enable", id),
+  resetEmployeeLoginPassword: (id, input) =>
+    ipcRenderer.invoke("employee-logins:reset-password", id, input),
+  unlinkEmployeeLoginAccount: (id) =>
+    ipcRenderer.invoke("employee-logins:unlink", id),
   createDemoData: () => ipcRenderer.invoke("demo:create-data"),
 
   getStudents: () => ipcRenderer.invoke("students:get-all"),
@@ -41,6 +88,39 @@ contextBridge.exposeInMainWorld("erpApi", {
     ipcRenderer.invoke("students:import-bulk", rows, options),
   getStudentImportTemplate: () =>
     ipcRenderer.invoke("students:import-template"),
+  getFamilies: (filter) => ipcRenderer.invoke("families:get", filter),
+  getFamilyById: (id) => ipcRenderer.invoke("families:get-by-id", id),
+  createFamily: (input) => ipcRenderer.invoke("families:create", input),
+  updateFamily: (id, input) =>
+    ipcRenderer.invoke("families:update", id, input),
+  deleteFamily: (id) => ipcRenderer.invoke("families:delete", id),
+  getFamilyStudents: (familyId) =>
+    ipcRenderer.invoke("families:students:get", familyId),
+  getGuardians: (filter) => ipcRenderer.invoke("guardians:get", filter),
+  createGuardian: (input) => ipcRenderer.invoke("guardians:create", input),
+  updateGuardian: (id, input) =>
+    ipcRenderer.invoke("guardians:update", id, input),
+  deleteGuardian: (id) => ipcRenderer.invoke("guardians:delete", id),
+  getStudentGuardians: (studentId) =>
+    ipcRenderer.invoke("student-guardians:get", studentId),
+  linkGuardianToStudent: (input) =>
+    ipcRenderer.invoke("student-guardians:link", input),
+  updateStudentGuardianLink: (id, input) =>
+    ipcRenderer.invoke("student-guardians:update", id, input),
+  unlinkGuardianFromStudent: (id) =>
+    ipcRenderer.invoke("student-guardians:unlink", id),
+  linkSiblingStudents: (input) =>
+    ipcRenderer.invoke("student-guardians:link-siblings", input),
+  createFamilyFromStudentDetails: (studentId) =>
+    ipcRenderer.invoke(
+      "student-guardians:create-family-from-student",
+      studentId,
+    ),
+  getParentsInfoReport: (filter) =>
+    ipcRenderer.invoke("reports:parents-info", filter),
+  getEmergencyContactsReport: (filter) =>
+    ipcRenderer.invoke("reports:emergency-contacts", filter),
+  getSiblingReport: (filter) => ipcRenderer.invoke("reports:siblings", filter),
 
   getEmployees: () => ipcRenderer.invoke("employees:get-all"),
   getEmployeeById: (id) => ipcRenderer.invoke("employees:get-by-id", id),
@@ -301,11 +381,70 @@ contextBridge.exposeInMainWorld("erpApi", {
   getSchoolSettings: () => ipcRenderer.invoke("settings:get"),
   saveSchoolSettings: (settings) =>
     ipcRenderer.invoke("settings:save", settings),
+  getSchoolRules: (filter) => ipcRenderer.invoke("school-rules:get", filter),
+  createSchoolRule: (input) =>
+    ipcRenderer.invoke("school-rules:create", input),
+  updateSchoolRule: (id, input) =>
+    ipcRenderer.invoke("school-rules:update", id, input),
+  deleteSchoolRule: (id) => ipcRenderer.invoke("school-rules:delete", id),
+  reorderSchoolRules: (records) =>
+    ipcRenderer.invoke("school-rules:reorder", records),
+  getAppPreferences: () => ipcRenderer.invoke("preferences:app:get"),
+  updateAppPreferences: (input) =>
+    ipcRenderer.invoke("preferences:app:update", input),
+  getUserPreferences: () => ipcRenderer.invoke("preferences:user:get"),
+  updateUserPreferences: (input) =>
+    ipcRenderer.invoke("preferences:user:update", input),
 
   getFeePayments: () => ipcRenderer.invoke("fees:get-all"),
   getFeePaymentsByDateRange: (startDate, endDate) =>
     ipcRenderer.invoke("fees:get-by-date-range", startDate, endDate),
   createFeePayment: (payment) => ipcRenderer.invoke("fees:create", payment),
+  reverseFeePayment: (id, reason) =>
+    ipcRenderer.invoke("fees:reverse-payment", id, reason),
+  getDiscountTypes: () => ipcRenderer.invoke("discount-types:get-all"),
+  createDiscountType: (input) =>
+    ipcRenderer.invoke("discount-types:create", input),
+  updateDiscountType: (id, input) =>
+    ipcRenderer.invoke("discount-types:update", id, input),
+  deleteDiscountType: (id) =>
+    ipcRenderer.invoke("discount-types:delete", id),
+  getStudentDiscounts: (filter) =>
+    ipcRenderer.invoke("student-discounts:get", filter),
+  createStudentDiscount: (input) =>
+    ipcRenderer.invoke("student-discounts:create", input),
+  updateStudentDiscount: (id, input) =>
+    ipcRenderer.invoke("student-discounts:update", id, input),
+  deleteStudentDiscount: (id) =>
+    ipcRenderer.invoke("student-discounts:delete", id),
+  getFeeInvoicePreview: (input) =>
+    ipcRenderer.invoke("fee-invoices:preview", input),
+  createFeeInvoice: (input) =>
+    ipcRenderer.invoke("fee-invoices:create", input),
+  getFeeInvoices: (filter) =>
+    ipcRenderer.invoke("fee-invoices:get-all", filter),
+  getFeeInvoiceById: (id) =>
+    ipcRenderer.invoke("fee-invoices:get-by-id", id),
+  cancelFeeInvoice: (id, reason) =>
+    ipcRenderer.invoke("fee-invoices:cancel", id, reason),
+  refreshFeeInvoiceStatus: (id) =>
+    ipcRenderer.invoke("fee-invoices:refresh-status", id),
+  allocateFeePaymentToInvoices: (input) =>
+    ipcRenderer.invoke("fee-invoices:allocate-payment", input),
+  getStudentOutstandingInvoices: (studentId) =>
+    ipcRenderer.invoke("fee-invoices:outstanding-by-student", studentId),
+  getFeeInvoiceSummary: (filter) =>
+    ipcRenderer.invoke("fee-invoices:summary", filter),
+  getFeeInvoiceAccountsReport: (filter) =>
+    ipcRenderer.invoke("fee-invoices:accounts-report", filter),
+  getStudentFeeLedger: (studentId) =>
+    ipcRenderer.invoke("fee-invoices:student-ledger", studentId),
+  getFeeInvoiceAccountMappings: () =>
+    ipcRenderer.invoke("fee-invoice-account-mappings:get-all"),
+  saveFeeInvoiceAccountMapping: (input) =>
+    ipcRenderer.invoke("fee-invoice-account-mappings:save", input),
+  deleteFeeInvoiceAccountMapping: (id) =>
+    ipcRenderer.invoke("fee-invoice-account-mappings:delete", id),
 
   getAttendance: () => ipcRenderer.invoke("attendance:getAll"),
   getAttendanceByDate: (date) =>
@@ -326,6 +465,20 @@ contextBridge.exposeInMainWorld("erpApi", {
     ipcRenderer.invoke("attendance:saveBulk", records),
   updateAttendance: (id, input) =>
     ipcRenderer.invoke("attendance:update", id, input),
+  getEmployeeAttendanceByDate: (date, filters) =>
+    ipcRenderer.invoke("employee-attendance:get-by-date", date, filters),
+  getEmployeeAttendanceByRange: (filter) =>
+    ipcRenderer.invoke("employee-attendance:get-by-range", filter),
+  saveEmployeeAttendanceBulk: (records) =>
+    ipcRenderer.invoke("employee-attendance:save-bulk", records),
+  updateEmployeeAttendance: (id, input) =>
+    ipcRenderer.invoke("employee-attendance:update", id, input),
+  getEmployeeAttendanceSummary: (filter) =>
+    ipcRenderer.invoke("employee-attendance:summary", filter),
+  getEmployeeMonthlyAttendance: (employeeId, month) =>
+    ipcRenderer.invoke("employee-attendance:monthly", employeeId, month),
+  getEmployeeAttendanceReport: (filter) =>
+    ipcRenderer.invoke("employee-attendance:report", filter),
 
   getClasses: () => ipcRenderer.invoke("classes:get-all"),
   createClass: (input) => ipcRenderer.invoke("classes:create", input),
@@ -371,6 +524,45 @@ contextBridge.exposeInMainWorld("erpApi", {
   saveMarksBulk: (records) =>
     ipcRenderer.invoke("marks:save-bulk", records),
   updateMark: (id, input) => ipcRenderer.invoke("marks:update", id, input),
+  getGradingSchemes: () => ipcRenderer.invoke("grading-schemes:get-all"),
+  getGradingSchemeById: (id) =>
+    ipcRenderer.invoke("grading-schemes:get-by-id", id),
+  createGradingScheme: (input) =>
+    ipcRenderer.invoke("grading-schemes:create", input),
+  updateGradingScheme: (id, input) =>
+    ipcRenderer.invoke("grading-schemes:update", id, input),
+  deleteGradingScheme: (id) =>
+    ipcRenderer.invoke("grading-schemes:delete", id),
+  setDefaultGradingScheme: (id) =>
+    ipcRenderer.invoke("grading-schemes:set-default", id),
+  calculateGrade: (input) =>
+    ipcRenderer.invoke("grading-schemes:calculate", input),
+  getReportCardTemplates: () =>
+    ipcRenderer.invoke("report-card-templates:get-all"),
+  createReportCardTemplate: (input) =>
+    ipcRenderer.invoke("report-card-templates:create", input),
+  updateReportCardTemplate: (id, input) =>
+    ipcRenderer.invoke("report-card-templates:update", id, input),
+  deleteReportCardTemplate: (id) =>
+    ipcRenderer.invoke("report-card-templates:delete", id),
+  getReportCardPreview: (input) =>
+    ipcRenderer.invoke("report-cards:preview", input),
+  generateStudentReportCard: (input) =>
+    ipcRenderer.invoke("report-cards:generate", input),
+  generateClassReportCards: (input) =>
+    ipcRenderer.invoke("report-cards:generate-class", input),
+  getStudentReportCards: (filter) =>
+    ipcRenderer.invoke("report-cards:get-all", filter),
+  getStudentReportCardById: (id) =>
+    ipcRenderer.invoke("report-cards:get-by-id", id),
+  updateReportCardRemarks: (id, input) =>
+    ipcRenderer.invoke("report-cards:update-remarks", id, input),
+  deleteReportCard: (id) =>
+    ipcRenderer.invoke("report-cards:delete", id),
+  getClassResultSummary: (filter) =>
+    ipcRenderer.invoke("report-cards:class-summary", filter),
+  getResultPositions: (filter) =>
+    ipcRenderer.invoke("report-cards:positions", filter),
 
   getCertificateTemplates: () =>
     ipcRenderer.invoke("certificates:templates:get-all"),

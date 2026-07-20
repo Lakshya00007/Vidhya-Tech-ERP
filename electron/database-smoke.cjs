@@ -100,11 +100,33 @@ app.whenReady().then(async () => {
       testPublicKey.export({ type: "spki", format: "pem" }),
     );
     const testNow = new Date("2026-07-03T12:00:00.000Z");
+    let currentNow = new Date(testNow);
+    const remoteRequests = [];
+    let remoteFailure = null;
+    let remoteResponse = {
+      valid: true,
+      status: "Active",
+      message: "License active",
+      expiresAt: "2027-07-03T23:59:59.999Z",
+      maintenanceUntil: "2027-07-03T23:59:59.999Z",
+      serverTime: testNow.toISOString(),
+    };
+    const remoteCheck = async (input) => {
+      remoteRequests.push(input);
+      if (remoteFailure) {
+        throw new Error(remoteFailure);
+      }
+      return remoteResponse;
+    };
     const licenseService = createLicenseService({
       database,
       deviceIdService,
       publicKeyPath: testPublicKeyPath,
-      now: () => new Date(testNow),
+      now: () => new Date(currentNow),
+      licenseServerUrl: "https://license-smoke.test",
+      remoteCheck,
+      appVersion: "1.1.0-smoke",
+      os: "smoke-os",
     });
     assert(
       licenseService.getLicenseStatus().status === "missing",
@@ -120,6 +142,34 @@ app.whenReady().then(async () => {
         expiresAt: "2027-07-03T23:59:59.999Z",
         maintenanceUntil: "2027-07-03T23:59:59.999Z",
         maxUsers: 10,
+        features: ["all"],
+      },
+      testPrivateKey,
+    );
+    const unavailableReplacementLicenseKey = createLicenseKey(
+      {
+        licenseId: "LIC-SMOKE-WONDER-OFFLINE",
+        schoolName: "Wonder Child School",
+        deviceId: firstDeviceId,
+        plan: "Annual",
+        issuedAt: "2026-07-03T00:00:00.000Z",
+        expiresAt: "2027-07-03T23:59:59.999Z",
+        maintenanceUntil: "2027-07-03T23:59:59.999Z",
+        maxUsers: 15,
+        features: ["all"],
+      },
+      testPrivateKey,
+    );
+    const replacementLicenseKey = createLicenseKey(
+      {
+        licenseId: "LIC-SMOKE-WONDER-001",
+        schoolName: "Wonder Child School",
+        deviceId: firstDeviceId,
+        plan: "Annual",
+        issuedAt: "2026-07-03T00:00:00.000Z",
+        expiresAt: "2027-07-03T23:59:59.999Z",
+        maintenanceUntil: "2027-07-03T23:59:59.999Z",
+        maxUsers: 15,
         features: ["all"],
       },
       testPrivateKey,
@@ -185,14 +235,14 @@ app.whenReady().then(async () => {
       "A license for another device was accepted.",
     );
     let invalidLicenseRejected = false;
+    const invalidSignatureLicenseParts = validLicenseKey.split(".");
+    const signature = invalidSignatureLicenseParts[2];
+    const replacementCharacter = signature.startsWith("A") ? "B" : "A";
+    invalidSignatureLicenseParts[2] =
+      `${replacementCharacter}${signature.slice(1)}`;
+    const invalidSignatureLicenseKey = invalidSignatureLicenseParts.join(".");
     try {
-      const licenseParts = validLicenseKey.split(".");
-      const signature = licenseParts[2];
-      const replacementCharacter = signature.startsWith("A") ? "B" : "A";
-      licenseParts[2] = `${replacementCharacter}${signature.slice(1)}`;
-      licenseService.activateLicense(
-        licenseParts.join("."),
-      );
+      licenseService.activateLicense(invalidSignatureLicenseKey);
     } catch {
       invalidLicenseRejected = true;
     }
@@ -204,6 +254,42 @@ app.whenReady().then(async () => {
       expiredLicenseRejected = true;
     }
     assert(expiredLicenseRejected, "Expired license was accepted.");
+
+    let updateWrongDeviceMessage = "";
+    try {
+      await licenseService.updateLicenseKey(wrongDeviceLicenseKey);
+    } catch (error) {
+      updateWrongDeviceMessage =
+        error instanceof Error ? error.message : "";
+    }
+    assert(
+      updateWrongDeviceMessage === "Wrong device",
+      "License update did not show a clear wrong-device error.",
+    );
+
+    let updateInvalidSignatureMessage = "";
+    try {
+      await licenseService.updateLicenseKey(invalidSignatureLicenseKey);
+    } catch (error) {
+      updateInvalidSignatureMessage =
+        error instanceof Error ? error.message : "";
+    }
+    assert(
+      updateInvalidSignatureMessage === "Invalid license signature",
+      "License update did not show a clear signature error.",
+    );
+
+    let updateExpiredMessage = "";
+    try {
+      await licenseService.updateLicenseKey(expiredLicenseKey);
+    } catch (error) {
+      updateExpiredMessage =
+        error instanceof Error ? error.message : "";
+    }
+    assert(
+      updateExpiredMessage === "Expired license",
+      "License update did not show a clear expired-license error.",
+    );
 
     const authService = createAuthService(database);
     const backupService = createBackupService({
@@ -232,6 +318,15 @@ app.whenReady().then(async () => {
       (async () => {
         const attendanceApiAvailable =
           typeof window.erpApi.getAttendanceByClassDate === "function";
+        const employeeAttendanceApiAvailable = [
+          "getEmployeeAttendanceByDate",
+          "getEmployeeAttendanceByRange",
+          "saveEmployeeAttendanceBulk",
+          "updateEmployeeAttendance",
+          "getEmployeeAttendanceSummary",
+          "getEmployeeMonthlyAttendance",
+          "getEmployeeAttendanceReport"
+        ].every((method) => typeof window.erpApi[method] === "function");
         const backupApiAvailable = [
           "createDatabaseBackup",
           "restoreDatabaseBackup",
@@ -246,18 +341,72 @@ app.whenReady().then(async () => {
           "logout",
           "getCurrentUser",
           "changePassword",
+          "getCurrentAccountProfile",
+          "updateCurrentAccountProfile",
+          "changeCurrentPassword",
+          "changeTemporaryPassword",
+          "getCurrentLoginHistory",
+          "getCurrentUserEntityLink",
+          "getCurrentStudentPortalData",
+          "getCurrentEmployeePortalData",
           "getUsers",
           "createUser",
           "updateUser",
           "resetUserPassword",
           "deleteUser",
-          "getAuditLogs"
+          "getAuditLogs",
+          "getStudentLoginAccounts",
+          "createStudentLoginAccount",
+          "updateStudentLoginAccount",
+          "disableStudentLoginAccount",
+          "enableStudentLoginAccount",
+          "resetStudentLoginPassword",
+          "unlinkStudentLoginAccount",
+          "getEmployeeLoginAccounts",
+          "createEmployeeLoginAccount",
+          "updateEmployeeLoginAccount",
+          "disableEmployeeLoginAccount",
+          "enableEmployeeLoginAccount",
+          "resetEmployeeLoginPassword",
+          "unlinkEmployeeLoginAccount"
         ].every((method) => typeof window.erpApi[method] === "function");
         const demoApiAvailable =
           typeof window.erpApi.createDemoData === "function";
+        const settingsPreferencesApiAvailable = [
+          "getSchoolRules",
+          "createSchoolRule",
+          "updateSchoolRule",
+          "deleteSchoolRule",
+          "reorderSchoolRules",
+          "getAppPreferences",
+          "updateAppPreferences",
+          "getUserPreferences",
+          "updateUserPreferences"
+        ].every((method) => typeof window.erpApi[method] === "function");
         const studentImportApiAvailable = [
           "importStudentsBulk",
           "getStudentImportTemplate"
+        ].every((method) => typeof window.erpApi[method] === "function");
+        const familyApiAvailable = [
+          "getFamilies",
+          "getFamilyById",
+          "createFamily",
+          "updateFamily",
+          "deleteFamily",
+          "getFamilyStudents",
+          "getGuardians",
+          "createGuardian",
+          "updateGuardian",
+          "deleteGuardian",
+          "getStudentGuardians",
+          "linkGuardianToStudent",
+          "updateStudentGuardianLink",
+          "unlinkGuardianFromStudent",
+          "linkSiblingStudents",
+          "createFamilyFromStudentDetails",
+          "getParentsInfoReport",
+          "getEmergencyContactsReport",
+          "getSiblingReport"
         ].every((method) => typeof window.erpApi[method] === "function");
         const certificateApiAvailable = [
           "getCertificateTemplates",
@@ -388,12 +537,62 @@ app.whenReady().then(async () => {
           "updateCarryForwardDue",
           "waiveCarryForwardDue"
         ].every((method) => typeof window.erpApi[method] === "function");
+        const feeInvoiceApiAvailable = [
+          "getDiscountTypes",
+          "createDiscountType",
+          "updateDiscountType",
+          "deleteDiscountType",
+          "getStudentDiscounts",
+          "createStudentDiscount",
+          "updateStudentDiscount",
+          "deleteStudentDiscount",
+          "getFeeInvoicePreview",
+          "createFeeInvoice",
+          "getFeeInvoices",
+          "getFeeInvoiceById",
+          "cancelFeeInvoice",
+          "refreshFeeInvoiceStatus",
+          "allocateFeePaymentToInvoices",
+          "getStudentOutstandingInvoices",
+          "getFeeInvoiceSummary",
+          "getFeeInvoiceAccountsReport",
+          "getStudentFeeLedger",
+          "getFeeInvoiceAccountMappings",
+          "saveFeeInvoiceAccountMapping",
+          "deleteFeeInvoiceAccountMapping",
+          "reverseFeePayment"
+        ].every((method) => typeof window.erpApi[method] === "function");
+        const reportCardApiAvailable = [
+          "getGradingSchemes",
+          "getGradingSchemeById",
+          "createGradingScheme",
+          "updateGradingScheme",
+          "deleteGradingScheme",
+          "setDefaultGradingScheme",
+          "calculateGrade",
+          "getReportCardTemplates",
+          "createReportCardTemplate",
+          "updateReportCardTemplate",
+          "deleteReportCardTemplate",
+          "getReportCardPreview",
+          "generateStudentReportCard",
+          "generateClassReportCards",
+          "getStudentReportCards",
+          "getStudentReportCardById",
+          "updateReportCardRemarks",
+          "deleteReportCard",
+          "getClassResultSummary",
+          "getResultPositions"
+        ].every((method) => typeof window.erpApi[method] === "function");
         const licenseApiAvailable = [
           "getDeviceId",
           "getLicenseStatus",
           "activateLicense",
+          "updateLicenseKey",
           "deactivateLicense",
-          "getLicenseInfo"
+          "getLicenseInfo",
+          "checkRemoteLicenseNow",
+          "getRemoteLicenseStatus"
         ].every((method) => typeof window.erpApi[method] === "function");
         const deviceId = await window.erpApi.getDeviceId();
         const licenseBeforeActivation =
@@ -431,6 +630,101 @@ app.whenReady().then(async () => {
         );
         await window.erpApi.logout();
         await window.erpApi.login("owner", "Initial-Owner-Password");
+        const accountProfile = await window.erpApi.getCurrentAccountProfile();
+        const accountProfileSafe = [
+          "passwordHash",
+          "passwordSalt",
+          "password_hash",
+          "password_salt"
+        ].every(
+          (field) =>
+            !Object.prototype.hasOwnProperty.call(accountProfile, field)
+        );
+        let accountDuplicateUsernameRejected = false;
+        try {
+          await window.erpApi.updateCurrentAccountProfile({
+            name: "Smoke Test Owner",
+            username: "teacher",
+            email: "owner@example.com"
+          });
+        } catch {
+          accountDuplicateUsernameRejected = true;
+        }
+        const attemptedProtectedProfileUpdate =
+          await window.erpApi.updateCurrentAccountProfile({
+            name: "Smoke Test Owner Updated",
+            username: "owner",
+            email: "owner-updated@example.com",
+            role: "Viewer",
+            status: "Inactive"
+          });
+        const accountRoleProtected =
+          attemptedProtectedProfileUpdate.role === "Owner" &&
+          attemptedProtectedProfileUpdate.status === "Active";
+        const restoredAccountProfile =
+          await window.erpApi.updateCurrentAccountProfile({
+            name: "Smoke Test Owner",
+            username: "owner",
+            email: "owner@example.com"
+          });
+        let wrongCurrentPasswordRejected = false;
+        try {
+          await window.erpApi.changeCurrentPassword({
+            currentPassword: "wrong-current-password",
+            newPassword: "Updated-Owner-Password"
+          });
+        } catch {
+          wrongCurrentPasswordRejected = true;
+        }
+        const currentPasswordChange =
+          await window.erpApi.changeCurrentPassword({
+            currentPassword: "Initial-Owner-Password",
+            newPassword: "Updated-Owner-Password"
+          });
+        await window.erpApi.logout();
+        let oldPasswordRejectedAfterChange = false;
+        try {
+          await window.erpApi.login("owner", "Initial-Owner-Password");
+        } catch {
+          oldPasswordRejectedAfterChange = true;
+        }
+        const reloggedOwnerAfterPasswordChange =
+          await window.erpApi.login("owner", "Updated-Owner-Password");
+        const loginHistory = await window.erpApi.getCurrentLoginHistory({
+          limit: 50
+        });
+        const loginHistoryRecorded =
+          loginHistory.some(
+            (entry) => entry.username === "owner" && entry.success
+          ) &&
+          loginHistory.some(
+            (entry) =>
+              entry.username === "owner" &&
+              !entry.success &&
+              entry.failureReason.includes("Invalid username or password")
+          );
+        const appPreferences =
+          await window.erpApi.updateAppPreferences({
+            themeMode: "System",
+            accentColor: "Indigo",
+            language: "English",
+            compactSidebar: true,
+            fontScale: "Large",
+            dateFormat: "DD MMM YYYY",
+            timeFormat: "24 Hour"
+          });
+        const userPreferences =
+          await window.erpApi.updateUserPreferences({
+            themeMode: "Dark",
+            accentColor: "Green",
+            language: "Hindi",
+            compactSidebar: true,
+            fontScale: "Large",
+            dateFormat: "YYYY-MM-DD",
+            timeFormat: "24 Hour"
+          });
+        const reloadedUserPreferences =
+          await window.erpApi.getUserPreferences();
         const schoolClass = await window.erpApi.createClass({
           name: "10",
           displayOrder: 10,
@@ -466,6 +760,42 @@ app.whenReady().then(async () => {
             startDate: "2026-04-01",
             endDate: "2027-03-31"
           });
+        const attendanceRule = await window.erpApi.createSchoolRule({
+          title: "Attendance Requirement",
+          category: "Attendance",
+          ruleText: "Students must maintain regular attendance.",
+          displayOrder: 2,
+          status: "Active",
+          academicSessionId: fromAcademicSession.id,
+          academicSessionName: fromAcademicSession.sessionName,
+          effectiveFrom: "2025-04-01"
+        });
+        const feesRule = await window.erpApi.createSchoolRule({
+          title: "Fee Due Date",
+          category: "Fees",
+          ruleText: "Fees are payable before the due date.",
+          displayOrder: 1,
+          status: "Active",
+          academicSessionId: fromAcademicSession.id,
+          academicSessionName: fromAcademicSession.sessionName,
+          effectiveFrom: "2025-04-01"
+        });
+        const updatedAttendanceRule =
+          await window.erpApi.updateSchoolRule(attendanceRule.id, {
+            ruleText:
+              "Students must maintain regular attendance and notify absences.",
+            displayOrder: 3
+          });
+        const attendanceRules = await window.erpApi.getSchoolRules({
+          category: "Attendance"
+        });
+        const reorderedRules = await window.erpApi.reorderSchoolRules([
+          { id: updatedAttendanceRule.id, displayOrder: 1 },
+          { id: feesRule.id, displayOrder: 2 }
+        ]);
+        const deletedFeesRule =
+          await window.erpApi.deleteSchoolRule(feesRule.id);
+        const rulesAfterDelete = await window.erpApi.getSchoolRules({});
         const feeHead = await window.erpApi.createFeeHead({
           name: "Tuition Fee",
           description: "Monthly tuition",
@@ -487,9 +817,79 @@ app.whenReady().then(async () => {
           guardianName: "Test Guardian",
           mobile: "9999999999"
         });
+        const initialStudentSessionHistory =
+          await window.erpApi.createOrUpdateStudentSessionHistory({
+            studentId: student.id,
+            academicSessionId: fromAcademicSession.id,
+            className: "10",
+            section: "A",
+            rollNo: "10",
+            status: "Active",
+            resultStatus: "Not Applicable"
+          });
         const updatedStudent = await window.erpApi.updateStudent(student.id, {
           mobile: "9888888888"
         });
+        const smokeFamily = await window.erpApi.createFamily({
+          familyName: "Database Test Family",
+          primaryContactName: "Smoke Test Father",
+          primaryMobile: "9888888888",
+          email: "family@example.com",
+          address: "Family Test Address",
+          city: "Test City",
+          state: "Test State",
+          emergencyContactName: "Smoke Test Mother",
+          emergencyContactMobile: "9777777700",
+          notes: "Family smoke test",
+          status: "Active"
+        });
+        const fatherGuardian = await window.erpApi.createGuardian({
+          familyId: smokeFamily.id,
+          fullName: "Smoke Test Father",
+          relation: "Father",
+          mobile: "9888888888",
+          email: "father@example.com",
+          occupation: "Engineer",
+          isPrimary: true,
+          canPickupStudent: true,
+          emergencyContact: false,
+          status: "Active"
+        });
+        const motherGuardian = await window.erpApi.createGuardian({
+          familyId: smokeFamily.id,
+          fullName: "Smoke Test Mother",
+          relation: "Mother",
+          mobile: "9777777700",
+          email: "mother@example.com",
+          occupation: "Doctor",
+          isPrimary: false,
+          canPickupStudent: true,
+          emergencyContact: true,
+          status: "Active"
+        });
+        const fatherStudentLink =
+          await window.erpApi.linkGuardianToStudent({
+            studentId: student.id,
+            guardianId: fatherGuardian.id,
+            familyId: smokeFamily.id,
+            relationToStudent: "Father",
+            isPrimary: true,
+            livesWithStudent: true,
+            financialResponsibility: true,
+            pickupAuthorized: true
+          });
+        await window.erpApi.linkGuardianToStudent({
+          studentId: student.id,
+          guardianId: motherGuardian.id,
+          familyId: smokeFamily.id,
+          relationToStudent: "Mother",
+          isPrimary: true,
+          livesWithStudent: true,
+          financialResponsibility: false,
+          pickupAuthorized: true
+        });
+        const studentLinksAfterPrimary =
+          await window.erpApi.getStudentGuardians(student.id);
         await window.erpApi.saveSchoolSettings({
           schoolName: "Persistence Test School",
           address: "Local Test Address",
@@ -498,6 +898,89 @@ app.whenReady().then(async () => {
           academicYear: "2026–2027",
           receiptPrefix: "TEST-RC"
         });
+        const initialAccountCategories =
+          await window.erpApi.getAccountCategories();
+        const tuitionIncomeCategory = initialAccountCategories.find(
+          (category) => category.name === "Tuition Fee Income"
+        );
+        if (!tuitionIncomeCategory) {
+          throw new Error("Default tuition income category was not created.");
+        }
+        const feeInvoiceAccountMapping =
+          await window.erpApi.saveFeeInvoiceAccountMapping({
+            feeHeadId: feeHead.id,
+            accountCategoryId: tuitionIncomeCategory.id,
+            status: "Active"
+          });
+        const discountType = await window.erpApi.createDiscountType({
+          name: "Sibling Discount",
+          discountMode: "Percentage",
+          defaultValue: 10,
+          description: "Sibling concession smoke test",
+          status: "Active"
+        });
+        const studentDiscount =
+          await window.erpApi.createStudentDiscount({
+            studentId: student.id,
+            discountTypeId: discountType.id,
+            academicSessionId: fromAcademicSession.id,
+            reason: "Smoke test concession",
+            approvedBy: "Smoke Test Owner",
+            status: "Active"
+          });
+        const invoicePreview =
+          await window.erpApi.getFeeInvoicePreview({
+            studentId: student.id,
+            academicSessionId: fromAcademicSession.id,
+            billingPeriod: "Monthly",
+            invoiceDate: "2026-07-03",
+            dueDate: "2026-07-20",
+            includePreviousDue: false,
+            lateFee: 0,
+            adjustmentAmount: 0
+          });
+        const feeInvoice = await window.erpApi.createFeeInvoice({
+          studentId: student.id,
+          academicSessionId: fromAcademicSession.id,
+          billingPeriod: "Monthly",
+          invoiceDate: "2026-07-03",
+          dueDate: "2026-07-20",
+          includePreviousDue: false,
+          lateFee: 0,
+          adjustmentAmount: 0,
+          notes: "Smoke test invoice"
+        });
+        let duplicateInvoiceRejected = false;
+        try {
+          await window.erpApi.createFeeInvoice({
+            studentId: student.id,
+            academicSessionId: fromAcademicSession.id,
+            billingPeriod: "Monthly",
+            invoiceDate: "2026-07-03",
+            dueDate: "2026-07-20",
+            includePreviousDue: false,
+            lateFee: 0,
+            adjustmentAmount: 0
+          });
+        } catch {
+          duplicateInvoiceRejected = true;
+        }
+        const unpaidInvoiceForCancellation =
+          await window.erpApi.createFeeInvoice({
+            studentId: student.id,
+            academicSessionId: fromAcademicSession.id,
+            billingPeriod: "Quarterly",
+            invoiceDate: "2026-07-03",
+            dueDate: "2026-07-20",
+            includePreviousDue: false,
+            lateFee: 0,
+            adjustmentAmount: 0
+          });
+        const cancelledUnpaidInvoice =
+          await window.erpApi.cancelFeeInvoice(
+            unpaidInvoiceForCancellation.id,
+            "Unpaid invoice cancellation smoke test"
+          );
         const defaultBehaviourTraits =
           await window.erpApi.getBehaviourTraits();
         const defaultSkillTraits = await window.erpApi.getSkillTraits();
@@ -706,9 +1189,94 @@ app.whenReady().then(async () => {
           designation: "Assistant",
           status: "Active"
         });
+        const employeeAttendancePresent =
+          await window.erpApi.saveEmployeeAttendanceBulk([
+            {
+              employeeId: employee.id,
+              attendanceDate: "2026-07-08",
+              status: "Present",
+              checkInTime: "08:55",
+              checkOutTime: "16:00",
+              remarks: "On time"
+            }
+          ]);
+        const employeeAttendanceLate =
+          await window.erpApi.updateEmployeeAttendance(
+            employeeAttendancePresent[0].id,
+            {
+              status: "Late",
+              checkInTime: "09:15",
+              checkOutTime: "16:10",
+              lateMinutes: 15,
+              overtimeMinutes: 10,
+              remarks: "Late but completed shift"
+            }
+          );
+        const employeeAttendanceDuplicateUpsert =
+          await window.erpApi.saveEmployeeAttendanceBulk([
+            {
+              employeeId: employee.id,
+              attendanceDate: "2026-07-08",
+              status: "Late",
+              checkInTime: "09:20",
+              checkOutTime: "16:10",
+              lateMinutes: 20,
+              overtimeMinutes: 10,
+              remarks: "Duplicate date upsert"
+            }
+          ]);
+        const duplicateEmployeeAttendanceRows =
+          await window.erpApi.getEmployeeAttendanceByDate(
+            "2026-07-08",
+            { employeeId: employee.id }
+          );
+        const employeeAttendanceBulk =
+          await window.erpApi.saveEmployeeAttendanceBulk([
+            {
+              employeeId: employee.id,
+              attendanceDate: "2026-07-09",
+              status: "Present",
+              checkInTime: "08:50",
+              checkOutTime: "16:00"
+            },
+            {
+              employeeId: deletedEmployee.id,
+              attendanceDate: "2026-07-09",
+              status: "Leave",
+              leaveType: "Casual Leave",
+              remarks: "History preservation row"
+            }
+          ]);
+        const employeeAttendanceDailySummary =
+          await window.erpApi.getEmployeeAttendanceSummary({
+            date: "2026-07-08",
+            department: "Academics"
+          });
+        const employeeAttendanceMonthlySummary =
+          await window.erpApi.getEmployeeMonthlyAttendance(
+            employee.id,
+            "2026-07"
+          );
+        const employeeAttendanceReport =
+          await window.erpApi.getEmployeeAttendanceReport({
+            month: "2026-07",
+            department: "Academics"
+          });
+        const employeeAttendanceRegister =
+          await window.erpApi.getEmployeeAttendanceReport({
+            startDate: "2026-07-08",
+            endDate: "2026-07-09",
+            employeeId: employee.id
+          });
         const employeeDeleteResult = await window.erpApi.deleteEmployee(
           deletedEmployee.id
         );
+        const deletedEmployeeAttendanceHistory =
+          await window.erpApi.getEmployeeAttendanceByRange({
+            employeeId: deletedEmployee.id,
+            startDate: "2026-07-09",
+            endDate: "2026-07-09"
+          });
         const employeesAfterDelete = await window.erpApi.getEmployees();
         const salaryPayment = await window.erpApi.createSalaryPayment({
           employeeId: employee.id,
@@ -839,6 +1407,107 @@ app.whenReady().then(async () => {
           await window.erpApi.getTimetableByClass("10", "A");
         const teacherTimetable =
           await window.erpApi.getTimetableByTeacher(employee.id);
+        let ownerRoleAssignmentRejected = false;
+        try {
+          await window.erpApi.createEmployeeLoginAccount({
+            employeeId: employee.id,
+            username: "smoke_employee_owner",
+            password: "Employee-Owner-Password",
+            role: "Owner",
+            mustChangePassword: false,
+            status: "Active"
+          });
+        } catch {
+          ownerRoleAssignmentRejected = true;
+        }
+        const employeeLoginAccount =
+          await window.erpApi.createEmployeeLoginAccount({
+            employeeId: employee.id,
+            username: "smoke_employee_login",
+            password: "Employee-Temp-Password",
+            role: "Teacher",
+            mustChangePassword: false,
+            status: "Active"
+          });
+        let duplicateEmployeeLinkRejected = false;
+        try {
+          await window.erpApi.createEmployeeLoginAccount({
+            employeeId: employee.id,
+            username: "smoke_employee_duplicate",
+            password: "Employee-Other-Password",
+            role: "Teacher",
+            mustChangePassword: false,
+            status: "Active"
+          });
+        } catch {
+          duplicateEmployeeLinkRejected = true;
+        }
+        await window.erpApi.logout();
+        const employeeLogin = await window.erpApi.login(
+          "smoke_employee_login",
+          "Employee-Temp-Password"
+        );
+        const employeeEntityLink =
+          await window.erpApi.getCurrentUserEntityLink();
+        const employeePortalData =
+          await window.erpApi.getCurrentEmployeePortalData();
+        let employeeOtherSalaryRejected = false;
+        try {
+          await window.erpApi.getSalaryPaymentsByEmployee(deletedEmployee.id);
+        } catch {
+          employeeOtherSalaryRejected = true;
+        }
+        await window.erpApi.logout();
+        await window.erpApi.login("owner", "Updated-Owner-Password");
+        await window.erpApi.resetEmployeeLoginPassword(
+          employeeLoginAccount.id,
+          {
+            password: "Employee-New-Password",
+            mustChangePassword: false
+          }
+        );
+        await window.erpApi.logout();
+        let oldEmployeePasswordRejected = false;
+        try {
+          await window.erpApi.login(
+            "smoke_employee_login",
+            "Employee-Temp-Password"
+          );
+        } catch {
+          oldEmployeePasswordRejected = true;
+        }
+        const employeeRelogin = await window.erpApi.login(
+          "smoke_employee_login",
+          "Employee-New-Password"
+        );
+        await window.erpApi.logout();
+        await window.erpApi.login("owner", "Updated-Owner-Password");
+        await window.erpApi.disableEmployeeLoginAccount(
+          employeeLoginAccount.id,
+          "Smoke disabled employee account"
+        );
+        await window.erpApi.logout();
+        let disabledEmployeeLoginRejected = false;
+        try {
+          await window.erpApi.login(
+            "smoke_employee_login",
+            "Employee-New-Password"
+          );
+        } catch {
+          disabledEmployeeLoginRejected = true;
+        }
+        await window.erpApi.login("owner", "Updated-Owner-Password");
+        const reenabledEmployeeLogin =
+          await window.erpApi.enableEmployeeLoginAccount(
+            employeeLoginAccount.id
+          );
+        await window.erpApi.logout();
+        const reenabledEmployeeRelogin = await window.erpApi.login(
+          "smoke_employee_login",
+          "Employee-New-Password"
+        );
+        await window.erpApi.logout();
+        await window.erpApi.login("owner", "Updated-Owner-Password");
         const homework = await window.erpApi.createHomework({
           title: "Algebra Practice",
           className: "10",
@@ -1096,6 +1765,89 @@ app.whenReady().then(async () => {
           paymentDate: "2026-07-04",
           notes: "Cheque 10042"
         });
+        const invoicePartialPayment =
+          await window.erpApi.createFeePayment({
+            studentId: student.id,
+            feeType: "Tuition Fee",
+            amount: 5000,
+            paymentMode: "UPI",
+            paymentDate: "2026-07-05",
+            notes: "Invoice partial payment",
+            invoiceAllocations: [
+              {
+                invoiceId: feeInvoice.id,
+                allocatedAmount: 5000
+              }
+            ]
+          });
+        const partiallyPaidInvoice =
+          await window.erpApi.getFeeInvoiceById(feeInvoice.id);
+        const invoiceFinalPayment =
+          await window.erpApi.createFeePayment({
+            studentId: student.id,
+            feeType: "Tuition Fee",
+            amount: 6250,
+            paymentMode: "Bank Transfer",
+            paymentDate: "2026-07-06",
+            notes: "Invoice final payment",
+            invoiceAllocations: [
+              {
+                invoiceId: feeInvoice.id,
+                allocatedAmount: 6250
+              }
+            ]
+          });
+        const paidInvoice =
+          await window.erpApi.getFeeInvoiceById(feeInvoice.id);
+        let paidInvoiceCancellationRejected = false;
+        try {
+          await window.erpApi.cancelFeeInvoice(
+            feeInvoice.id,
+            "Unsafe paid invoice cancellation smoke test"
+          );
+        } catch {
+          paidInvoiceCancellationRejected = true;
+        }
+        const accountsAfterInvoicePayments =
+          await window.erpApi.getAccountTransactions();
+        const invoicePaymentAccountCount =
+          accountsAfterInvoicePayments.filter(
+            (transaction) =>
+              transaction.linkedModule === "Fees" &&
+              [
+                invoicePartialPayment.id,
+                invoiceFinalPayment.id
+              ].includes(transaction.linkedRecordId)
+          ).length;
+        const invoiceGenerationCreatedAccount =
+          accountsAfterInvoicePayments.some(
+            (transaction) => transaction.linkedRecordId === feeInvoice.id
+          );
+        const paymentForReversal =
+          await window.erpApi.createFeePayment({
+            studentId: student.id,
+            feeType: "Tuition Fee",
+            amount: 100,
+            paymentMode: "Cash",
+            paymentDate: "2026-07-07",
+            notes: "Reversal smoke test"
+          });
+        const accountsBeforeReversal =
+          await window.erpApi.getAccountTransactions();
+        const reversalResult = await window.erpApi.reverseFeePayment(
+          paymentForReversal.id,
+          "Smoke reversal"
+        );
+        const accountsAfterReversal =
+          await window.erpApi.getAccountTransactions();
+        const reversalRemovedActiveAccount =
+          accountsAfterReversal.length ===
+            accountsBeforeReversal.length - 1 &&
+          !accountsAfterReversal.some(
+            (transaction) =>
+              transaction.linkedModule === "Fees" &&
+              transaction.linkedRecordId === paymentForReversal.id
+          );
         await window.erpApi.saveAttendanceBulk([
           {
             studentId: student.id,
@@ -1136,11 +1888,214 @@ app.whenReady().then(async () => {
             "2026-07-03",
             "2026-07-03"
           );
+        const gradingRanges = [
+          {
+            minValue: 90,
+            maxValue: 100,
+            grade: "A+",
+            gradePoint: 10,
+            resultStatus: "Pass",
+            displayOrder: 1
+          },
+          {
+            minValue: 80,
+            maxValue: 89.99,
+            grade: "A",
+            gradePoint: 9,
+            resultStatus: "Pass",
+            displayOrder: 2
+          },
+          {
+            minValue: 70,
+            maxValue: 79.99,
+            grade: "B+",
+            gradePoint: 8,
+            resultStatus: "Pass",
+            displayOrder: 3
+          },
+          {
+            minValue: 60,
+            maxValue: 69.99,
+            grade: "B",
+            gradePoint: 7,
+            resultStatus: "Pass",
+            displayOrder: 4
+          },
+          {
+            minValue: 50,
+            maxValue: 59.99,
+            grade: "C",
+            gradePoint: 6,
+            resultStatus: "Pass",
+            displayOrder: 5
+          },
+          {
+            minValue: 33,
+            maxValue: 49.99,
+            grade: "D",
+            gradePoint: 5,
+            resultStatus: "Pass",
+            displayOrder: 6
+          },
+          {
+            minValue: 0,
+            maxValue: 32.99,
+            grade: "F",
+            gradePoint: 0,
+            resultStatus: "Fail",
+            displayOrder: 7
+          }
+        ];
+        const gradingScheme = await window.erpApi.createGradingScheme({
+          name: "Smoke Percentage Scheme",
+          academicSessionId: toAcademicSession.id,
+          className: "10",
+          calculationMode: "Percentage",
+          isDefault: true,
+          description: "Smoke-test grading configuration",
+          ranges: gradingRanges
+        });
+        const defaultGradingScheme =
+          await window.erpApi.setDefaultGradingScheme(gradingScheme.id);
+        let overlappingGradingRangeRejected = false;
+        try {
+          await window.erpApi.createGradingScheme({
+            name: "Smoke Overlap Scheme",
+            calculationMode: "Percentage",
+            ranges: [
+              {
+                minValue: 0,
+                maxValue: 50,
+                grade: "D",
+                resultStatus: "Pass"
+              },
+              {
+                minValue: 40,
+                maxValue: 100,
+                grade: "A",
+                resultStatus: "Pass"
+              }
+            ]
+          });
+        } catch {
+          overlappingGradingRangeRejected = true;
+        }
+        const calculatedAPlus = await window.erpApi.calculateGrade({
+          gradingSchemeId: gradingScheme.id,
+          value: 91
+        });
+        const calculatedFail = await window.erpApi.calculateGrade({
+          gradingSchemeId: gradingScheme.id,
+          value: 20
+        });
+        const reportCardTemplate =
+          await window.erpApi.createReportCardTemplate({
+            name: "Smoke Standard Report Card",
+            academicSessionId: toAcademicSession.id,
+            className: "10",
+            showAttendance: true,
+            showClassTests: true,
+            showBehaviour: true,
+            showSkills: true,
+            showTeacherRemarks: true,
+            showPrincipalSignature: true,
+            headerText: "Smoke test report card",
+            footerText: "Generated by database smoke test",
+            status: "Active"
+          });
+        const reportCardInput = {
+          studentId: student.id,
+          academicSessionId: toAcademicSession.id,
+          className: "10",
+          section: "A",
+          examId: exam.id,
+          gradingSchemeId: gradingScheme.id,
+          templateId: reportCardTemplate.id,
+          teacherRemarks: "Consistent academic performance.",
+          principalRemarks: "Promoted subject to final approval."
+        };
+        const reportCardPreview =
+          await window.erpApi.getReportCardPreview(reportCardInput);
+        const generatedReportCard =
+          await window.erpApi.generateStudentReportCard(reportCardInput);
+        let duplicateReportCardRejected = false;
+        try {
+          await window.erpApi.generateStudentReportCard(reportCardInput);
+        } catch {
+          duplicateReportCardRejected = true;
+        }
+        const updatedReportCardRemarks =
+          await window.erpApi.updateReportCardRemarks(
+            generatedReportCard.id,
+            {
+              teacherRemarks: "Updated teacher remark.",
+              principalRemarks: "Updated principal remark."
+            }
+          );
+        await window.erpApi.updateMark(updatedMark.id, {
+          obtainedMarks: 20,
+          remarks: "Failing source mark update"
+        });
+        const savedReportCardAfterSourceChange =
+          await window.erpApi.getStudentReportCardById(
+            generatedReportCard.id
+          );
+        const failingReportPreview =
+          await window.erpApi.getReportCardPreview(reportCardInput);
+        const classReportBatch =
+          await window.erpApi.generateClassReportCards({
+            ...reportCardInput,
+            studentId: undefined,
+            regenerate: true
+          });
+        const classSummary =
+          await window.erpApi.getClassResultSummary({
+            academicSessionId: toAcademicSession.id,
+            className: "10",
+            section: "A",
+            examId: exam.id
+          });
+        const resultPositions = await window.erpApi.getResultPositions({
+          academicSessionId: toAcademicSession.id,
+          className: "10",
+          section: "A",
+          examId: exam.id
+        });
+        const reportCardDeleteResult =
+          await window.erpApi.deleteReportCard(generatedReportCard.id);
+        const activeReportCardsAfterDelete =
+          await window.erpApi.getStudentReportCards({
+            academicSessionId: toAcademicSession.id,
+            examId: exam.id,
+            studentId: student.id
+          });
+        const regeneratedReportCardAfterDelete =
+          await window.erpApi.generateStudentReportCard({
+            ...reportCardInput,
+            teacherRemarks: "Final generated report card.",
+            principalRemarks: "Final principal remark."
+          });
+        const finalStudentReportCard =
+          await window.erpApi.getStudentReportCardById(
+            regeneratedReportCardAfterDelete.id
+          );
+        const activeReportCardsFinal =
+          await window.erpApi.getStudentReportCards({
+            academicSessionId: toAcademicSession.id,
+            examId: exam.id,
+            studentId: student.id
+          });
+        const marksAfterReportCardSourceChange =
+          await window.erpApi.getMarksByStudentExam(student.id, exam.id);
         const repeatStudent = await window.erpApi.createStudent({
           admissionNo: "SMOKE-REPEAT",
           name: "Repeat Test Student",
           className: "10",
-          section: "A"
+          section: "A",
+          guardianName: "Repeat Legacy Guardian",
+          mobile: "9666666600",
+          email: "repeat-parent@example.com",
+          address: "Repeat Legacy Address"
         });
         const tcStudent = await window.erpApi.createStudent({
           admissionNo: "SMOKE-TC",
@@ -1154,6 +2109,153 @@ app.whenReady().then(async () => {
           className: "10",
           section: "A"
         });
+        const studentLoginAccount =
+          await window.erpApi.createStudentLoginAccount({
+            studentId: student.id,
+            username: "smoke_student_login",
+            password: "Student-Temp-Password",
+            mustChangePassword: true,
+            status: "Active"
+          });
+        let duplicateStudentUsernameRejected = false;
+        try {
+          await window.erpApi.createStudentLoginAccount({
+            studentId: repeatStudent.id,
+            username: "smoke_student_login",
+            password: "Student-Other-Password",
+            mustChangePassword: true,
+            status: "Active"
+          });
+        } catch {
+          duplicateStudentUsernameRejected = true;
+        }
+        let duplicateStudentLinkRejected = false;
+        try {
+          await window.erpApi.createStudentLoginAccount({
+            studentId: student.id,
+            username: "smoke_student_duplicate",
+            password: "Student-Other-Password",
+            mustChangePassword: true,
+            status: "Active"
+          });
+        } catch {
+          duplicateStudentLinkRejected = true;
+        }
+        await window.erpApi.logout();
+        const studentLogin = await window.erpApi.login(
+          "smoke_student_login",
+          "Student-Temp-Password"
+        );
+        const studentEntityLink =
+          await window.erpApi.getCurrentUserEntityLink();
+        const studentPasswordChanged =
+          await window.erpApi.changeTemporaryPassword({
+            currentPassword: "Student-Temp-Password",
+            newPassword: "Student-New-Password"
+          });
+        await window.erpApi.logout();
+        let oldStudentPasswordRejected = false;
+        try {
+          await window.erpApi.login(
+            "smoke_student_login",
+            "Student-Temp-Password"
+          );
+        } catch {
+          oldStudentPasswordRejected = true;
+        }
+        const studentRelogin = await window.erpApi.login(
+          "smoke_student_login",
+          "Student-New-Password"
+        );
+        const studentPortalData =
+          await window.erpApi.getCurrentStudentPortalData();
+        let studentListAccessRejected = false;
+        try {
+          await window.erpApi.getStudents();
+        } catch {
+          studentListAccessRejected = true;
+        }
+        let studentMutationRejected = false;
+        try {
+          await window.erpApi.createFeeHead({
+            name: "Blocked Student Fee Head",
+            description: "Student role must not create this.",
+            frequency: "Monthly",
+            status: "Active"
+          });
+        } catch {
+          studentMutationRejected = true;
+        }
+        await window.erpApi.logout();
+        await window.erpApi.login("owner", "Updated-Owner-Password");
+        await window.erpApi.disableStudentLoginAccount(
+          studentLoginAccount.id,
+          "Smoke disabled student account"
+        );
+        await window.erpApi.logout();
+        let disabledStudentLoginRejected = false;
+        try {
+          await window.erpApi.login(
+            "smoke_student_login",
+            "Student-New-Password"
+          );
+        } catch {
+          disabledStudentLoginRejected = true;
+        }
+        await window.erpApi.login("owner", "Updated-Owner-Password");
+        const reenabledStudentLogin =
+          await window.erpApi.enableStudentLoginAccount(
+            studentLoginAccount.id
+          );
+        await window.erpApi.logout();
+        const reenabledStudentRelogin = await window.erpApi.login(
+          "smoke_student_login",
+          "Student-New-Password"
+        );
+        await window.erpApi.logout();
+        await window.erpApi.login("owner", "Updated-Owner-Password");
+        const parentsReportBeforeSibling =
+          await window.erpApi.getParentsInfoReport({
+            className: "10",
+            section: "A"
+          });
+        const siblingFamilyProfile =
+          await window.erpApi.linkSiblingStudents({
+            studentIds: [student.id, repeatStudent.id],
+            familyId: smokeFamily.id
+          });
+        const fetchedFamilyProfile =
+          await window.erpApi.getFamilyById(smokeFamily.id);
+        const familyStudents =
+          await window.erpApi.getFamilyStudents(smokeFamily.id);
+        const parentsInfoReport =
+          await window.erpApi.getParentsInfoReport({
+            className: "10",
+            section: "A"
+          });
+        const emergencyContactsReport =
+          await window.erpApi.getEmergencyContactsReport({
+            className: "10",
+            section: "A"
+          });
+        const siblingReport = await window.erpApi.getSiblingReport({
+          className: "10",
+          section: "A"
+        });
+        const fatherUnlinkResult =
+          await window.erpApi.unlinkGuardianFromStudent(
+            fatherStudentLink.id
+          );
+        const guardiansAfterFatherUnlink =
+          await window.erpApi.getGuardians({
+            familyId: smokeFamily.id
+          });
+        const studentLinksAfterFatherUnlink =
+          await window.erpApi.getStudentGuardians(student.id);
+        const familyDeleteResult =
+          await window.erpApi.deleteFamily(smokeFamily.id);
+        const familiesAfterDelete = await window.erpApi.getFamilies({});
+        const studentsAfterFamilyDelete = await window.erpApi.getStudents();
         const promotionPreview =
           await window.erpApi.getPromotionPreview({
             fromSessionId: fromAcademicSession.id,
@@ -1182,8 +2284,9 @@ app.whenReady().then(async () => {
             {
               studentId: repeatStudent.id,
               action: "Repeat",
-              oldDueAmount: 0,
-              carryForwardDue: false,
+              oldDueAmount: 250,
+              carryForwardDue: true,
+              carryForwardAmount: 250,
               remarks: "Repeat Class 10"
             },
             {
@@ -1210,6 +2313,35 @@ app.whenReady().then(async () => {
           await window.erpApi.getCarryForwardDues({
             toSessionId: toAcademicSession.id,
             status: "Pending"
+          });
+        const carryForwardInvoicePreview =
+          await window.erpApi.getFeeInvoicePreview({
+            studentId: repeatStudent.id,
+            academicSessionId: toAcademicSession.id,
+            billingPeriod: "Annual",
+            invoiceDate: "2026-04-02",
+            dueDate: "2026-04-30",
+            includePreviousDue: true,
+            lateFee: 0,
+            adjustmentAmount: 0
+          });
+        const paidCarryForwardDue =
+          await window.erpApi.updateCarryForwardDue(
+            carryForwardDues.find(
+              (due) => due.studentId === student.id
+            ).id,
+            { status: "Paid" }
+          );
+        const waivedCarryForwardDue =
+          await window.erpApi.waiveCarryForwardDue(
+            carryForwardDues.find(
+              (due) => due.studentId === repeatStudent.id
+            ).id,
+            "Approved in smoke test"
+          );
+        const carryForwardDuesAfterUpdate =
+          await window.erpApi.getCarryForwardDues({
+            toSessionId: toAcademicSession.id
           });
         const rollbackStudent = await window.erpApi.createStudent({
           admissionNo: "SMOKE-ROLLBACK",
@@ -1303,16 +2435,195 @@ app.whenReady().then(async () => {
           questionPaperApiAvailable,
           behaviourSkillsApiAvailable,
           academicSessionsApiAvailable,
+          feeInvoiceApiAvailable,
+          reportCardApiAvailable,
+          settingsPreferencesApiAvailable,
           licenseApiAvailable,
           deviceId,
           licenseBeforeActivation,
           activatedLicense,
           readableLicense,
           hadUsersBeforeSetup,
+          ownerId: owner.id,
           ownerRole: owner.role,
           loggedInOwnerRole: loggedInOwner.role,
           resetPasswordLoginRole: resetPasswordLogin.role,
+          familyApiAvailable,
+          familyId: smokeFamily.id,
+          deletedFamilyId: smokeFamily.id,
+          fatherGuardianId: fatherGuardian.id,
+          motherGuardianId: motherGuardian.id,
+          familyCreated:
+            smokeFamily.familyCode.startsWith("FAM-") &&
+            smokeFamily.primaryContactName === "Smoke Test Father",
+          guardiansCreated:
+            fatherGuardian.relation === "Father" &&
+            motherGuardian.relation === "Mother",
+          guardianPrimaryEnforced:
+            studentLinksAfterPrimary.length === 2 &&
+            studentLinksAfterPrimary.filter((link) => link.isPrimary)
+              .length === 1 &&
+            studentLinksAfterPrimary.find((link) => link.isPrimary)
+              ?.guardianId === motherGuardian.id,
+          legacyParentFallbackWorked:
+            parentsReportBeforeSibling.rows.some(
+              (row) =>
+                row.studentId === repeatStudent.id &&
+                row.source === "Legacy" &&
+                row.primaryGuardian === "Repeat Legacy Guardian"
+            ),
+          siblingLinkWorked:
+            siblingFamilyProfile?.students.length === 2 &&
+            siblingFamilyProfile.students.some(
+              (item) => item.id === student.id
+            ) &&
+            siblingFamilyProfile.students.some(
+              (item) => item.id === repeatStudent.id
+            ),
+          familyProfileCorrect:
+            fetchedFamilyProfile?.familyCode === smokeFamily.familyCode &&
+            fetchedFamilyProfile.guardians.length === 2 &&
+            familyStudents.length === 2,
+          parentsInfoReportCorrect:
+            parentsInfoReport.summary.totalGuardians >= 2 &&
+            parentsInfoReport.rows.some(
+              (row) =>
+                row.studentId === student.id &&
+                row.guardianId === motherGuardian.id &&
+                row.pickupAuthorized
+            ),
+          emergencyReportCorrect:
+            emergencyContactsReport.rows.some(
+              (row) =>
+                row.studentId === student.id &&
+                row.emergencyContactName === "Smoke Test Mother"
+            ),
+          siblingReportCorrect:
+            siblingReport.rows.some(
+              (row) =>
+                row.familyId === smokeFamily.id &&
+                row.studentCount === 2
+            ),
+          guardianUnlinkedWithoutDelete:
+            fatherUnlinkResult.success &&
+            guardiansAfterFatherUnlink.some(
+              (guardian) => guardian.id === fatherGuardian.id
+            ) &&
+            !studentLinksAfterFatherUnlink.some(
+              (link) => link.guardianId === fatherGuardian.id
+            ),
+          familySoftDeletedStudentSafe:
+            familyDeleteResult.success &&
+            !familiesAfterDelete.some(
+              (family) => family.id === smokeFamily.id
+            ) &&
+            studentsAfterFamilyDelete.some((item) => item.id === student.id) &&
+            studentsAfterFamilyDelete.some(
+              (item) => item.id === repeatStudent.id
+            ),
+          accountProfileSafe,
+          accountDuplicateUsernameRejected,
+          accountRoleProtected,
+          accountProfileRestored:
+            restoredAccountProfile.name === "Smoke Test Owner" &&
+            restoredAccountProfile.email === "owner@example.com",
+          wrongCurrentPasswordRejected,
+          passwordChanged:
+            currentPasswordChange.success &&
+            oldPasswordRejectedAfterChange &&
+            reloggedOwnerAfterPasswordChange.role === "Owner",
+          loginHistoryRecorded,
+          appPreferencesSaved:
+            appPreferences.preferenceScope === "Application" &&
+            appPreferences.themeMode === "System" &&
+            appPreferences.accentColor === "Indigo" &&
+            appPreferences.compactSidebar === true &&
+            appPreferences.fontScale === "Large" &&
+            appPreferences.dateFormat === "DD MMM YYYY" &&
+            appPreferences.timeFormat === "24 Hour",
+          userPreferencesSaved:
+            userPreferences.preferenceScope === "User" &&
+            userPreferences.language === "Hindi" &&
+            userPreferences.themeMode === "Dark" &&
+            reloadedUserPreferences.language === "Hindi" &&
+            reloadedUserPreferences.accentColor === "Green",
+          schoolRuleId: updatedAttendanceRule.id,
+          deletedSchoolRuleId: feesRule.id,
+          schoolRuleCreatedUpdated:
+            updatedAttendanceRule.ruleText.includes("notify absences") &&
+            updatedAttendanceRule.displayOrder === 3,
+          schoolRuleFiltered:
+            attendanceRules.length === 1 &&
+            attendanceRules[0].id === updatedAttendanceRule.id,
+          schoolRulesReordered:
+            reorderedRules.find((rule) => rule.id === updatedAttendanceRule.id)
+              ?.displayOrder === 1 &&
+            reorderedRules.find((rule) => rule.id === feesRule.id)
+              ?.displayOrder === 2,
+          schoolRuleSoftDeleted:
+            deletedFeesRule.success &&
+            !rulesAfterDelete.some((rule) => rule.id === feesRule.id),
           safeUsers,
+          studentLoginManagementCorrect:
+            studentLoginAccount.username === "smoke_student_login" &&
+            studentLoginAccount.role === "Student" &&
+            studentLoginAccount.accountType === "Student" &&
+            duplicateStudentUsernameRejected &&
+            duplicateStudentLinkRejected &&
+            studentLogin.role === "Student" &&
+            studentLogin.mustChangePassword === true &&
+            studentEntityLink?.entityType === "Student" &&
+            studentEntityLink?.entityId === student.id &&
+            studentPasswordChanged.mustChangePassword === false &&
+            oldStudentPasswordRejected &&
+            studentRelogin.role === "Student" &&
+            studentRelogin.accountType === "Student" &&
+            studentListAccessRejected &&
+            studentMutationRejected &&
+            disabledStudentLoginRejected &&
+            reenabledStudentLogin.status === "Active" &&
+            reenabledStudentRelogin.role === "Student",
+          studentPortalFiltered:
+            studentPortalData.student.id === student.id &&
+            studentPortalData.student.admissionNo === "SMOKE-001" &&
+            studentPortalData.guardians.every(
+              (guardian) => guardian.studentId === student.id
+            ) &&
+            studentPortalData.attendance.every(
+              (record) => record.studentId === student.id
+            ) &&
+            studentPortalData.marks.every(
+              (mark) => mark.studentId === student.id
+            ) &&
+            studentPortalData.feePayments.every(
+              (payment) => payment.studentId === student.id
+            ),
+          employeeLoginManagementCorrect:
+            ownerRoleAssignmentRejected &&
+            employeeLoginAccount.username === "smoke_employee_login" &&
+            employeeLoginAccount.role === "Teacher" &&
+            employeeLoginAccount.accountType === "Staff" &&
+            duplicateEmployeeLinkRejected &&
+            employeeLogin.role === "Teacher" &&
+            employeeEntityLink?.entityType === "Employee" &&
+            employeeEntityLink?.entityId === employee.id &&
+            employeeOtherSalaryRejected &&
+            oldEmployeePasswordRejected &&
+            employeeRelogin.role === "Teacher" &&
+            disabledEmployeeLoginRejected &&
+            reenabledEmployeeLogin.status === "Active" &&
+            reenabledEmployeeRelogin.role === "Teacher",
+          employeePortalFiltered:
+            employeePortalData.employee.id === employee.id &&
+            employeePortalData.attendance.every(
+              (record) => record.employeeId === employee.id
+            ) &&
+            employeePortalData.salaryPayments.every(
+              (payment) => payment.employeeId === employee.id
+            ) &&
+            employeePortalData.timetable.every(
+              (entry) => entry.teacherId === employee.id
+            ),
           auditLogCount: auditLogs.length,
           behaviourTraitId: behaviourTrait.id,
           skillTraitId: affectiveTrait.id,
@@ -1342,7 +2653,15 @@ app.whenReady().then(async () => {
           fromAcademicSessionId: fromAcademicSession.id,
           toAcademicSessionId: toAcademicSession.id,
           promotionId: promotion.id,
+          repeatStudentId: repeatStudent.id,
+          tcStudentId: tcStudent.id,
+          leftStudentId: leftStudent.id,
+          rollbackStudentId: rollbackStudent.id,
           promotionPreviewCount: promotionPreview.rows.length,
+          initialSessionHistoryCreated:
+            initialStudentSessionHistory.academicSessionId ===
+              fromAcademicSession.id &&
+            initialStudentSessionHistory.rollNo === "10",
           promotionNo: promotion.promotionNo,
           promotionCountsCorrect:
             promotion.totalStudents === 4 &&
@@ -1377,9 +2696,31 @@ app.whenReady().then(async () => {
                 item.className === "10"
             ),
           carryForwardCreated:
-            carryForwardDues.length === 1 &&
-            carryForwardDues[0].carriedAmount === 500 &&
-            carryForwardDues[0].studentId === student.id,
+            carryForwardDues.length === 2 &&
+            carryForwardDues.some(
+              (due) =>
+                due.carriedAmount === 500 &&
+                due.studentId === student.id
+            ) &&
+            carryForwardDues.some(
+              (due) =>
+                due.carriedAmount === 250 &&
+                due.studentId === repeatStudent.id
+            ),
+          carryForwardInvoicePreviousDue:
+            carryForwardInvoicePreview.previousDue,
+          carryForwardStatusesUpdated:
+            paidCarryForwardDue.status === "Paid" &&
+            waivedCarryForwardDue.status === "Waived" &&
+            carryForwardDuesAfterUpdate.some(
+              (due) =>
+                due.studentId === student.id && due.status === "Paid"
+            ) &&
+            carryForwardDuesAfterUpdate.some(
+              (due) =>
+                due.studentId === repeatStudent.id &&
+                due.status === "Waived"
+            ),
           invalidPromotionRolledBack,
           currentCloseRejected,
           oldSessionClosed: closedFromSession.status === "Closed",
@@ -1427,6 +2768,7 @@ app.whenReady().then(async () => {
           defaultCertificateTemplateCount:
             certificateTemplatesAfterDelete.length,
           employeeId: employee.id,
+          deletedEmployeeId: deletedEmployee.id,
           employeeCount: employeesAfterDelete.length,
           employeeUpdated:
             updatedEmployee.designation === "Senior Teacher" &&
@@ -1439,6 +2781,42 @@ app.whenReady().then(async () => {
             !employeesAfterDelete.some(
               (item) => item.id === deletedEmployee.id
             ),
+          employeeAttendanceApiAvailable,
+          employeeAttendancePresentSaved:
+            employeeAttendancePresent[0]?.status === "Present",
+          employeeAttendanceUpdatedLate:
+            employeeAttendanceLate.status === "Late" &&
+            employeeAttendanceLate.lateMinutes === 15,
+          employeeAttendanceDuplicatePrevented:
+            duplicateEmployeeAttendanceRows.length === 1 &&
+            employeeAttendanceDuplicateUpsert[0]?.id ===
+              employeeAttendancePresent[0]?.id &&
+            employeeAttendanceDuplicateUpsert[0]?.lateMinutes === 20,
+          employeeAttendanceBulkSaved:
+            employeeAttendanceBulk.length === 2,
+          employeeAttendanceDailySummaryCorrect:
+            employeeAttendanceDailySummary.totalMarked === 1 &&
+            employeeAttendanceDailySummary.late === 1 &&
+            employeeAttendanceDailySummary.totalEmployees === 1,
+          employeeAttendanceMonthlySummaryCorrect:
+            employeeAttendanceMonthlySummary.employeeId === employee.id &&
+            employeeAttendanceMonthlySummary.present === 1 &&
+            employeeAttendanceMonthlySummary.lateDays === 1 &&
+            employeeAttendanceMonthlySummary.workingDays === 2,
+          employeeAttendanceReportCorrect:
+            employeeAttendanceReport.monthlyRows.some(
+              (row) =>
+                row.employeeId === employee.id &&
+                row.present === 1 &&
+                row.lateDays === 1 &&
+                row.workingDays === 2
+            ),
+          employeeAttendanceRegisterCount:
+            employeeAttendanceRegister.rows.length,
+          deletedEmployeeAttendancePreserved:
+            deletedEmployeeAttendanceHistory.length === 1 &&
+            deletedEmployeeAttendanceHistory[0].employeeId ===
+              deletedEmployee.id,
           timetableWeekdayCount: (
             await window.erpApi.getTimetableWeekdays()
           ).length,
@@ -1601,6 +2979,69 @@ app.whenReady().then(async () => {
           studentExamMarkCount: studentExamMarks.length,
           updatedObtainedMarks: updatedMark.obtainedMarks,
           updatedMarkRemarks: updatedMark.remarks,
+          gradingSchemeId: gradingScheme.id,
+          reportCardTemplateId: reportCardTemplate.id,
+          reportCardId: regeneratedReportCardAfterDelete.id,
+          gradingSchemeCreated:
+            gradingScheme.name === "Smoke Percentage Scheme" &&
+            gradingScheme.ranges.length === 7 &&
+            defaultGradingScheme?.id === gradingScheme.id &&
+            defaultGradingScheme.isDefault === true,
+          overlappingGradingRangeRejected,
+          gradeCalculationCorrect:
+            calculatedAPlus.grade === "A+" &&
+            calculatedAPlus.resultStatus === "Pass" &&
+            calculatedFail.grade === "F" &&
+            calculatedFail.resultStatus === "Fail",
+          reportCardPreviewCorrect:
+            reportCardPreview.totalMaxMarks === 100 &&
+            reportCardPreview.totalObtainedMarks === 91 &&
+            reportCardPreview.overallGrade === "A+" &&
+            reportCardPreview.resultStatus === "Pass" &&
+            reportCardPreview.attendance.workingDays === 1 &&
+            reportCardPreview.attendance.presentDays === 0 &&
+            reportCardPreview.behaviourRatings.length === 1 &&
+            reportCardPreview.affectiveSkills.length === 1 &&
+            reportCardPreview.psychomotorSkills.length === 1 &&
+            reportCardPreview.classTests.length === 1,
+          reportCardGenerated:
+            generatedReportCard.reportCardNo === "RC-2026-0001" &&
+            generatedReportCard.resultStatus === "Pass" &&
+            generatedReportCard.subjects[0]?.obtainedMarks === 91,
+          duplicateReportCardRejected,
+          reportCardRemarksUpdated:
+            updatedReportCardRemarks.teacherRemarks ===
+              "Updated teacher remark." &&
+            updatedReportCardRemarks.principalRemarks ===
+              "Updated principal remark.",
+          reportCardSnapshotPreserved:
+            savedReportCardAfterSourceChange?.subjects[0]
+              ?.obtainedMarks === 91 &&
+            marksAfterReportCardSourceChange[0]?.obtainedMarks === 20,
+          reportCardFailRuleCorrect:
+            failingReportPreview.resultStatus === "Fail" &&
+            failingReportPreview.subjects[0]?.resultStatus === "Fail" &&
+            failingReportPreview.overallGrade === "F",
+          reportCardClassBatchCorrect:
+            classReportBatch.count === 1 &&
+            classReportBatch.reportCards[0]?.resultStatus === "Fail",
+          reportCardSummaryCorrect:
+            classSummary.summary.totalStudents === 1 &&
+            classSummary.summary.resultComplete === 1 &&
+            classSummary.summary.failed === 1 &&
+            classSummary.rankings[0]?.position === 1 &&
+            classSummary.subjectSummaries[0]?.failed === 1,
+          reportCardPositionsCorrect:
+            resultPositions.length === 1 &&
+            resultPositions[0].position === 1 &&
+            resultPositions[0].resultStatus === "Fail",
+          reportCardSoftDeleted:
+            reportCardDeleteResult.success &&
+            activeReportCardsAfterDelete.length === 0,
+          finalReportCardPersisted:
+            finalStudentReportCard?.id === regeneratedReportCardAfterDelete.id &&
+            finalStudentReportCard.reportCardNo === "RC-2026-0002" &&
+            activeReportCardsFinal.length === 1,
           databaseInfo,
           schoolName: (await window.erpApi.getSchoolSettings()).schoolName,
           classCount: (await window.erpApi.getClasses()).length,
@@ -1616,7 +3057,38 @@ app.whenReady().then(async () => {
           receiptAdmissionNo: firstPayment.admissionNo,
           receiptSection: firstPayment.section,
           receiptCashierName: firstPayment.cashierName,
-          secondPaymentMode: secondPayment.paymentMode
+          secondPaymentMode: secondPayment.paymentMode,
+          discountTypeCreated:
+            discountType.name === "Sibling Discount" &&
+            discountType.discountMode === "Percentage",
+          studentDiscountAssigned:
+            studentDiscount.studentId === student.id &&
+            studentDiscount.discountTypeId === discountType.id,
+          feeInvoiceAccountMappingSaved:
+            feeInvoiceAccountMapping.feeHeadId === feeHead.id &&
+            feeInvoiceAccountMapping.accountCategoryId ===
+              tuitionIncomeCategory.id,
+          invoicePreviewDiscount:
+            invoicePreview.subtotal === 12500 &&
+            invoicePreview.discountAmount === 1250 &&
+            invoicePreview.grandTotal === 11250,
+          invoiceNo: feeInvoice.invoiceNo,
+          duplicateInvoiceRejected,
+          cancelledUnpaidInvoiceStatus: cancelledUnpaidInvoice.status,
+          partialInvoiceStatus:
+            partiallyPaidInvoice?.status === "Partially Paid" &&
+            partiallyPaidInvoice.paidAmount === 5000 &&
+            partiallyPaidInvoice.balanceAmount === 6250,
+          paidInvoiceStatus:
+            paidInvoice?.status === "Paid" &&
+            paidInvoice.paidAmount === 11250 &&
+            paidInvoice.balanceAmount === 0,
+          paidInvoiceCancellationRejected,
+          invoicePaymentAccountCount,
+          invoiceGenerationCreatedAccount,
+          reversalWorked:
+            reversalResult.payment.status === "Reversed" &&
+            reversalRemovedActiveAccount
         };
       })()
     `);
@@ -1642,12 +3114,20 @@ app.whenReady().then(async () => {
       "Student import APIs were not exposed by the preload bridge.",
     );
     assert(
+      bridgeResult.familyApiAvailable,
+      "Family, guardian, and parent report APIs were not exposed by the preload bridge.",
+    );
+    assert(
       bridgeResult.certificateApiAvailable,
       "Certificate APIs were not exposed by the preload bridge.",
     );
     assert(
       bridgeResult.employeeApiAvailable,
       "Employee APIs were not exposed by the preload bridge.",
+    );
+    assert(
+      bridgeResult.employeeAttendanceApiAvailable,
+      "Employee attendance APIs were not exposed by the preload bridge.",
     );
     assert(
       bridgeResult.salaryApiAvailable,
@@ -1682,6 +3162,18 @@ app.whenReady().then(async () => {
       "Academic session and promotion APIs were not exposed by the preload bridge.",
     );
     assert(
+      bridgeResult.feeInvoiceApiAvailable,
+      "Fee invoice and discount APIs were not exposed by the preload bridge.",
+    );
+    assert(
+      bridgeResult.reportCardApiAvailable,
+      "Marks grading and report card APIs were not exposed by the preload bridge.",
+    );
+    assert(
+      bridgeResult.settingsPreferencesApiAvailable,
+      "Rules, preferences, and account settings APIs were not exposed by the preload bridge.",
+    );
+    assert(
       bridgeResult.licenseApiAvailable &&
         bridgeResult.deviceId === firstDeviceId,
       "License APIs or device ID bridge failed.",
@@ -1692,6 +3184,101 @@ app.whenReady().then(async () => {
         bridgeResult.activatedLicense.status === "active" &&
         bridgeResult.readableLicense.license.licenseId === "LIC-SMOKE-001",
       "Valid license activation or status read failed.",
+    );
+    const remoteActive = await licenseService.checkRemoteLicenseNow();
+    assert(
+      remoteActive.remoteStatus === "Active" &&
+        remoteActive.displayStatus === "Online Verified" &&
+        remoteActive.blocksUsage === false &&
+        remoteRequests[0].licenseId === "LIC-SMOKE-001" &&
+        remoteRequests[0].deviceId === firstDeviceId &&
+        remoteRequests[0].appVersion === "1.1.0-smoke",
+      "Remote Active status did not allow a valid local license.",
+    );
+    assert(
+      licenseService.requireValidLicense().isValid,
+      "Valid local license was blocked after remote Active.",
+    );
+    remoteResponse = {
+      ...remoteResponse,
+      valid: false,
+      status: "Suspended",
+      message:
+        "Your Vidhya School ERP license has been suspended. Please contact Vidhya Tech.",
+    };
+    const remoteSuspended = await licenseService.checkRemoteLicenseNow();
+    let suspendedLicenseBlocked = false;
+    try {
+      licenseService.requireValidLicense();
+    } catch (error) {
+      suspendedLicenseBlocked =
+        error instanceof Error &&
+        error.message.includes("license has been suspended");
+    }
+    assert(
+      remoteSuspended.blocksUsage && suspendedLicenseBlocked,
+      "Remote Suspended status did not block ERP access.",
+    );
+    remoteResponse = {
+      ...remoteResponse,
+      valid: true,
+      status: "Active",
+      message: "License active",
+    };
+    const remoteReactivated = await licenseService.checkRemoteLicenseNow();
+    assert(
+      remoteReactivated.remoteStatus === "Active" &&
+        !remoteReactivated.blocksUsage,
+      "Remote Active status did not reactivate access.",
+    );
+    remoteFailure = "Simulated network outage";
+    const remoteGrace = await licenseService.checkRemoteLicenseNow();
+    assert(
+      remoteGrace.displayStatus === "Offline Grace" &&
+        remoteGrace.canUseGrace &&
+        !remoteGrace.blocksUsage,
+      "Remote check failure did not enter offline grace.",
+    );
+    currentNow = new Date("2026-07-11T12:00:00.000Z");
+    const remoteGraceExpired = await licenseService.checkRemoteLicenseNow();
+    let expiredGraceBlocked = false;
+    try {
+      licenseService.requireValidLicense();
+    } catch (error) {
+      expiredGraceBlocked =
+        error instanceof Error &&
+        error.message.includes("grace period has expired");
+    }
+    assert(
+      remoteGraceExpired.displayStatus === "Check Required" &&
+        remoteGraceExpired.blocksUsage &&
+        expiredGraceBlocked,
+      "Expired remote grace did not block ERP access.",
+    );
+    remoteFailure = null;
+    remoteResponse = {
+      ...remoteResponse,
+      valid: true,
+      status: "Active",
+      message: "License active",
+    };
+    const remoteRecovered = await licenseService.checkRemoteLicenseNow();
+    currentNow = new Date(testNow);
+    assert(
+      remoteRecovered.remoteStatus === "Active" &&
+        !remoteRecovered.blocksUsage,
+      "Remote Active status did not recover from expired grace.",
+    );
+    const remoteAuditActions = database
+      .getAuditLogs(100)
+      .map((entry) => entry.action);
+    assert(
+      remoteAuditActions.includes("Remote license checked") &&
+        remoteAuditActions.includes("Remote license active") &&
+        remoteAuditActions.includes("Remote license suspended") &&
+        remoteAuditActions.includes("Remote license check failed") &&
+        remoteAuditActions.includes("Grace period expired"),
+      "Remote license audit logs were not recorded.",
     );
     assert(
       bridgeResult.hadUsersBeforeSetup === false &&
@@ -1711,7 +3298,7 @@ app.whenReady().then(async () => {
       "Reset user password could not be used to log in.",
     );
     assert(
-      bridgeResult.safeUsers.length === 2 &&
+      bridgeResult.safeUsers.length >= 4 &&
         bridgeResult.safeUsers.every(
           (user) =>
             !Object.prototype.hasOwnProperty.call(user, "passwordHash") &&
@@ -1720,6 +3307,38 @@ app.whenReady().then(async () => {
             !Object.prototype.hasOwnProperty.call(user, "password_salt"),
         ),
       "User APIs exposed password credentials.",
+    );
+    assert(
+      bridgeResult.studentLoginManagementCorrect &&
+        bridgeResult.studentPortalFiltered,
+      "Student login management, password reset/change, role restriction, or portal filtering failed.",
+    );
+    assert(
+      bridgeResult.employeeLoginManagementCorrect &&
+        bridgeResult.employeePortalFiltered,
+      "Employee login management, role restriction, reset/enable-disable, or portal filtering failed.",
+    );
+    assert(
+      bridgeResult.accountProfileSafe &&
+        bridgeResult.accountDuplicateUsernameRejected &&
+        bridgeResult.accountRoleProtected &&
+        bridgeResult.accountProfileRestored &&
+        bridgeResult.wrongCurrentPasswordRejected &&
+        bridgeResult.passwordChanged &&
+        bridgeResult.loginHistoryRecorded,
+      "Account profile, password change, login history, or privilege-protection behavior failed.",
+    );
+    assert(
+      bridgeResult.appPreferencesSaved &&
+        bridgeResult.userPreferencesSaved,
+      "Application or user preferences did not save through IPC.",
+    );
+    assert(
+      bridgeResult.schoolRuleCreatedUpdated &&
+        bridgeResult.schoolRuleFiltered &&
+        bridgeResult.schoolRulesReordered &&
+        bridgeResult.schoolRuleSoftDeleted,
+      "School rules create, update, filter, reorder, or soft delete failed.",
     );
     assert(
       bridgeResult.auditLogCount >= 6,
@@ -1732,13 +3351,40 @@ app.whenReady().then(async () => {
         ownerAuthRecord.password_hash.length > 64,
       "Owner password was not securely hashed.",
     );
+    const studentAuthRecord = database.getUserAuthRecord(
+      "smoke_student_login",
+    );
+    const employeeAuthRecord = database.getUserAuthRecord(
+      "smoke_employee_login",
+    );
+    assert(
+      studentAuthRecord.password_hash !== "Student-New-Password" &&
+        employeeAuthRecord.password_hash !== "Employee-New-Password" &&
+        studentAuthRecord.password_salt &&
+        employeeAuthRecord.password_salt,
+      "Linked student or employee password was not securely hashed.",
+    );
     assert(
       bridgeResult.classAttendanceIsArray,
       "Attendance class/date query did not return an array.",
     );
-    assert(bridgeResult.studentCount === 1, "Student IPC operations failed.");
+    assert(bridgeResult.studentCount === 5, "Student IPC operations failed.");
     assert(bridgeResult.updatedMobile === "9888888888", "Student update IPC failed.");
-    assert(bridgeResult.paymentCount === 2, "Fee payment IPC operations failed.");
+    assert(
+      bridgeResult.familyCreated &&
+        bridgeResult.guardiansCreated &&
+        bridgeResult.guardianPrimaryEnforced &&
+        bridgeResult.legacyParentFallbackWorked &&
+        bridgeResult.siblingLinkWorked &&
+        bridgeResult.familyProfileCorrect &&
+        bridgeResult.parentsInfoReportCorrect &&
+        bridgeResult.emergencyReportCorrect &&
+        bridgeResult.siblingReportCorrect &&
+        bridgeResult.guardianUnlinkedWithoutDelete &&
+        bridgeResult.familySoftDeletedStudentSafe,
+      "Family, guardian, sibling, legacy fallback, report, unlink, or soft-delete behavior failed.",
+    );
+    assert(bridgeResult.paymentCount === 5, "Fee payment IPC operations failed.");
     assert(
       bridgeResult.firstReceipt === "TEST-RC-2026-0001",
       "Yearly receipt number was not generated.",
@@ -1786,6 +3432,18 @@ app.whenReady().then(async () => {
         bridgeResult.employeeFetchedById &&
         bridgeResult.employeeSoftDeleted,
       "Employee create, update, read, or soft delete failed.",
+    );
+    assert(
+      bridgeResult.employeeAttendancePresentSaved &&
+        bridgeResult.employeeAttendanceUpdatedLate &&
+        bridgeResult.employeeAttendanceDuplicatePrevented &&
+        bridgeResult.employeeAttendanceBulkSaved &&
+        bridgeResult.employeeAttendanceDailySummaryCorrect &&
+        bridgeResult.employeeAttendanceMonthlySummaryCorrect &&
+        bridgeResult.employeeAttendanceReportCorrect &&
+        bridgeResult.employeeAttendanceRegisterCount === 2 &&
+        bridgeResult.deletedEmployeeAttendancePreserved,
+      "Employee attendance save, update, duplicate guard, reports, or history preservation failed.",
     );
     assert(
       bridgeResult.timetableWeekdayCount === 7 &&
@@ -1842,12 +3500,15 @@ app.whenReady().then(async () => {
     );
     assert(
       bridgeResult.promotionPreviewCount === 4 &&
+        bridgeResult.initialSessionHistoryCreated &&
         bridgeResult.promotionNo === "PROM-2026-0001" &&
         bridgeResult.promotionCountsCorrect &&
         bridgeResult.promotionItemsCreated &&
         bridgeResult.promotedHistoryPreserved &&
         bridgeResult.repeatHistoryPreserved &&
         bridgeResult.carryForwardCreated &&
+        bridgeResult.carryForwardInvoicePreviousDue === 250 &&
+        bridgeResult.carryForwardStatusesUpdated &&
         bridgeResult.invalidPromotionRolledBack &&
         bridgeResult.currentCloseRejected &&
         bridgeResult.oldSessionClosed &&
@@ -1965,13 +3626,38 @@ app.whenReady().then(async () => {
       "Manual account transactions or account numbering failed.",
     );
     assert(
-      bridgeResult.accountTransactionCount === 5 &&
-        bridgeResult.accountRangeCount === 5 &&
-        bridgeResult.feeAccountCount === 2 &&
+      bridgeResult.accountTransactionCount === 7 &&
+        bridgeResult.accountRangeCount === 7 &&
+        bridgeResult.feeAccountCount === 4 &&
         bridgeResult.feeAccountLinked &&
         bridgeResult.salaryAccountCount === 1 &&
         bridgeResult.salaryAccountSynced,
       "Account date queries or automatic fee/salary ledger links failed.",
+    );
+    assert(
+      bridgeResult.discountTypeCreated &&
+        bridgeResult.studentDiscountAssigned &&
+        bridgeResult.feeInvoiceAccountMappingSaved,
+      "Discount type, student discount or fee account mapping failed.",
+    );
+    assert(
+      bridgeResult.invoicePreviewDiscount &&
+        bridgeResult.invoiceNo === "INV-2026-0001" &&
+        bridgeResult.duplicateInvoiceRejected,
+      "Fee invoice preview, numbering or duplicate protection failed.",
+    );
+    assert(
+      bridgeResult.partialInvoiceStatus &&
+        bridgeResult.paidInvoiceStatus &&
+        bridgeResult.invoicePaymentAccountCount === 2 &&
+        !bridgeResult.invoiceGenerationCreatedAccount,
+      "Invoice payment allocation or account non-duplication failed.",
+    );
+    assert(
+      bridgeResult.cancelledUnpaidInvoiceStatus === "Cancelled" &&
+        bridgeResult.paidInvoiceCancellationRejected &&
+        bridgeResult.reversalWorked,
+      "Invoice cancellation or payment reversal safety failed.",
     );
     assert(
       bridgeResult.attendanceCount === 1,
@@ -2014,6 +3700,29 @@ app.whenReady().then(async () => {
       "Mark update failed.",
     );
     assert(
+      bridgeResult.gradingSchemeCreated &&
+        bridgeResult.overlappingGradingRangeRejected &&
+        bridgeResult.gradeCalculationCorrect,
+      "Grading scheme creation, overlap validation, or grade calculation failed.",
+    );
+    assert(
+      bridgeResult.reportCardPreviewCorrect &&
+        bridgeResult.reportCardGenerated &&
+        bridgeResult.duplicateReportCardRejected &&
+        bridgeResult.reportCardRemarksUpdated &&
+        bridgeResult.reportCardSnapshotPreserved &&
+        bridgeResult.reportCardFailRuleCorrect,
+      "Report-card preview, generation, duplicate guard, remarks, snapshot, or fail rule failed.",
+    );
+    assert(
+      bridgeResult.reportCardClassBatchCorrect &&
+        bridgeResult.reportCardSummaryCorrect &&
+        bridgeResult.reportCardPositionsCorrect &&
+        bridgeResult.reportCardSoftDeleted &&
+        bridgeResult.finalReportCardPersisted,
+      "Report-card batch generation, summary, ranking, soft delete, or final persistence setup failed.",
+    );
+    assert(
       bridgeResult.databaseInfo.databasePath === databasePath &&
         bridgeResult.databaseInfo.databaseDirectory === temporaryDirectory &&
         bridgeResult.databaseInfo.exists === true &&
@@ -2024,8 +3733,8 @@ app.whenReady().then(async () => {
         bridgeResult.databaseInfo.restorePending === false,
       "Database information API returned incomplete data.",
     );
-    assert(bridgeResult.classCount === 1, "Class IPC operation failed.");
-    assert(bridgeResult.sectionCount === 1, "Section IPC operation failed.");
+    assert(bridgeResult.classCount === 2, "Class IPC operation failed.");
+    assert(bridgeResult.sectionCount === 2, "Section IPC operation failed.");
     assert(bridgeResult.feeHeadCount === 1, "Fee head IPC operation failed.");
     assert(
       bridgeResult.feeStructureCount === 1,
@@ -2034,6 +3743,101 @@ app.whenReady().then(async () => {
     assert(
       bridgeResult.schoolName === "Persistence Test School",
       "Settings IPC operation failed.",
+    );
+
+    const studentCountBeforeLicenseUpdate = database.getStudents().length;
+    const feePaymentCountBeforeLicenseUpdate =
+      database.getFeePayments().length;
+    const attendanceCountBeforeLicenseUpdate =
+      database.getAttendance().length;
+    const employeeAttendanceCountBeforeLicenseUpdate =
+      database.getEmployeeAttendanceByRange({}).length;
+    const schoolNameBeforeLicenseUpdate =
+      database.getSchoolSettings().schoolName;
+
+    remoteFailure = "Simulated license server outage during update";
+    const remoteRequestCountBeforeUnavailableUpdate =
+      remoteRequests.length;
+    let unavailableUpdateMessage = "";
+    try {
+      await licenseService.updateLicenseKey(
+        unavailableReplacementLicenseKey,
+      );
+    } catch (error) {
+      unavailableUpdateMessage =
+        error instanceof Error ? error.message : "";
+    }
+    const unavailableUpdateStatus = licenseService.getLicenseStatus();
+    const unavailableUpdateRequest =
+      remoteRequests[remoteRequestCountBeforeUnavailableUpdate];
+    assert(
+      unavailableUpdateMessage === "License server unavailable" &&
+        unavailableUpdateStatus.license?.licenseId ===
+          "LIC-SMOKE-WONDER-OFFLINE" &&
+        unavailableUpdateStatus.remote?.blocksUsage &&
+        unavailableUpdateRequest?.licenseId ===
+          "LIC-SMOKE-WONDER-OFFLINE" &&
+        unavailableUpdateRequest?.deviceId === firstDeviceId,
+      "Unavailable license server did not keep the replacement locked.",
+    );
+    assert(
+      database.getStudents().length === studentCountBeforeLicenseUpdate &&
+        database.getFeePayments().length ===
+          feePaymentCountBeforeLicenseUpdate &&
+        database.getAttendance().length ===
+          attendanceCountBeforeLicenseUpdate &&
+        database.getEmployeeAttendanceByRange({}).length ===
+          employeeAttendanceCountBeforeLicenseUpdate &&
+        database.getSchoolSettings().schoolName ===
+          schoolNameBeforeLicenseUpdate,
+      "License update modified ERP school data.",
+    );
+
+    remoteFailure = null;
+    remoteResponse = {
+      ...remoteResponse,
+      valid: true,
+      status: "Active",
+      message: "License active",
+    };
+    const remoteRequestCountBeforeReplacementUpdate =
+      remoteRequests.length;
+    const updatedLicenseStatus = await licenseService.updateLicenseKey(
+      replacementLicenseKey,
+    );
+    const replacementUpdateRequest =
+      remoteRequests[remoteRequestCountBeforeReplacementUpdate];
+    assert(
+      updatedLicenseStatus.isValid &&
+        updatedLicenseStatus.license?.licenseId ===
+          "LIC-SMOKE-WONDER-001" &&
+        updatedLicenseStatus.license?.schoolName ===
+          "Wonder Child School" &&
+        updatedLicenseStatus.remote?.remoteStatus === "Active" &&
+        updatedLicenseStatus.remote?.blocksUsage === false &&
+        replacementUpdateRequest?.licenseId ===
+          "LIC-SMOKE-WONDER-001" &&
+        replacementUpdateRequest?.deviceId === firstDeviceId,
+      "Wonder Child license update did not activate remotely.",
+    );
+    assert(
+      database.getLicenseActivationRecord()?.licenseId ===
+        "LIC-SMOKE-WONDER-001" &&
+        database.getRemoteLicenseStatusRecord()?.licenseId ===
+          "LIC-SMOKE-WONDER-001",
+      "Previous remote license status was not replaced.",
+    );
+    assert(
+      database.getStudents().length === studentCountBeforeLicenseUpdate &&
+        database.getFeePayments().length ===
+          feePaymentCountBeforeLicenseUpdate &&
+        database.getAttendance().length ===
+          attendanceCountBeforeLicenseUpdate &&
+        database.getEmployeeAttendanceByRange({}).length ===
+          employeeAttendanceCountBeforeLicenseUpdate &&
+        database.getSchoolSettings().schoolName ===
+          schoolNameBeforeLicenseUpdate,
+      "Successful license update modified ERP school data.",
     );
 
     const backupPath = path.join(temporaryDirectory, "smoke-backup.db");
@@ -2076,16 +3880,99 @@ app.whenReady().then(async () => {
     );
     database = createDatabase(databasePath);
     assert(
-      database.getLicenseActivationRecord()?.licenseId === "LIC-SMOKE-001",
+      database.getLicenseActivationRecord()?.licenseId ===
+        "LIC-SMOKE-WONDER-001",
       "License activation did not persist through backup and restore.",
     );
-    assert(database.getStudents().length === 1, "Student did not persist.");
+    assert(database.getStudents().length === 5, "Students did not persist.");
     assert(
       database.getSchoolSettings().schoolName === "Persistence Test School",
       "School settings did not persist.",
     );
-    assert(database.getFeePayments().length === 2, "Fee payments did not persist.");
+    assert(
+      !database
+        .getFamilies({})
+        .some((family) => family.id === bridgeResult.deletedFamilyId) &&
+        database
+          .getGuardians({ familyId: bridgeResult.deletedFamilyId })
+          .some((guardian) => guardian.id === bridgeResult.fatherGuardianId) &&
+        database
+          .getGuardians({ familyId: bridgeResult.deletedFamilyId })
+          .some((guardian) => guardian.id === bridgeResult.motherGuardianId) &&
+        database
+          .getStudentGuardians(bridgeResult.studentId)
+          .some((link) => link.guardianId === bridgeResult.motherGuardianId) &&
+        !database
+          .getStudentGuardians(bridgeResult.studentId)
+          .some((link) => link.guardianId === bridgeResult.fatherGuardianId) &&
+        database
+          .getStudents()
+          .some((student) => student.id === bridgeResult.studentId) &&
+        database
+          .getStudents()
+          .some((student) => student.id === bridgeResult.repeatStudentId),
+      "Family soft delete, guardians, links, or student records did not persist safely.",
+    );
+    assert(
+      database
+        .getSchoolRules({})
+        .some(
+          (rule) =>
+            rule.id === bridgeResult.schoolRuleId &&
+            rule.ruleText.includes("notify absences") &&
+            rule.displayOrder === 1,
+        ) &&
+        !database
+          .getSchoolRules({})
+          .some((rule) => rule.id === bridgeResult.deletedSchoolRuleId),
+      "School rules did not persist or soft-deleted rules were returned.",
+    );
+    assert(
+      database.getAppPreferences().themeMode === "System" &&
+        database.getAppPreferences().accentColor === "Indigo" &&
+        database.getAppPreferences().compactSidebar === true &&
+        database.getUserPreferences(bridgeResult.ownerId).language ===
+          "Hindi" &&
+        database.getUserPreferences(bridgeResult.ownerId).themeMode ===
+          "Dark",
+      "Application or user preferences did not persist.",
+    );
+    assert(
+      database
+        .getLoginHistory({ limit: 50 }, bridgeResult.ownerId)
+        .some((entry) => entry.username === "owner" && entry.success) &&
+        database
+          .getLoginHistory({ limit: 50 }, bridgeResult.ownerId)
+          .some(
+            (entry) =>
+              entry.username === "owner" &&
+              !entry.success &&
+              entry.failureReason.includes("Invalid username or password"),
+          ),
+      "Login history did not persist.",
+    );
+    assert(database.getFeePayments().length === 5, "Fee payments did not persist.");
     assert(database.getAttendance().length === 1, "Attendance did not persist.");
+    assert(
+      database.getEmployeeAttendanceByRange({ month: "2026-07" }).length ===
+        3 &&
+        database
+          .getEmployeeAttendanceByRange({
+            employeeId: bridgeResult.employeeId,
+            month: "2026-07",
+          })
+          .some(
+            (record) =>
+              record.status === "Late" && record.lateMinutes === 20,
+          ) &&
+        database
+          .getEmployeeAttendanceByRange({
+            employeeId: bridgeResult.deletedEmployeeId,
+            month: "2026-07",
+          })
+          .length === 1,
+      "Employee attendance did not persist or employee deletion destroyed history.",
+    );
     assert(database.getSubjects().length === 1, "Subject did not persist.");
     assert(database.getExams().length === 1, "Exam did not persist.");
     assert(database.getMarks().length === 1, "Marks did not persist.");
@@ -2158,6 +4045,54 @@ app.whenReady().then(async () => {
         })[0].id === bridgeResult.observationId,
       "Behaviour ratings, skill ratings, or observations did not persist.",
     );
+    const persistedPromotion = database.getStudentPromotionById(
+      bridgeResult.promotionId,
+    );
+    const persistedStudents = database.getStudents();
+    const persistedCarryForwardDues = database.getCarryForwardDues({
+      toSessionId: bridgeResult.toAcademicSessionId,
+    });
+    assert(
+      database.getAcademicSessions().length === 2 &&
+        database.getCurrentAcademicSession()?.id ===
+          bridgeResult.toAcademicSessionId &&
+        database
+          .getAcademicSessions()
+          .find(
+            (session) =>
+              session.id === bridgeResult.fromAcademicSessionId,
+          )?.status === "Closed" &&
+        persistedPromotion?.promotionNo === "PROM-2026-0001" &&
+        persistedPromotion.items.length === 4 &&
+        database.getStudentSessionHistory(bridgeResult.studentId).length ===
+          2 &&
+        database.getStudentSessionHistory(bridgeResult.repeatStudentId)
+          .length === 2 &&
+        persistedCarryForwardDues.length === 2 &&
+        persistedCarryForwardDues.some(
+          (due) =>
+            due.studentId === bridgeResult.studentId &&
+            due.status === "Paid",
+        ) &&
+        persistedCarryForwardDues.some(
+          (due) =>
+            due.studentId === bridgeResult.repeatStudentId &&
+            due.status === "Waived",
+        ) &&
+        persistedStudents.find(
+          (student) => student.id === bridgeResult.studentId,
+        )?.className === "11" &&
+        persistedStudents.find(
+          (student) => student.id === bridgeResult.repeatStudentId,
+        )?.className === "10" &&
+        persistedStudents.find(
+          (student) => student.id === bridgeResult.tcStudentId,
+        )?.sessionStatus === "TC" &&
+        persistedStudents.find(
+          (student) => student.id === bridgeResult.leftStudentId,
+        )?.sessionStatus === "Left",
+      "Academic sessions, promotion history, effective statuses, or carry-forward dues did not persist.",
+    );
     assert(
       database.getIssuedCertificates().length === 1 &&
         database.getIssuedCertificates()[0].certificateNo ===
@@ -2177,7 +4112,7 @@ app.whenReady().then(async () => {
       "Salary payment did not persist.",
     );
     assert(
-      database.getAccountTransactions().length === 5 &&
+      database.getAccountTransactions().length === 7 &&
         database
           .getAccountTransactions()
           .some(
@@ -2188,15 +4123,36 @@ app.whenReady().then(async () => {
         database
           .getAccountTransactions()
           .filter((transaction) => transaction.linkedModule === "Fees")
-          .length === 2,
+          .length === 4,
       "Account transactions did not persist.",
     );
     assert(
       database.getMarksByExam(bridgeResult.examId).length === 1,
       "Marks by exam did not persist.",
     );
-    assert(database.getClasses().length === 1, "Class did not persist.");
-    assert(database.getSections().length === 1, "Section did not persist.");
+    const persistedReportCard = database.getStudentReportCardById(
+      bridgeResult.reportCardId,
+    );
+    assert(
+      database.getGradingSchemeById(bridgeResult.gradingSchemeId)?.ranges
+        .length === 7 &&
+        database
+          .getReportCardTemplates()
+          .some((template) => template.id === bridgeResult.reportCardTemplateId) &&
+        database
+          .getStudentReportCards({
+            academicSessionId: bridgeResult.toAcademicSessionId,
+            examId: bridgeResult.examId,
+            studentId: bridgeResult.studentId,
+          })
+          .length === 1 &&
+        persistedReportCard?.reportCardNo === "RC-2026-0002" &&
+        persistedReportCard.subjects[0]?.obtainedMarks === 20 &&
+        persistedReportCard.resultStatus === "Fail",
+      "Grading scheme, template, report card, or subject snapshots did not persist.",
+    );
+    assert(database.getClasses().length === 2, "Classes did not persist.");
+    assert(database.getSections().length === 2, "Sections did not persist.");
     assert(database.getFeeHeads().length === 1, "Fee head did not persist.");
     assert(
       database.getFeeStructures().length === 1,
@@ -2282,7 +4238,7 @@ app.whenReady().then(async () => {
     assert(
       updateImportResult.imported === 1 &&
         updateImportResult.updated === 1 &&
-        database.getUserCount() === 2 &&
+        database.getUserCount() === bridgeResult.safeUsers.length &&
         database
           .getStudents()
           .find((student) => student.admissionNo === "SMOKE-001")?.name ===

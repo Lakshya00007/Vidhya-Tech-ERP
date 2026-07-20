@@ -5,9 +5,11 @@ import { ModulePlaceholder } from './components/ModulePlaceholder'
 import { PermissionDenied } from './components/PermissionDenied'
 import {
   getAuthErpApi,
+  getErpApi,
   getErrorMessage,
   getLicenseErpApi,
 } from './lib/erpApi'
+import { shouldCheckRemoteLicense } from './lib/license'
 import {
   canAccessPage,
   canDeleteStudentObservations,
@@ -16,7 +18,7 @@ import {
   canManageTimetable,
 } from './lib/permissions'
 import type { NavigationTarget } from './lib/navigation'
-import { Attendance } from './pages/Attendance'
+import { Attendance, type AttendanceView } from './pages/Attendance'
 import { Accounts } from './pages/Accounts'
 import { AcademicSessions } from './pages/AcademicSessions'
 import { BehaviourSkills } from './pages/BehaviourSkills'
@@ -25,19 +27,27 @@ import { ClassTests } from './pages/ClassTests'
 import { Dashboard } from './pages/Dashboard'
 import { Exams } from './pages/Exams'
 import { Employees } from './pages/Employees'
-import { Fees } from './pages/Fees'
+import { EmployeeLoginManagement } from './pages/EmployeeLoginManagement'
+import { EmployeePortal } from './pages/EmployeePortal'
+import { Fees, type FeesView } from './pages/Fees'
+import { ManageFamilies } from './pages/ManageFamilies'
 import { Login } from './pages/Login'
 import { QuestionPaper } from './pages/QuestionPaper'
 import { LicenseActivation } from './pages/LicenseActivation'
 import { Homework } from './pages/Homework'
 import { Reports } from './pages/Reports'
+import { RemoteLicenseLock } from './pages/RemoteLicenseLock'
 import { Settings } from './pages/Settings'
 import { Salary } from './pages/Salary'
-import { Students } from './pages/Students'
+import { Students, type StudentListStatusFilter } from './pages/Students'
+import { StudentLoginManagement } from './pages/StudentLoginManagement'
+import { StudentPortal } from './pages/StudentPortal'
 import { StudentDocuments } from './pages/StudentDocuments'
+import { TemporaryPasswordChange } from './pages/TemporaryPasswordChange'
 import { Timetable } from './pages/Timetable'
 import type {
   AuthUser,
+  AppPreference,
   LicenseStatus,
   ModulePlaceholderInfo,
   PageId,
@@ -56,6 +66,62 @@ import type { QuestionPaperView } from './pages/QuestionPaper'
 import type { BehaviourSkillsView } from './pages/BehaviourSkills'
 import type { AcademicSessionsView } from './pages/AcademicSessions'
 
+const studentStatusViews: Record<string, StudentListStatusFilter> = {
+  'status-active': 'Active',
+  'status-inactive': 'Inactive',
+  'status-tc': 'TC',
+  'status-left': 'Left',
+  'status-all': 'All',
+}
+
+const defaultPreferences: AppPreference = {
+  id: 'application-defaults',
+  preferenceScope: 'Application',
+  userId: '',
+  themeMode: 'Light',
+  accentColor: 'Blue',
+  language: 'English',
+  compactSidebar: false,
+  fontScale: 'Normal',
+  dateFormat: 'DD/MM/YYYY',
+  timeFormat: '12 Hour',
+  createdAt: '',
+  updatedAt: '',
+}
+
+const defaultTargetForUser = (user: AuthUser): {
+  page: PageId
+  navigationId: string
+} => {
+  if (user.role === 'Student' || user.accountType === 'Student') {
+    return { page: 'student-portal', navigationId: 'student-portal' }
+  }
+  if (user.entityLink?.entityType === 'Employee') {
+    return { page: 'employee-portal', navigationId: 'employee-portal' }
+  }
+  return { page: 'dashboard', navigationId: 'dashboard' }
+}
+
+function getStudentInitialState(view: string): {
+  action?: 'add' | 'import'
+  sessionFilter?: 'Current' | 'All'
+  statusFilter?: StudentListStatusFilter
+} {
+  if (view === 'add' || view === 'import') {
+    return { action: view }
+  }
+
+  const statusFilter = studentStatusViews[view]
+  if (statusFilter) {
+    return {
+      sessionFilter: statusFilter === 'All' ? 'All' : 'Current',
+      statusFilter,
+    }
+  }
+
+  return {}
+}
+
 function App() {
   const [activePage, setActivePage] = useState<PageId>('dashboard')
   const [activeView, setActiveView] = useState('')
@@ -64,9 +130,18 @@ function App() {
   const [placeholder, setPlaceholder] =
     useState<ModulePlaceholderInfo | null>(null)
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null)
+  const [preferences, setPreferences] =
+    useState<AppPreference>(defaultPreferences)
   const [licenseStatus, setLicenseStatus] = useState<LicenseStatus | null>(null)
   const [authState, setAuthState] = useState<
-    'loading' | 'license' | 'setup' | 'login' | 'authenticated' | 'unavailable'
+    | 'loading'
+    | 'license'
+    | 'remote-lock'
+    | 'setup'
+    | 'login'
+    | 'password-change'
+    | 'authenticated'
+    | 'unavailable'
   >('loading')
   const [authError, setAuthError] = useState('')
 
@@ -74,11 +149,19 @@ function App() {
     setAuthState('loading')
     setAuthError('')
     try {
-      const nextLicenseStatus = await getLicenseErpApi().getLicenseStatus()
-      setLicenseStatus(nextLicenseStatus)
+      const licenseApi = getLicenseErpApi()
+      let nextLicenseStatus = await licenseApi.getLicenseStatus()
       if (!nextLicenseStatus.isValid) {
+        setLicenseStatus(nextLicenseStatus)
         setCurrentUser(null)
         setAuthState('license')
+        return
+      }
+      await licenseApi.checkRemoteLicenseNow()
+      nextLicenseStatus = await licenseApi.getLicenseStatus()
+      setLicenseStatus(nextLicenseStatus)
+      if (nextLicenseStatus.remote?.blocksUsage) {
+        setAuthState('remote-lock')
         return
       }
 
@@ -91,7 +174,16 @@ function App() {
       }
       const sessionUser = await api.getCurrentUser()
       setCurrentUser(sessionUser)
-      setAuthState(sessionUser ? 'authenticated' : 'login')
+      if (sessionUser?.mustChangePassword) {
+        setAuthState('password-change')
+      } else if (sessionUser) {
+        const target = defaultTargetForUser(sessionUser)
+        setActivePage(target.page)
+        setActiveNavigationId(target.navigationId)
+        setAuthState('authenticated')
+      } else {
+        setAuthState('login')
+      }
     } catch (error) {
       setAuthError(getErrorMessage(error))
       setAuthState('unavailable')
@@ -103,10 +195,21 @@ function App() {
   }, [initializeApplication])
 
   const handleAuthenticated = (user: AuthUser) => {
+    const target = defaultTargetForUser(user)
     setCurrentUser(user)
-    setActivePage('dashboard')
+    setActivePage(target.page)
     setActiveView('')
-    setActiveNavigationId('dashboard')
+    setActiveNavigationId(target.navigationId)
+    setPlaceholder(null)
+    setAuthState(user.mustChangePassword ? 'password-change' : 'authenticated')
+  }
+
+  const handleTemporaryPasswordChanged = (user: AuthUser) => {
+    const target = defaultTargetForUser(user)
+    setCurrentUser(user)
+    setActivePage(target.page)
+    setActiveView('')
+    setActiveNavigationId(target.navigationId)
     setPlaceholder(null)
     setAuthState('authenticated')
   }
@@ -116,6 +219,7 @@ function App() {
       await getAuthErpApi().logout()
     } finally {
       setCurrentUser(null)
+      setPreferences(defaultPreferences)
       setActivePage('dashboard')
       setActiveView('')
       setActiveNavigationId('dashboard')
@@ -123,6 +227,31 @@ function App() {
       setAuthState('login')
     }
   }
+
+  useEffect(() => {
+    if (authState !== 'authenticated' || !currentUser) return
+    let isCurrent = true
+    Promise.resolve()
+      .then(() => getErpApi().getUserPreferences())
+      .then((userPreferences) => {
+        if (isCurrent) setPreferences(userPreferences)
+      })
+      .catch(() => {
+        if (isCurrent) setPreferences(defaultPreferences)
+      })
+    return () => {
+      isCurrent = false
+    }
+  }, [authState, currentUser])
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = preferences.themeMode.toLowerCase()
+    document.documentElement.dataset.accent =
+      preferences.accentColor.toLowerCase()
+    document.documentElement.dataset.fontScale =
+      preferences.fontScale.toLowerCase()
+    document.documentElement.lang = preferences.language === 'Hindi' ? 'hi' : 'en'
+  }, [preferences])
 
   const handleLicenseStatusChange = useCallback((status: LicenseStatus) => {
     setLicenseStatus(status)
@@ -133,8 +262,24 @@ function App() {
       setActiveNavigationId('dashboard')
       setPlaceholder(null)
       setAuthState('license')
+      return
+    }
+    if (status.remote?.blocksUsage) {
+      setActivePage('dashboard')
+      setActiveView('')
+      setActiveNavigationId('dashboard')
+      setPlaceholder(null)
+      setAuthState('remote-lock')
     }
   }, [])
+
+  const handleRemoteLicenseUnlocked = useCallback(
+    (status: LicenseStatus) => {
+      setLicenseStatus(status)
+      void initializeApplication()
+    },
+    [initializeApplication],
+  )
 
   const handleNavigate = (
     target: NavigationTarget,
@@ -157,8 +302,16 @@ function App() {
   useEffect(() => {
     if (authState !== 'authenticated') return
     const intervalId = window.setInterval(() => {
-      void getLicenseErpApi()
-        .getLicenseStatus()
+      void Promise.resolve()
+        .then(async () => {
+          const licenseApi = getLicenseErpApi()
+          let nextStatus = await licenseApi.getLicenseStatus()
+          if (shouldCheckRemoteLicense(nextStatus)) {
+            await licenseApi.checkRemoteLicenseNow()
+            nextStatus = await licenseApi.getLicenseStatus()
+          }
+          return nextStatus
+        })
         .then(handleLicenseStatusChange)
         .catch((error: unknown) => {
           setAuthError(getErrorMessage(error))
@@ -183,22 +336,50 @@ function App() {
         ) : (
           <PermissionDenied />
         )
-      case 'students':
+      case 'students': {
+        const studentInitialState = getStudentInitialState(activeView)
         return (
           <Students
             canManage={canManageStudents(currentUser.role)}
-            initialAction={
-              activeView === 'add' || activeView === 'import'
-                ? activeView
-                : undefined
-            }
+            initialAction={studentInitialState.action}
+            initialSessionFilter={studentInitialState.sessionFilter}
+            initialStatusFilter={studentInitialState.statusFilter}
             key={`students-${activeView}-${navigationRevision}`}
           />
         )
+      }
+      case 'families':
+        return (
+          <ManageFamilies
+            canManage={canManageStudents(currentUser.role)}
+            initialTab={activeView || 'families'}
+            key={`families-${activeView}-${navigationRevision}`}
+          />
+        )
+      case 'student-login-management':
+        return <StudentLoginManagement />
+      case 'employee-login-management':
+        return <EmployeeLoginManagement />
+      case 'student-portal':
+        return <StudentPortal />
+      case 'employee-portal':
+        return <EmployeePortal />
       case 'fees':
-        return <Fees />
+        return (
+          <Fees
+            currentUser={currentUser}
+            initialView={(activeView || 'collect') as FeesView}
+            key={`fees-${activeView}-${navigationRevision}`}
+          />
+        )
       case 'attendance':
-        return <Attendance />
+        return (
+          <Attendance
+            currentUser={currentUser}
+            initialView={(activeView || 'students') as AttendanceView}
+            key={`attendance-${activeView}-${navigationRevision}`}
+          />
+        )
       case 'exams':
         return (
           <Exams
@@ -209,6 +390,7 @@ function App() {
       case 'reports':
         return (
           <Reports
+            currentUser={currentUser}
             initialTab={(activeView || 'students') as ReportTab}
             key={`reports-${activeView}-${navigationRevision}`}
           />
@@ -220,7 +402,11 @@ function App() {
             initialTab={(activeView || 'profile') as SettingsTab}
             key={`settings-${activeView}-${navigationRevision}`}
             licenseStatus={licenseStatus}
+            preferences={preferences}
+            onCurrentUserChange={setCurrentUser}
             onLicenseStatusChange={handleLicenseStatusChange}
+            onPreferencesChange={setPreferences}
+            onLogout={() => void handleLogout()}
           />
         ) : null
       case 'documents':
@@ -345,12 +531,32 @@ function App() {
     )
   }
 
+  if (authState === 'remote-lock' && licenseStatus) {
+    return (
+      <RemoteLicenseLock
+        onStatusChange={handleLicenseStatusChange}
+        onUnlocked={handleRemoteLicenseUnlocked}
+        status={licenseStatus}
+      />
+    )
+  }
+
   if (authState === 'setup') {
     return <CreateOwner onCreated={() => setAuthState('login')} />
   }
 
   if (authState === 'login' || !currentUser) {
     return <Login onAuthenticated={handleAuthenticated} />
+  }
+
+  if (authState === 'password-change') {
+    return (
+      <TemporaryPasswordChange
+        currentUser={currentUser}
+        onChanged={handleTemporaryPasswordChanged}
+        onLogout={() => void handleLogout()}
+      />
+    )
   }
 
   if (!licenseStatus) {
@@ -373,6 +579,7 @@ function App() {
       onLogout={() => void handleLogout()}
       onNavigate={handleNavigate}
       onPlaceholder={handlePlaceholder}
+      preferences={preferences}
     >
       {renderPage()}
     </AppLayout>

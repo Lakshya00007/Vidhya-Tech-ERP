@@ -13,6 +13,7 @@ export interface ErpMenuItem {
   target?: NavigationTarget
   locked?: boolean
   feature?: string
+  availability?: 'missing' | 'online'
   roles?: PermissionRole[]
 }
 
@@ -25,9 +26,23 @@ export interface ErpMenuGroup {
   items?: ErpMenuItem[]
 }
 
+export interface NavigationEntryDetails {
+  id: string
+  label: string
+  module: string
+  target?: NavigationTarget
+}
+
 const owners: PermissionRole[] = ['Owner', 'Admin']
 const finance: PermissionRole[] = ['Owner', 'Admin', 'Accountant']
 const academic: PermissionRole[] = ['Owner', 'Admin', 'Teacher']
+const studentSelfService: PermissionRole[] = ['Student']
+const employeeSelfService: PermissionRole[] = [
+  'Admin',
+  'Accountant',
+  'Teacher',
+  'Viewer',
+]
 const studentReaders: PermissionRole[] = [
   'Owner',
   'Admin',
@@ -39,14 +54,45 @@ const reportReaders: PermissionRole[] = [
   'Owner',
   'Admin',
   'Accountant',
+  'Teacher',
   'Viewer',
+]
+const attendanceReaders: PermissionRole[] = [
+  'Owner',
+  'Admin',
+  'Teacher',
+  'Accountant',
+]
+const settingsReaders: PermissionRole[] = [
+  'Owner',
+  'Admin',
+  'Accountant',
+  'Teacher',
+  'Viewer',
+]
+const gradingReaders: PermissionRole[] = [
+  'Owner',
+  'Admin',
+  'Accountant',
+  'Teacher',
 ]
 
 const placeholder = (id: string, label: string, options?: Partial<ErpMenuItem>) => ({
   id,
   label,
+  availability: 'missing' as const,
   ...options,
 })
+
+const onlineIntegration = (
+  id: string,
+  label: string,
+  options?: Partial<ErpMenuItem>,
+) =>
+  placeholder(id, label, {
+    availability: 'online',
+    ...options,
+  })
 
 export const erpNavigation: ErpMenuGroup[] = [
   {
@@ -57,25 +103,39 @@ export const erpNavigation: ErpMenuGroup[] = [
     roles: studentReaders,
   },
   {
+    id: 'student-portal',
+    label: 'Student Dashboard',
+    icon: 'students',
+    target: { page: 'student-portal' },
+    roles: studentSelfService,
+  },
+  {
+    id: 'employee-portal',
+    label: 'My Workspace',
+    icon: 'user',
+    target: { page: 'employee-portal' },
+    roles: employeeSelfService,
+  },
+  {
     id: 'general-settings',
     label: 'General Settings',
     icon: 'settings',
-    roles: finance,
+    roles: settingsReaders,
     items: [
-      { id: 'institute-profile', label: 'Institute Profile', target: { page: 'settings', view: 'profile' } },
+      { id: 'institute-profile', label: 'Institute Profile', target: { page: 'settings', view: 'profile' }, roles: finance },
       { id: 'academic-sessions', label: 'Academic Sessions', target: { page: 'academic-sessions', view: 'sessions' }, roles: owners },
       { id: 'fees-particulars', label: 'Fees Particulars', target: { page: 'settings', view: 'fee-heads' }, roles: owners },
       { id: 'fees-structure', label: 'Fees Structure', target: { page: 'settings', view: 'fee-structure' }, roles: owners },
-      placeholder('discount-type', 'Discount Type', { roles: owners }),
-      placeholder('accounts-fees-invoice', 'Accounts For Fees Invoice', { roles: finance }),
-      placeholder('rules-regulations', 'Rules & Regulations', { roles: owners }),
-      placeholder('marks-grading', 'Marks Grading', { roles: owners }),
-      placeholder('theme-language', 'Theme & Language', { roles: owners }),
-      placeholder('account-settings', 'Account Settings', { roles: owners }),
+      { id: 'discount-type', label: 'Discount Type', target: { page: 'settings', view: 'discount-types' }, roles: finance },
+      { id: 'accounts-fees-invoice', label: 'Accounts For Fees Invoice', target: { page: 'settings', view: 'fee-invoice-accounts' }, roles: finance },
+      { id: 'rules-regulations', label: 'Rules & Regulations', target: { page: 'settings', view: 'rules' }, roles: settingsReaders },
+      { id: 'marks-grading', label: 'Marks Grading', target: { page: 'settings', view: 'marks-grading' }, roles: gradingReaders },
+      { id: 'theme-language', label: 'Theme & Language', target: { page: 'settings', view: 'theme-language' }, roles: settingsReaders },
+      { id: 'account-settings', label: 'Account Settings', target: { page: 'settings', view: 'account' }, roles: settingsReaders },
       { id: 'users-roles', label: 'Users & Roles', target: { page: 'settings', view: 'users' }, roles: owners },
-      { id: 'license', label: 'License', target: { page: 'settings', view: 'license' } },
+      { id: 'license', label: 'License', target: { page: 'settings', view: 'license' }, roles: finance },
       { id: 'backup-restore', label: 'Backup & Restore', target: { page: 'settings', view: 'backup' }, roles: owners },
-      { id: 'about', label: 'About', target: { page: 'settings', view: 'about' } },
+      { id: 'about', label: 'About', target: { page: 'settings', view: 'about' }, roles: settingsReaders },
       { id: 'logout', label: 'Log out' },
     ],
   },
@@ -105,15 +165,15 @@ export const erpNavigation: ErpMenuGroup[] = [
     icon: 'students',
     roles: studentReaders,
     items: [
-      { id: 'all-students', label: 'All Students', target: { page: 'students' } },
+      { id: 'all-students', label: 'All Students', target: { page: 'students', view: 'status-all' } },
       { id: 'add-student', label: 'Add New', target: { page: 'students', view: 'add' }, roles: owners },
       { id: 'import-students', label: 'Import Students', target: { page: 'students', view: 'import' }, roles: owners },
-      placeholder('manage-families', 'Manage Families', { locked: true, feature: 'student-families', roles: owners }),
-      placeholder('student-active-inactive', 'Active / Inactive'),
+      { id: 'manage-families', label: 'Manage Families', target: { page: 'families', view: 'families' }, roles: studentReaders },
+      { id: 'student-active-inactive', label: 'Active / Inactive', target: { page: 'students', view: 'status-all' } },
       { id: 'admission-letter', label: 'Admission Letter', target: { page: 'documents', view: 'admission-letter' }, roles: owners },
       { id: 'student-id-cards', label: 'Student ID Cards', target: { page: 'documents', view: 'id-cards' }, roles: owners },
       { id: 'student-basic-list', label: 'Print Basic List', target: { page: 'reports', view: 'students' }, roles: reportReaders },
-      placeholder('student-login', 'Manage Login', { roles: owners }),
+      { id: 'student-login', label: 'Manage Login', target: { page: 'student-login-management' }, roles: owners },
       { id: 'promote-students', label: 'Promote Students', target: { page: 'academic-sessions', view: 'promote' }, roles: owners },
     ],
   },
@@ -127,9 +187,7 @@ export const erpNavigation: ErpMenuGroup[] = [
       { id: 'add-employee', label: 'Add New', target: { page: 'employees', view: 'add' } },
       { id: 'staff-id-cards', label: 'Staff ID Cards', target: { page: 'employees', view: 'id-cards' } },
       { id: 'job-letter', label: 'Job Letter', target: { page: 'employees', view: 'job-letter' } },
-      placeholder('employee-login', 'Manage Login', {
-        description: 'Employee login linking will be available in next release.',
-      }),
+      { id: 'employee-login', label: 'Manage Login', target: { page: 'employee-login-management' } },
     ],
   },
   {
@@ -142,6 +200,7 @@ export const erpNavigation: ErpMenuGroup[] = [
       { id: 'add-income', label: 'Add Income', target: { page: 'accounts', view: 'income' } },
       { id: 'add-expense', label: 'Add Expense', target: { page: 'accounts', view: 'expense' } },
       { id: 'account-statement', label: 'Account Statement', target: { page: 'accounts', view: 'statement' } },
+      { id: 'accounts-report-ledger', label: 'Accounts Report', target: { page: 'accounts', view: 'report' } },
     ],
   },
   {
@@ -150,12 +209,15 @@ export const erpNavigation: ErpMenuGroup[] = [
     icon: 'fees',
     roles: finance,
     items: [
-      placeholder('generate-fees-invoice', 'Generate Fees Invoice'),
-      { id: 'collect-fees', label: 'Collect Fees', target: { page: 'fees' } },
-      { id: 'fees-paid-slip', label: 'Fees Paid Slip', target: { page: 'fees' } },
+      { id: 'generate-fees-invoice', label: 'Generate Fees Invoice', target: { page: 'fees', view: 'generate-invoice' } },
+      { id: 'fee-invoice-list', label: 'Fee Invoice List', target: { page: 'fees', view: 'invoices' } },
+      { id: 'collect-fees', label: 'Collect Fees', target: { page: 'fees', view: 'collect' } },
+      { id: 'fees-paid-slip', label: 'Fees Paid Slip', target: { page: 'fees', view: 'receipts' } },
+      { id: 'student-discounts', label: 'Student Discounts', target: { page: 'fees', view: 'discounts' }, roles: owners },
       { id: 'fees-defaulters', label: 'Fees Defaulters', target: { page: 'reports', view: 'fee-due' } },
+      { id: 'carry-forward-dues', label: 'Carry Forward Dues', target: { page: 'academic-sessions', view: 'dues' } },
       { id: 'fees-report', label: 'Fees Report', target: { page: 'reports', view: 'daily' } },
-      placeholder('delete-fees', 'Delete Fees', { locked: true, feature: 'delete-fees', roles: owners }),
+      { id: 'delete-fees', label: 'Fee Reversal & Cancellation', target: { page: 'fees', view: 'reversal' }, roles: owners },
     ],
   },
   {
@@ -174,13 +236,13 @@ export const erpNavigation: ErpMenuGroup[] = [
     id: 'attendance',
     label: 'Attendance',
     icon: 'attendance',
-    roles: academic,
+    roles: attendanceReaders,
     items: [
-      { id: 'students-attendance', label: 'Students Attendance', target: { page: 'attendance' } },
-      placeholder('employees-attendance', 'Employees Attendance', { roles: owners }),
+      { id: 'students-attendance', label: 'Students Attendance', target: { page: 'attendance', view: 'students' }, roles: academic },
+      { id: 'employees-attendance', label: 'Employees Attendance', target: { page: 'attendance', view: 'employee-entry' }, roles: owners },
       { id: 'class-attendance-report', label: 'Class wise Report', target: { page: 'reports', view: 'attendance' }, roles: owners },
       { id: 'students-attendance-report', label: 'Students Attendance Report', target: { page: 'reports', view: 'attendance' }, roles: owners },
-      placeholder('employees-attendance-report', 'Employees Attendance Report', { roles: owners }),
+      { id: 'employees-attendance-report', label: 'Employees Attendance Report', target: { page: 'attendance', view: 'employee-daily' }, roles: finance },
     ],
   },
   {
@@ -227,12 +289,12 @@ export const erpNavigation: ErpMenuGroup[] = [
     icon: 'wallet',
     roles: finance,
     items: [
-      placeholder('store-analytics', 'Store Analytics', { locked: true, feature: 'store-pos' }),
-      placeholder('product-categories', 'Product Categories', { locked: true, feature: 'store-pos' }),
-      placeholder('product-tax', 'Product Tax', { locked: true, feature: 'store-pos' }),
-      placeholder('products', 'Products', { locked: true, feature: 'store-pos' }),
-      placeholder('new-order', 'New Order', { locked: true, feature: 'store-pos' }),
-      placeholder('all-orders', 'All Orders', { locked: true, feature: 'store-pos' }),
+      onlineIntegration('store-analytics', 'Store Analytics', { locked: true, feature: 'store-pos' }),
+      onlineIntegration('product-categories', 'Product Categories', { locked: true, feature: 'store-pos' }),
+      onlineIntegration('product-tax', 'Product Tax', { locked: true, feature: 'store-pos' }),
+      onlineIntegration('products', 'Products', { locked: true, feature: 'store-pos' }),
+      onlineIntegration('new-order', 'New Order', { locked: true, feature: 'store-pos' }),
+      onlineIntegration('all-orders', 'All Orders', { locked: true, feature: 'store-pos' }),
     ],
   },
   {
@@ -241,7 +303,7 @@ export const erpNavigation: ErpMenuGroup[] = [
     icon: 'bell',
     roles: owners,
     items: [
-      placeholder('whatsapp-services', 'WhatsApp Services', { locked: true, feature: 'whatsapp' }),
+      onlineIntegration('whatsapp-services', 'WhatsApp Services', { locked: true, feature: 'whatsapp' }),
     ],
   },
   {
@@ -257,9 +319,9 @@ export const erpNavigation: ErpMenuGroup[] = [
     icon: 'bell',
     roles: owners,
     items: [
-      placeholder('free-sms-gateway', 'Free SMS Gateway'),
-      placeholder('branded-sms', 'Branded SMS', { locked: true, feature: 'branded-sms' }),
-      placeholder('sms-templates', 'SMS Templates', { locked: true, feature: 'branded-sms' }),
+      onlineIntegration('free-sms-gateway', 'Free SMS Gateway'),
+      onlineIntegration('branded-sms', 'Branded SMS', { locked: true, feature: 'branded-sms' }),
+      onlineIntegration('sms-templates', 'SMS Templates', { locked: true, feature: 'branded-sms' }),
     ],
   },
   {
@@ -268,7 +330,7 @@ export const erpNavigation: ErpMenuGroup[] = [
     icon: 'school',
     roles: academic,
     items: [
-      placeholder('live-class-services', 'Live Class', { locked: true, feature: 'live-class' }),
+      onlineIntegration('live-class-services', 'Live Class', { locked: true, feature: 'live-class' }),
     ],
   },
   {
@@ -313,17 +375,17 @@ export const erpNavigation: ErpMenuGroup[] = [
     icon: 'reports',
     roles: reportReaders,
     items: [
-      placeholder('students-report-card', 'Students Report Card'),
-      { id: 'students-info-report', label: 'Students Info Report', target: { page: 'reports', view: 'students' } },
-      placeholder('parents-info-report', 'Parents Info Report'),
-      placeholder('students-monthly-attendance', 'Students Monthly Attendance Report', { locked: true, feature: 'advanced-reports' }),
-      placeholder('staff-monthly-attendance', 'Staff Monthly Attendance Report', { locked: true, feature: 'advanced-reports' }),
-      { id: 'fee-collection-report', label: 'Fee Collection Report', target: { page: 'reports', view: 'monthly' } },
-      placeholder('student-progress-report', 'Student Progress Report', { locked: true, feature: 'advanced-reports' }),
+      { id: 'students-report-card', label: 'Students Report Card', target: { page: 'reports', view: 'report-cards' }, roles: reportReaders },
+      { id: 'students-info-report', label: 'Students Info Report', target: { page: 'reports', view: 'students' }, roles: studentReaders },
+      { id: 'parents-info-report', label: 'Parents Info Report', target: { page: 'reports', view: 'parents-info' }, roles: studentReaders },
+      { id: 'students-monthly-attendance', label: 'Students Monthly Attendance Report', target: { page: 'reports', view: 'attendance' }, roles: studentReaders },
+      { id: 'staff-monthly-attendance', label: 'Staff Monthly Attendance Report', target: { page: 'attendance', view: 'employee-monthly' }, roles: finance },
+      { id: 'fee-collection-report', label: 'Fee Collection Report', target: { page: 'reports', view: 'monthly' }, roles: finance },
+      placeholder('student-progress-report', 'Student Progress Report', { locked: true, feature: 'advanced-reports', roles: studentReaders }),
       { id: 'accounts-report', label: 'Accounts Report', target: { page: 'accounts', view: 'report' }, roles: finance },
       { id: 'session-report', label: 'Session Report', target: { page: 'academic-sessions', view: 'report' }, roles: finance },
       { id: 'promotion-report', label: 'Promotion Report', target: { page: 'academic-sessions', view: 'history' }, roles: finance },
-      placeholder('customised-reports', 'Customised Reports', { locked: true, feature: 'advanced-reports' }),
+      placeholder('customised-reports', 'Customised Reports', { locked: true, feature: 'advanced-reports', roles: owners }),
     ],
   },
   {
@@ -343,4 +405,31 @@ export function canSeeNavigationEntry(
   roles?: PermissionRole[],
 ) {
   return !roles || roles.includes(role)
+}
+
+export function getNavigationEntryDetails(
+  id: string,
+): NavigationEntryDetails | undefined {
+  for (const group of erpNavigation) {
+    if (group.id === id) {
+      return {
+        id: group.id,
+        label: group.label,
+        module: group.label,
+        target: group.target,
+      }
+    }
+
+    const item = group.items?.find((entry) => entry.id === id)
+    if (item) {
+      return {
+        id: item.id,
+        label: item.label,
+        module: group.label,
+        target: item.target,
+      }
+    }
+  }
+
+  return undefined
 }

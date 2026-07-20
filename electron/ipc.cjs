@@ -4,14 +4,21 @@ const channels = [
   "license:get-device-id",
   "license:get-status",
   "license:activate",
+  "license:update-key",
   "license:deactivate",
   "license:get-info",
+  "license:check-remote-now",
+  "license:get-remote-status",
   "auth:has-users",
   "auth:create-first-owner",
   "auth:login",
   "auth:logout",
   "auth:get-current-user",
   "auth:change-password",
+  "account:get-profile",
+  "account:update-profile",
+  "account:change-password",
+  "account:login-history",
   "users:get-all",
   "users:create",
   "users:update",
@@ -25,6 +32,25 @@ const channels = [
   "students:delete",
   "students:import-bulk",
   "students:import-template",
+  "families:get",
+  "families:get-by-id",
+  "families:create",
+  "families:update",
+  "families:delete",
+  "families:students:get",
+  "guardians:get",
+  "guardians:create",
+  "guardians:update",
+  "guardians:delete",
+  "student-guardians:get",
+  "student-guardians:link",
+  "student-guardians:update",
+  "student-guardians:unlink",
+  "student-guardians:link-siblings",
+  "student-guardians:create-family-from-student",
+  "reports:parents-info",
+  "reports:emergency-contacts",
+  "reports:siblings",
   "employees:get-all",
   "employees:get-by-id",
   "employees:create",
@@ -129,9 +155,41 @@ const channels = [
   "academic-sessions:carry-forward:waive",
   "settings:get",
   "settings:save",
+  "school-rules:get",
+  "school-rules:create",
+  "school-rules:update",
+  "school-rules:delete",
+  "school-rules:reorder",
+  "preferences:app:get",
+  "preferences:app:update",
+  "preferences:user:get",
+  "preferences:user:update",
   "fees:get-all",
   "fees:get-by-date-range",
   "fees:create",
+  "fees:reverse-payment",
+  "discount-types:get-all",
+  "discount-types:create",
+  "discount-types:update",
+  "discount-types:delete",
+  "student-discounts:get",
+  "student-discounts:create",
+  "student-discounts:update",
+  "student-discounts:delete",
+  "fee-invoices:preview",
+  "fee-invoices:create",
+  "fee-invoices:get-all",
+  "fee-invoices:get-by-id",
+  "fee-invoices:cancel",
+  "fee-invoices:refresh-status",
+  "fee-invoices:allocate-payment",
+  "fee-invoices:outstanding-by-student",
+  "fee-invoices:summary",
+  "fee-invoices:accounts-report",
+  "fee-invoices:student-ledger",
+  "fee-invoice-account-mappings:get-all",
+  "fee-invoice-account-mappings:save",
+  "fee-invoice-account-mappings:delete",
   "attendance:getAll",
   "attendance:getByDate",
   "attendance:getByClassDate",
@@ -140,6 +198,13 @@ const channels = [
   "attendance:save",
   "attendance:saveBulk",
   "attendance:update",
+  "employee-attendance:get-by-date",
+  "employee-attendance:get-by-range",
+  "employee-attendance:save-bulk",
+  "employee-attendance:update",
+  "employee-attendance:summary",
+  "employee-attendance:monthly",
+  "employee-attendance:report",
   "classes:get-all",
   "classes:create",
   "classes:update",
@@ -169,6 +234,26 @@ const channels = [
   "marks:get-by-student-exam",
   "marks:save-bulk",
   "marks:update",
+  "grading-schemes:get-all",
+  "grading-schemes:get-by-id",
+  "grading-schemes:create",
+  "grading-schemes:update",
+  "grading-schemes:delete",
+  "grading-schemes:set-default",
+  "grading-schemes:calculate",
+  "report-card-templates:get-all",
+  "report-card-templates:create",
+  "report-card-templates:update",
+  "report-card-templates:delete",
+  "report-cards:preview",
+  "report-cards:generate",
+  "report-cards:generate-class",
+  "report-cards:get-all",
+  "report-cards:get-by-id",
+  "report-cards:update-remarks",
+  "report-cards:delete",
+  "report-cards:class-summary",
+  "report-cards:positions",
   "certificates:templates:get-all",
   "certificates:templates:create",
   "certificates:templates:update",
@@ -209,8 +294,17 @@ function registerIpcHandlers(
     ipcMain.handle("license:activate", (_event, licenseKey) =>
       licenseService.activateLicense(licenseKey),
     );
+    ipcMain.handle("license:update-key", (_event, licenseKey) =>
+      licenseService.updateLicenseKey(licenseKey),
+    );
     ipcMain.handle("license:get-info", () =>
       licenseService.getLicenseInfo(),
+    );
+    ipcMain.handle("license:check-remote-now", () =>
+      licenseService.checkRemoteLicenseNow(),
+    );
+    ipcMain.handle("license:get-remote-status", () =>
+      licenseService.getRemoteLicenseStatus(),
     );
     ipcMain.handle("license:deactivate", () => {
       requireValidLicense();
@@ -252,6 +346,38 @@ function registerIpcHandlers(
         return authService.changePassword(userId, oldPassword, newPassword);
       },
     );
+    ipcMain.handle("auth:change-temporary-password", (_event, input) => {
+      requireValidLicense();
+      return authService.changeTemporaryPassword(input);
+    });
+    ipcMain.handle("account:get-profile", () => {
+      requireValidLicense();
+      return authService.getCurrentAccountProfile();
+    });
+    ipcMain.handle("account:update-profile", (_event, input) => {
+      requireValidLicense();
+      return authService.updateCurrentAccountProfile(input);
+    });
+    ipcMain.handle("account:change-password", (_event, input) => {
+      requireValidLicense();
+      return authService.changeCurrentPassword(input);
+    });
+    ipcMain.handle("account:login-history", (_event, filter) => {
+      requireValidLicense();
+      return authService.getCurrentLoginHistory(filter);
+    });
+    ipcMain.handle("account:entity-link", () => {
+      requireValidLicense();
+      return authService.getCurrentUserEntityLink();
+    });
+    ipcMain.handle("portal:student-data", () => {
+      requireValidLicense();
+      return authService.getCurrentStudentPortalData();
+    });
+    ipcMain.handle("portal:employee-data", () => {
+      requireValidLicense();
+      return authService.getCurrentEmployeePortalData();
+    });
 
     ipcMain.handle("users:get-all", () => {
       requireValidLicense();
@@ -277,11 +403,70 @@ function registerIpcHandlers(
       requireValidLicense();
       return authService.getAuditLogs(limit);
     });
+    ipcMain.handle("student-logins:get", (_event, filter) => {
+      requireValidLicense();
+      return authService.getStudentLoginAccounts(filter);
+    });
+    ipcMain.handle("student-logins:create", (_event, input) => {
+      requireValidLicense();
+      return authService.createStudentLoginAccount(input);
+    });
+    ipcMain.handle("student-logins:update", (_event, id, input) => {
+      requireValidLicense();
+      return authService.updateStudentLoginAccount(id, input);
+    });
+    ipcMain.handle("student-logins:disable", (_event, id, reason) => {
+      requireValidLicense();
+      return authService.disableStudentLoginAccount(id, reason);
+    });
+    ipcMain.handle("student-logins:enable", (_event, id) => {
+      requireValidLicense();
+      return authService.enableStudentLoginAccount(id);
+    });
+    ipcMain.handle("student-logins:reset-password", (_event, id, input) => {
+      requireValidLicense();
+      return authService.resetStudentLoginPassword(id, input);
+    });
+    ipcMain.handle("student-logins:unlink", (_event, id) => {
+      requireValidLicense();
+      return authService.unlinkStudentLoginAccount(id);
+    });
+    ipcMain.handle("employee-logins:get", (_event, filter) => {
+      requireValidLicense();
+      return authService.getEmployeeLoginAccounts(filter);
+    });
+    ipcMain.handle("employee-logins:create", (_event, input) => {
+      requireValidLicense();
+      return authService.createEmployeeLoginAccount(input);
+    });
+    ipcMain.handle("employee-logins:update", (_event, id, input) => {
+      requireValidLicense();
+      return authService.updateEmployeeLoginAccount(id, input);
+    });
+    ipcMain.handle("employee-logins:disable", (_event, id, reason) => {
+      requireValidLicense();
+      return authService.disableEmployeeLoginAccount(id, reason);
+    });
+    ipcMain.handle("employee-logins:enable", (_event, id) => {
+      requireValidLicense();
+      return authService.enableEmployeeLoginAccount(id);
+    });
+    ipcMain.handle("employee-logins:reset-password", (_event, id, input) => {
+      requireValidLicense();
+      return authService.resetEmployeeLoginPassword(id, input);
+    });
+    ipcMain.handle("employee-logins:unlink", (_event, id) => {
+      requireValidLicense();
+      return authService.unlinkEmployeeLoginAccount(id);
+    });
   }
 
   ipcMain.handle(
     "students:get-all",
-    authenticated(() => database.getStudents()),
+    authenticated(() => {
+      requireRoles(["Owner", "Admin", "Accountant", "Teacher", "Viewer"]);
+      return database.getStudents();
+    }),
   );
   ipcMain.handle(
     "students:create",
@@ -330,6 +515,229 @@ function registerIpcHandlers(
         actor,
       );
       return result;
+    }),
+  );
+
+  ipcMain.handle(
+    "families:get",
+    authenticated((_event, filter) => {
+      requireRoles(["Owner", "Admin", "Accountant", "Teacher", "Viewer"]);
+      return database.getFamilies(filter);
+    }),
+  );
+  ipcMain.handle(
+    "families:get-by-id",
+    authenticated((_event, id) => {
+      requireRoles(["Owner", "Admin", "Accountant", "Teacher", "Viewer"]);
+      return database.getFamilyById(id);
+    }),
+  );
+  ipcMain.handle(
+    "families:create",
+    authenticated((_event, input) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      const created = database.createFamily(input);
+      authService?.audit(
+        "Family created",
+        "Families",
+        `Created family ${created.familyCode}.`,
+        actor,
+      );
+      return created;
+    }),
+  );
+  ipcMain.handle(
+    "families:update",
+    authenticated((_event, id, input) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      const updated = database.updateFamily(id, input);
+      authService?.audit(
+        "Family updated",
+        "Families",
+        `Updated family ${updated.familyCode}.`,
+        actor,
+      );
+      return updated;
+    }),
+  );
+  ipcMain.handle(
+    "families:delete",
+    authenticated((_event, id) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      const family = database.getFamilyById(id);
+      const result = database.deleteFamily(id);
+      if (result.success) {
+        authService?.audit(
+          "Family deleted",
+          "Families",
+          family
+            ? `Soft-deleted family ${family.familyCode}.`
+            : "Soft-deleted a family.",
+          actor,
+        );
+      }
+      return result;
+    }),
+  );
+  ipcMain.handle(
+    "families:students:get",
+    authenticated((_event, familyId) => {
+      requireRoles(["Owner", "Admin", "Accountant", "Teacher", "Viewer"]);
+      return database.getFamilyStudents(familyId);
+    }),
+  );
+  ipcMain.handle(
+    "guardians:get",
+    authenticated((_event, filter) => {
+      requireRoles(["Owner", "Admin", "Accountant", "Teacher", "Viewer"]);
+      return database.getGuardians(filter);
+    }),
+  );
+  ipcMain.handle(
+    "guardians:create",
+    authenticated((_event, input) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      const created = database.createGuardian(input);
+      authService?.audit(
+        "Guardian created",
+        "Families",
+        `Created guardian "${created.fullName}".`,
+        actor,
+      );
+      return created;
+    }),
+  );
+  ipcMain.handle(
+    "guardians:update",
+    authenticated((_event, id, input) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      const updated = database.updateGuardian(id, input);
+      authService?.audit(
+        "Guardian updated",
+        "Families",
+        `Updated guardian "${updated.fullName}".`,
+        actor,
+      );
+      return updated;
+    }),
+  );
+  ipcMain.handle(
+    "guardians:delete",
+    authenticated((_event, id) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      const guardian = database.getGuardians({}).find((item) => item.id === id);
+      const result = database.deleteGuardian(id);
+      if (result.success) {
+        authService?.audit(
+          "Guardian deleted",
+          "Families",
+          guardian
+            ? `Soft-deleted guardian "${guardian.fullName}".`
+            : "Soft-deleted a guardian.",
+          actor,
+        );
+      }
+      return result;
+    }),
+  );
+  ipcMain.handle(
+    "student-guardians:get",
+    authenticated((_event, studentId) => {
+      requireRoles(["Owner", "Admin", "Accountant", "Teacher", "Viewer"]);
+      return database.getStudentGuardians(studentId);
+    }),
+  );
+  ipcMain.handle(
+    "student-guardians:link",
+    authenticated((_event, input) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      const link = database.linkGuardianToStudent(input);
+      authService?.audit(
+        "Guardian linked",
+        "Families",
+        `Linked guardian to student ${link.admissionNo}.`,
+        actor,
+      );
+      return link;
+    }),
+  );
+  ipcMain.handle(
+    "student-guardians:update",
+    authenticated((_event, id, input) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      const link = database.updateStudentGuardianLink(id, input);
+      authService?.audit(
+        "Guardian link updated",
+        "Families",
+        `Updated guardian link for student ${link.admissionNo}.`,
+        actor,
+      );
+      return link;
+    }),
+  );
+  ipcMain.handle(
+    "student-guardians:unlink",
+    authenticated((_event, id) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      const result = database.unlinkGuardianFromStudent(id);
+      if (result.success) {
+        authService?.audit(
+          "Guardian unlinked",
+          "Families",
+          "Unlinked a guardian from a student.",
+          actor,
+        );
+      }
+      return result;
+    }),
+  );
+  ipcMain.handle(
+    "student-guardians:link-siblings",
+    authenticated((_event, input) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      const family = database.linkSiblingStudents(input);
+      authService?.audit(
+        "Siblings linked",
+        "Families",
+        `Linked sibling group under family ${family.familyCode}.`,
+        actor,
+      );
+      return family;
+    }),
+  );
+  ipcMain.handle(
+    "student-guardians:create-family-from-student",
+    authenticated((_event, studentId) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      const family = database.createFamilyFromStudentDetails(studentId);
+      authService?.audit(
+        "Family created from legacy student details",
+        "Families",
+        `Created or reused family ${family.familyCode}.`,
+        actor,
+      );
+      return family;
+    }),
+  );
+  ipcMain.handle(
+    "reports:parents-info",
+    authenticated((_event, filter) => {
+      requireRoles(["Owner", "Admin", "Accountant", "Teacher", "Viewer"]);
+      return database.getParentsInfoReport(filter);
+    }),
+  );
+  ipcMain.handle(
+    "reports:emergency-contacts",
+    authenticated((_event, filter) => {
+      requireRoles(["Owner", "Admin", "Accountant", "Teacher", "Viewer"]);
+      return database.getEmergencyContactsReport(filter);
+    }),
+  );
+  ipcMain.handle(
+    "reports:siblings",
+    authenticated((_event, filter) => {
+      requireRoles(["Owner", "Admin", "Accountant", "Teacher", "Viewer"]);
+      return database.getSiblingReport(filter);
     }),
   );
 
@@ -1694,6 +2102,104 @@ function registerIpcHandlers(
     }),
   );
   ipcMain.handle(
+    "school-rules:get",
+    authenticated((_event, filter) => database.getSchoolRules(filter)),
+  );
+  ipcMain.handle(
+    "school-rules:create",
+    authenticated((_event, input) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      const created = database.createSchoolRule({
+        ...input,
+        createdBy: actor.name,
+      });
+      authService?.audit(
+        "Rule created",
+        "Rules & Regulations",
+        `Created rule "${created.title}".`,
+        actor,
+      );
+      return created;
+    }),
+  );
+  ipcMain.handle(
+    "school-rules:update",
+    authenticated((_event, id, input) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      const updated = database.updateSchoolRule(id, input);
+      authService?.audit(
+        "Rule updated",
+        "Rules & Regulations",
+        `Updated rule "${updated.title}".`,
+        actor,
+      );
+      return updated;
+    }),
+  );
+  ipcMain.handle(
+    "school-rules:delete",
+    authenticated((_event, id) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      const rule = database.getSchoolRules({}).find((item) => item.id === id);
+      const result = database.deleteSchoolRule(id);
+      if (result.success) {
+        authService?.audit(
+          "Rule deleted",
+          "Rules & Regulations",
+          rule ? `Soft-deleted rule "${rule.title}".` : "Soft-deleted a rule.",
+          actor,
+        );
+      }
+      return result;
+    }),
+  );
+  ipcMain.handle(
+    "school-rules:reorder",
+    authenticated((_event, records) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      const rows = database.reorderSchoolRules(records);
+      authService?.audit(
+        "Rules reordered",
+        "Rules & Regulations",
+        "Updated school rule display order.",
+        actor,
+      );
+      return rows;
+    }),
+  );
+  ipcMain.handle(
+    "preferences:app:get",
+    authenticated(() => database.getAppPreferences()),
+  );
+  ipcMain.handle(
+    "preferences:app:update",
+    authenticated((_event, input) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      const updated = database.updateAppPreferences(input);
+      authService?.audit(
+        "Application preferences updated",
+        "Theme & Language",
+        `Updated defaults to ${updated.themeMode}, ${updated.accentColor}, ${updated.language}.`,
+        actor,
+      );
+      return updated;
+    }),
+  );
+  ipcMain.handle(
+    "preferences:user:get",
+    authenticated(() => {
+      const user = requireAuthenticated();
+      return database.getUserPreferences(user.id);
+    }),
+  );
+  ipcMain.handle(
+    "preferences:user:update",
+    authenticated((_event, input) => {
+      const user = requireAuthenticated();
+      return database.updateUserPreferences(user.id, input);
+    }),
+  );
+  ipcMain.handle(
     "demo:create-data",
     authenticated(() => {
       const actor = requireRoles(["Owner"]);
@@ -1725,6 +2231,7 @@ function registerIpcHandlers(
       const created = database.createFeePayment({
         ...payment,
         cashierName: actor?.name ?? "",
+        auditUser: actor,
       });
       authService?.audit(
         "Fee payment created",
@@ -1745,6 +2252,189 @@ function registerIpcHandlers(
         );
       }
       return created;
+    }),
+  );
+
+  ipcMain.handle(
+    "fees:reverse-payment",
+    authenticated((_event, id, reason) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      return database.reverseFeePayment(
+        id,
+        reason,
+        actor?.name ?? "",
+        actor,
+      );
+    }),
+  );
+
+  ipcMain.handle(
+    "discount-types:get-all",
+    authenticated(() => {
+      requireRoles(["Owner", "Admin", "Accountant"]);
+      return database.getDiscountTypes();
+    }),
+  );
+  ipcMain.handle(
+    "discount-types:create",
+    authenticated((_event, input) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      return database.createDiscountType({ ...input, auditUser: actor });
+    }),
+  );
+  ipcMain.handle(
+    "discount-types:update",
+    authenticated((_event, id, input) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      return database.updateDiscountType(id, { ...input, auditUser: actor });
+    }),
+  );
+  ipcMain.handle(
+    "discount-types:delete",
+    authenticated((_event, id) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      return database.deleteDiscountType(id, actor);
+    }),
+  );
+
+  ipcMain.handle(
+    "student-discounts:get",
+    authenticated((_event, filter) => {
+      requireRoles(["Owner", "Admin", "Accountant"]);
+      return database.getStudentDiscounts(filter);
+    }),
+  );
+  ipcMain.handle(
+    "student-discounts:create",
+    authenticated((_event, input) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      return database.createStudentDiscount({ ...input, auditUser: actor });
+    }),
+  );
+  ipcMain.handle(
+    "student-discounts:update",
+    authenticated((_event, id, input) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      return database.updateStudentDiscount(id, { ...input, auditUser: actor });
+    }),
+  );
+  ipcMain.handle(
+    "student-discounts:delete",
+    authenticated((_event, id) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      return database.deleteStudentDiscount(id, actor);
+    }),
+  );
+
+  ipcMain.handle(
+    "fee-invoices:preview",
+    authenticated((_event, input) => {
+      requireRoles(["Owner", "Admin", "Accountant"]);
+      return database.getFeeInvoicePreview(input);
+    }),
+  );
+  ipcMain.handle(
+    "fee-invoices:create",
+    authenticated((_event, input) => {
+      const actor = requireRoles(["Owner", "Admin", "Accountant"]);
+      return database.createFeeInvoice({
+        ...input,
+        generatedBy: actor?.name ?? "",
+        auditUser: actor,
+      });
+    }),
+  );
+  ipcMain.handle(
+    "fee-invoices:get-all",
+    authenticated((_event, filter) => {
+      requireRoles(["Owner", "Admin", "Accountant"]);
+      return database.getFeeInvoices(filter);
+    }),
+  );
+  ipcMain.handle(
+    "fee-invoices:get-by-id",
+    authenticated((_event, id) => {
+      requireRoles(["Owner", "Admin", "Accountant"]);
+      return database.getFeeInvoiceById(id);
+    }),
+  );
+  ipcMain.handle(
+    "fee-invoices:cancel",
+    authenticated((_event, id, reason) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      return database.cancelFeeInvoice(
+        id,
+        reason,
+        actor?.name ?? "",
+        actor,
+      );
+    }),
+  );
+  ipcMain.handle(
+    "fee-invoices:refresh-status",
+    authenticated((_event, id) => {
+      requireRoles(["Owner", "Admin", "Accountant"]);
+      return database.refreshFeeInvoiceStatus(id);
+    }),
+  );
+  ipcMain.handle(
+    "fee-invoices:allocate-payment",
+    authenticated((_event, input) => {
+      const actor = requireRoles(["Owner", "Admin", "Accountant"]);
+      return database.allocateFeePaymentToInvoices({
+        ...input,
+        auditUser: actor,
+      });
+    }),
+  );
+  ipcMain.handle(
+    "fee-invoices:outstanding-by-student",
+    authenticated((_event, studentId) => {
+      requireRoles(["Owner", "Admin", "Accountant"]);
+      return database.getStudentOutstandingInvoices(studentId);
+    }),
+  );
+  ipcMain.handle(
+    "fee-invoices:summary",
+    authenticated((_event, filter) => {
+      requireRoles(["Owner", "Admin", "Accountant"]);
+      return database.getFeeInvoiceSummary(filter);
+    }),
+  );
+  ipcMain.handle(
+    "fee-invoices:accounts-report",
+    authenticated((_event, filter) => {
+      requireRoles(["Owner", "Admin", "Accountant"]);
+      return database.getFeeInvoiceAccountsReport(filter);
+    }),
+  );
+  ipcMain.handle(
+    "fee-invoices:student-ledger",
+    authenticated((_event, studentId) => {
+      requireRoles(["Owner", "Admin", "Accountant"]);
+      return database.getStudentFeeLedger(studentId);
+    }),
+  );
+
+  ipcMain.handle(
+    "fee-invoice-account-mappings:get-all",
+    authenticated(() => {
+      requireRoles(["Owner", "Admin", "Accountant"]);
+      return database.getFeeInvoiceAccountMappings();
+    }),
+  );
+  ipcMain.handle(
+    "fee-invoice-account-mappings:save",
+    authenticated((_event, input) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      return database.saveFeeInvoiceAccountMapping({ ...input, auditUser: actor });
+    }),
+  );
+  ipcMain.handle(
+    "fee-invoice-account-mappings:delete",
+    authenticated((_event, id) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      return database.deleteFeeInvoiceAccountMapping(id, actor);
     }),
   );
 
@@ -1805,6 +2495,72 @@ function registerIpcHandlers(
     authenticated((_event, id, input) => {
       requireRoles(["Owner", "Admin", "Teacher"]);
       return database.updateAttendance(id, input);
+    }),
+  );
+
+  ipcMain.handle(
+    "employee-attendance:get-by-date",
+    authenticated((_event, date, filters) => {
+      requireRoles(["Owner", "Admin", "Accountant"]);
+      return database.getEmployeeAttendanceByDate(date, filters);
+    }),
+  );
+  ipcMain.handle(
+    "employee-attendance:get-by-range",
+    authenticated((_event, filter) => {
+      requireRoles(["Owner", "Admin", "Accountant"]);
+      return database.getEmployeeAttendanceByRange(filter);
+    }),
+  );
+  ipcMain.handle(
+    "employee-attendance:save-bulk",
+    authenticated((_event, records) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      const saved = database.saveEmployeeAttendanceBulk(
+        records,
+        actor?.name ?? "",
+        actor,
+      );
+      authService?.audit(
+        "Employee attendance bulk saved",
+        "Employee Attendance",
+        `Saved ${saved.length} employee attendance record(s).`,
+        actor,
+      );
+      return saved;
+    }),
+  );
+  ipcMain.handle(
+    "employee-attendance:update",
+    authenticated((_event, id, input) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      return database.updateEmployeeAttendance(
+        id,
+        input,
+        actor?.name ?? "",
+        actor,
+      );
+    }),
+  );
+  ipcMain.handle(
+    "employee-attendance:summary",
+    authenticated((_event, filter) => {
+      requireRoles(["Owner", "Admin", "Accountant"]);
+      return database.getEmployeeAttendanceSummary(filter);
+    }),
+  );
+  ipcMain.handle(
+    "employee-attendance:monthly",
+    authenticated((_event, employeeId, month) => {
+      requireRoles(["Owner", "Admin", "Accountant"]);
+      return database.getEmployeeMonthlyAttendance(employeeId, month);
+    }),
+  );
+  ipcMain.handle(
+    "employee-attendance:report",
+    authenticated((_event, filter) => {
+      const actor = requireRoles(["Owner", "Admin", "Accountant"]);
+      return database.getEmployeeAttendanceReport(filter, actor);
     }),
   );
 
@@ -1996,6 +2752,149 @@ function registerIpcHandlers(
     authenticated((_event, id, input) => {
       requireRoles(["Owner", "Admin", "Teacher"]);
       return database.updateMark(id, input);
+    }),
+  );
+
+  ipcMain.handle(
+    "grading-schemes:get-all",
+    authenticated(() => {
+      requireRoles(["Owner", "Admin", "Teacher", "Accountant", "Viewer"]);
+      return database.getGradingSchemes();
+    }),
+  );
+  ipcMain.handle(
+    "grading-schemes:get-by-id",
+    authenticated((_event, id) => {
+      requireRoles(["Owner", "Admin", "Teacher", "Accountant", "Viewer"]);
+      return database.getGradingSchemeById(id);
+    }),
+  );
+  ipcMain.handle(
+    "grading-schemes:create",
+    authenticated((_event, input) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      return database.createGradingScheme({ ...input, auditUser: actor });
+    }),
+  );
+  ipcMain.handle(
+    "grading-schemes:update",
+    authenticated((_event, id, input) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      return database.updateGradingScheme(id, { ...input, auditUser: actor });
+    }),
+  );
+  ipcMain.handle(
+    "grading-schemes:delete",
+    authenticated((_event, id) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      return database.deleteGradingScheme(id, actor);
+    }),
+  );
+  ipcMain.handle(
+    "grading-schemes:set-default",
+    authenticated((_event, id) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      return database.setDefaultGradingScheme(id, actor);
+    }),
+  );
+  ipcMain.handle(
+    "grading-schemes:calculate",
+    authenticated((_event, input) => {
+      requireRoles(["Owner", "Admin", "Teacher", "Accountant", "Viewer"]);
+      return database.calculateGrade(input);
+    }),
+  );
+
+  ipcMain.handle(
+    "report-card-templates:get-all",
+    authenticated(() => {
+      requireRoles(["Owner", "Admin", "Teacher", "Accountant", "Viewer"]);
+      return database.getReportCardTemplates();
+    }),
+  );
+  ipcMain.handle(
+    "report-card-templates:create",
+    authenticated((_event, input) => {
+      requireRoles(["Owner", "Admin"]);
+      return database.createReportCardTemplate(input);
+    }),
+  );
+  ipcMain.handle(
+    "report-card-templates:update",
+    authenticated((_event, id, input) => {
+      requireRoles(["Owner", "Admin"]);
+      return database.updateReportCardTemplate(id, input);
+    }),
+  );
+  ipcMain.handle(
+    "report-card-templates:delete",
+    authenticated((_event, id) => {
+      requireRoles(["Owner", "Admin"]);
+      return database.deleteReportCardTemplate(id);
+    }),
+  );
+
+  ipcMain.handle(
+    "report-cards:preview",
+    authenticated((_event, input) => {
+      requireRoles(["Owner", "Admin", "Teacher", "Accountant", "Viewer"]);
+      return database.getReportCardPreview(input);
+    }),
+  );
+  ipcMain.handle(
+    "report-cards:generate",
+    authenticated((_event, input) => {
+      const actor = requireRoles(["Owner", "Admin", "Teacher"]);
+      return database.generateStudentReportCard({ ...input, auditUser: actor });
+    }),
+  );
+  ipcMain.handle(
+    "report-cards:generate-class",
+    authenticated((_event, input) => {
+      const actor = requireRoles(["Owner", "Admin", "Teacher"]);
+      return database.generateClassReportCards({ ...input, auditUser: actor });
+    }),
+  );
+  ipcMain.handle(
+    "report-cards:get-all",
+    authenticated((_event, filter) => {
+      requireRoles(["Owner", "Admin", "Teacher", "Accountant", "Viewer"]);
+      return database.getStudentReportCards(filter);
+    }),
+  );
+  ipcMain.handle(
+    "report-cards:get-by-id",
+    authenticated((_event, id) => {
+      requireRoles(["Owner", "Admin", "Teacher", "Accountant", "Viewer"]);
+      return database.getStudentReportCardById(id);
+    }),
+  );
+  ipcMain.handle(
+    "report-cards:update-remarks",
+    authenticated((_event, id, input) => {
+      const actor = requireRoles(["Owner", "Admin", "Teacher"]);
+      return database.updateReportCardRemarks(id, { ...input, auditUser: actor });
+    }),
+  );
+  ipcMain.handle(
+    "report-cards:delete",
+    authenticated((_event, id) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      return database.deleteReportCard(id, actor);
+    }),
+  );
+  ipcMain.handle(
+    "report-cards:class-summary",
+    authenticated((_event, filter) => {
+      requireRoles(["Owner", "Admin", "Teacher", "Accountant", "Viewer"]);
+      return database.getClassResultSummary(filter);
+    }),
+  );
+  ipcMain.handle(
+    "report-cards:positions",
+    authenticated((_event, filter) => {
+      requireRoles(["Owner", "Admin", "Teacher", "Accountant", "Viewer"]);
+      return database.getResultPositions(filter);
     }),
   );
 

@@ -1,7 +1,9 @@
 import type {
   AccountCategory,
+  AccountProfileInput,
   AccountTransaction,
   AcademicSession,
+  AppPreference,
   AuditLog,
   AttendanceRecord,
   AttendanceSummary,
@@ -20,6 +22,7 @@ import type {
   CreateBehaviourTraitInput,
   CreateAccountCategoryInput,
   CreateAccountTransactionInput,
+  CreateSchoolRuleInput,
   CreateClassInput,
   CreateClassTestInput,
   CreateClassroomInput,
@@ -27,11 +30,18 @@ import type {
   CreateQuestionPaperInput,
   CreateSubjectChapterInput,
   CreateEmployeeInput,
+  CreateEmployeeLoginAccountInput,
   CreateExamInput,
+  CreateDiscountTypeInput,
   CreateFirstOwnerInput,
+  CreateFeeInvoiceInput,
   CreateFeePaymentInput,
+  CreateFamilyInput,
   CreateFeeHeadInput,
   CreateFeeStructureInput,
+  CreateGuardianInput,
+  CreateStudentDiscountInput,
+  CreateStudentLoginAccountInput,
   CreateSectionInput,
   CreateSalaryPaymentInput,
   CreateStudentInput,
@@ -41,34 +51,95 @@ import type {
   CreateTimetablePeriodInput,
   CreateTimetableWeekdayInput,
   CreateUserInput,
+  ChangeCurrentPasswordInput,
+  ChangeTemporaryPasswordInput,
+  CalculateGradeInput,
+  CalculateGradeResult,
+  ClassResultSummary,
   DatabaseActionResult,
   DatabaseInfo,
   DemoDataResult,
+  DiscountType,
   Employee,
+  EmployeeLoginAccount,
+  EmployeeLoginFilter,
+  EmployeePortalData,
+  EmployeeAttendanceFilter,
+  EmployeeAttendanceRecord,
+  EmployeeAttendanceReport,
+  EmployeeAttendanceSummary,
+  EmployeeMonthlyAttendance,
   Exam,
+  FeeInvoice,
+  FeeInvoiceAccountsReport,
+  FeeInvoiceAccountMapping,
+  FeeInvoiceAllocationInput,
+  FeeInvoiceAllocationResult,
+  FeeInvoiceFilter,
+  FeeInvoicePreview,
+  FeeInvoicePreviewInput,
+  FeeInvoiceSummary,
   FeeHead,
   FeePayment,
+  FeePaymentReversalResult,
   FeeStructure,
+  Family,
+  FamilyFilter,
+  FamilyProfile,
+  GenerateClassReportCardsInput,
+  GenerateClassReportCardsResult,
+  GenerateReportCardInput,
+  GradingScheme,
+  CreateGradingSchemeInput,
+  Guardian,
+  GuardianFilter,
   Homework,
   HomeworkSubmission,
   IssueCertificateInput,
   IssuedCertificate,
   MarkRecord,
+  MasterStatus,
   LicenseStatus,
+  LoginHistoryEntry,
+  LoginHistoryFilter,
+  LinkGuardianToStudentInput,
+  LinkSiblingStudentsInput,
+  RemoteLicenseStatus,
+  ParentsInfoReport,
+  ParentsInfoReportFilter,
+  EmergencyContactsReport,
+  ReportCardFilter,
+  ReportCardPreview,
+  ReportCardPreviewInput,
+  ReportCardTemplate,
+  ReportCardTemplateInput,
+  ResultPosition,
   SaveMarkInput,
   SaveBehaviourRatingInput,
   SaveAttendanceInput,
   SaveClassTestMarkInput,
   SaveHomeworkSubmissionInput,
   SaveSchoolSettingsInput,
+  SaveFeeInvoiceAccountMappingInput,
   SaveSkillRatingInput,
+  SaveEmployeeAttendanceInput,
   SalaryPayment,
   SchoolSettings,
   SectionItem,
   SaveTimetableEntryInput,
   Student,
+  StudentGuardianLink,
+  StudentDiscount,
+  StudentDiscountFilter,
+  StudentLoginAccount,
+  StudentLoginFilter,
+  StudentPortalData,
+  StudentFeeLedgerEntry,
   StudentObservation,
   StudentObservationFilter,
+  StudentReportCard,
+  SchoolRule,
+  SchoolRuleFilter,
   StudentRatingFilter,
   StudentImportOptions,
   StudentImportResult,
@@ -78,6 +149,7 @@ import type {
   SubjectChapter,
   SkillRating,
   SkillTrait,
+  SiblingReport,
   QuestionBankItem,
   QuestionFilter,
   QuestionPaper,
@@ -105,32 +177,51 @@ import type {
   UpdateQuestionPaperInput,
   UpdateSubjectChapterInput,
   UpdateEmployeeInput,
+  UpdateEmployeeAttendanceInput,
   UpdateAttendanceInput,
   UpdateCarryForwardDueInput,
+  UpdateDiscountTypeInput,
   UpdateExamInput,
+  UpdateFamilyInput,
   UpdateFeeHeadInput,
   UpdateFeeStructureInput,
+  UpdateGuardianInput,
   UpdateHomeworkInput,
   UpdateHomeworkSubmissionInput,
   UpdateSectionInput,
   UpdateSalaryPaymentInput,
   UpdateStudentInput,
+  UpdateStudentGuardianLinkInput,
+  UpdateStudentDiscountInput,
   UpdateStudentObservationInput,
   UpdateSubjectInput,
   UpdateSkillTraitInput,
   UpdateTimetablePeriodInput,
   UpdateTimetableWeekdayInput,
   UpdateMarkInput,
+  UpdateGradingSchemeInput,
+  UpdateReportCardRemarksInput,
+  UpdateReportCardTemplateInput,
   UpdateUserInput,
+  UpdatePreferenceInput,
+  UpdateSchoolRuleInput,
+  UpdateEmployeeLoginAccountInput,
+  UpdateStudentLoginAccountInput,
   CreateHomeworkInput,
+  ReorderSchoolRuleInput,
+  ResetLoginPasswordInput,
+  UserEntityLink,
 } from './index'
 
 export interface ErpApi {
   getDeviceId: () => Promise<string>
   getLicenseStatus: () => Promise<LicenseStatus>
   activateLicense: (licenseKey: string) => Promise<LicenseStatus>
+  updateLicenseKey: (licenseKey: string) => Promise<LicenseStatus>
   deactivateLicense: () => Promise<{ success: boolean; message: string }>
   getLicenseInfo: () => Promise<LicenseStatus>
+  checkRemoteLicenseNow: () => Promise<RemoteLicenseStatus>
+  getRemoteLicenseStatus: () => Promise<RemoteLicenseStatus>
 
   hasUsers: () => Promise<boolean>
   createFirstOwner: (input: CreateFirstOwnerInput) => Promise<AuthUser>
@@ -142,6 +233,22 @@ export interface ErpApi {
     oldPassword: string,
     newPassword: string,
   ) => Promise<{ success: boolean }>
+  changeTemporaryPassword: (
+    input: ChangeTemporaryPasswordInput,
+  ) => Promise<AuthUser>
+  getCurrentAccountProfile: () => Promise<AuthUser>
+  updateCurrentAccountProfile: (
+    input: AccountProfileInput,
+  ) => Promise<AuthUser>
+  changeCurrentPassword: (
+    input: ChangeCurrentPasswordInput,
+  ) => Promise<{ success: boolean }>
+  getCurrentLoginHistory: (
+    filter?: LoginHistoryFilter,
+  ) => Promise<LoginHistoryEntry[]>
+  getCurrentUserEntityLink: () => Promise<UserEntityLink | null>
+  getCurrentStudentPortalData: () => Promise<StudentPortalData>
+  getCurrentEmployeePortalData: () => Promise<EmployeePortalData>
 
   getUsers: () => Promise<User[]>
   createUser: (input: CreateUserInput) => Promise<User>
@@ -152,6 +259,46 @@ export interface ErpApi {
   ) => Promise<{ success: boolean }>
   deleteUser: (id: string) => Promise<{ success: boolean }>
   getAuditLogs: (limit?: number) => Promise<AuditLog[]>
+  getStudentLoginAccounts: (
+    filter?: StudentLoginFilter,
+  ) => Promise<StudentLoginAccount[]>
+  createStudentLoginAccount: (
+    input: CreateStudentLoginAccountInput,
+  ) => Promise<StudentLoginAccount>
+  updateStudentLoginAccount: (
+    id: string,
+    input: UpdateStudentLoginAccountInput,
+  ) => Promise<StudentLoginAccount>
+  disableStudentLoginAccount: (
+    id: string,
+    reason: string,
+  ) => Promise<StudentLoginAccount>
+  enableStudentLoginAccount: (id: string) => Promise<StudentLoginAccount>
+  resetStudentLoginPassword: (
+    id: string,
+    input: ResetLoginPasswordInput,
+  ) => Promise<{ success: boolean }>
+  unlinkStudentLoginAccount: (id: string) => Promise<{ success: boolean }>
+  getEmployeeLoginAccounts: (
+    filter?: EmployeeLoginFilter,
+  ) => Promise<EmployeeLoginAccount[]>
+  createEmployeeLoginAccount: (
+    input: CreateEmployeeLoginAccountInput,
+  ) => Promise<EmployeeLoginAccount>
+  updateEmployeeLoginAccount: (
+    id: string,
+    input: UpdateEmployeeLoginAccountInput,
+  ) => Promise<EmployeeLoginAccount>
+  disableEmployeeLoginAccount: (
+    id: string,
+    reason: string,
+  ) => Promise<EmployeeLoginAccount>
+  enableEmployeeLoginAccount: (id: string) => Promise<EmployeeLoginAccount>
+  resetEmployeeLoginPassword: (
+    id: string,
+    input: ResetLoginPasswordInput,
+  ) => Promise<{ success: boolean }>
+  unlinkEmployeeLoginAccount: (id: string) => Promise<{ success: boolean }>
   createDemoData: () => Promise<DemoDataResult>
 
   getStudents: () => Promise<Student[]>
@@ -163,6 +310,50 @@ export interface ErpApi {
     options: StudentImportOptions,
   ) => Promise<StudentImportResult>
   getStudentImportTemplate: () => Promise<StudentImportTemplate>
+  getFamilies: (filter?: FamilyFilter) => Promise<Family[]>
+  getFamilyById: (id: string) => Promise<FamilyProfile | null>
+  createFamily: (input: CreateFamilyInput) => Promise<FamilyProfile>
+  updateFamily: (
+    id: string,
+    input: UpdateFamilyInput,
+  ) => Promise<FamilyProfile>
+  deleteFamily: (id: string) => Promise<{ success: boolean }>
+  getFamilyStudents: (familyId: string) => Promise<Student[]>
+  getGuardians: (filter?: GuardianFilter) => Promise<Guardian[]>
+  createGuardian: (input: CreateGuardianInput) => Promise<Guardian>
+  updateGuardian: (
+    id: string,
+    input: UpdateGuardianInput,
+  ) => Promise<Guardian>
+  deleteGuardian: (id: string) => Promise<{ success: boolean }>
+  getStudentGuardians: (
+    studentId: string,
+  ) => Promise<StudentGuardianLink[]>
+  linkGuardianToStudent: (
+    input: LinkGuardianToStudentInput,
+  ) => Promise<StudentGuardianLink>
+  updateStudentGuardianLink: (
+    id: string,
+    input: UpdateStudentGuardianLinkInput,
+  ) => Promise<StudentGuardianLink>
+  unlinkGuardianFromStudent: (id: string) => Promise<{ success: boolean }>
+  linkSiblingStudents: (
+    input: LinkSiblingStudentsInput,
+  ) => Promise<FamilyProfile>
+  createFamilyFromStudentDetails: (
+    studentId: string,
+  ) => Promise<FamilyProfile>
+  getParentsInfoReport: (
+    filter?: ParentsInfoReportFilter,
+  ) => Promise<ParentsInfoReport>
+  getEmergencyContactsReport: (
+    filter?: ParentsInfoReportFilter,
+  ) => Promise<EmergencyContactsReport>
+  getSiblingReport: (
+    filter?: Pick<ParentsInfoReportFilter, 'className' | 'section'> & {
+      status?: MasterStatus | 'All'
+    },
+  ) => Promise<SiblingReport>
 
   getEmployees: () => Promise<Employee[]>
   getEmployeeById: (id: string) => Promise<Employee | null>
@@ -422,6 +613,24 @@ export interface ErpApi {
 
   getSchoolSettings: () => Promise<SchoolSettings>
   saveSchoolSettings: (settings: SaveSchoolSettingsInput) => Promise<SchoolSettings>
+  getSchoolRules: (filter?: SchoolRuleFilter) => Promise<SchoolRule[]>
+  createSchoolRule: (input: CreateSchoolRuleInput) => Promise<SchoolRule>
+  updateSchoolRule: (
+    id: string,
+    input: UpdateSchoolRuleInput,
+  ) => Promise<SchoolRule>
+  deleteSchoolRule: (id: string) => Promise<{ success: boolean }>
+  reorderSchoolRules: (
+    records: ReorderSchoolRuleInput[],
+  ) => Promise<SchoolRule[]>
+  getAppPreferences: () => Promise<AppPreference>
+  updateAppPreferences: (
+    input: UpdatePreferenceInput,
+  ) => Promise<AppPreference>
+  getUserPreferences: () => Promise<AppPreference>
+  updateUserPreferences: (
+    input: UpdatePreferenceInput,
+  ) => Promise<AppPreference>
 
   getFeePayments: () => Promise<FeePayment[]>
   getFeePaymentsByDateRange: (
@@ -429,6 +638,58 @@ export interface ErpApi {
     endDate: string,
   ) => Promise<FeePayment[]>
   createFeePayment: (payment: CreateFeePaymentInput) => Promise<FeePayment>
+  reverseFeePayment: (
+    id: string,
+    reason: string,
+  ) => Promise<FeePaymentReversalResult>
+  getDiscountTypes: () => Promise<DiscountType[]>
+  createDiscountType: (input: CreateDiscountTypeInput) => Promise<DiscountType>
+  updateDiscountType: (
+    id: string,
+    input: UpdateDiscountTypeInput,
+  ) => Promise<DiscountType>
+  deleteDiscountType: (id: string) => Promise<{ success: boolean }>
+  getStudentDiscounts: (
+    filter?: StudentDiscountFilter,
+  ) => Promise<StudentDiscount[]>
+  createStudentDiscount: (
+    input: CreateStudentDiscountInput,
+  ) => Promise<StudentDiscount>
+  updateStudentDiscount: (
+    id: string,
+    input: UpdateStudentDiscountInput,
+  ) => Promise<StudentDiscount>
+  deleteStudentDiscount: (id: string) => Promise<{ success: boolean }>
+  getFeeInvoicePreview: (
+    input: FeeInvoicePreviewInput,
+  ) => Promise<FeeInvoicePreview>
+  createFeeInvoice: (input: CreateFeeInvoiceInput) => Promise<FeeInvoice>
+  getFeeInvoices: (filter?: FeeInvoiceFilter) => Promise<FeeInvoice[]>
+  getFeeInvoiceById: (id: string) => Promise<FeeInvoice | null>
+  cancelFeeInvoice: (id: string, reason: string) => Promise<FeeInvoice>
+  refreshFeeInvoiceStatus: (id: string) => Promise<FeeInvoice>
+  allocateFeePaymentToInvoices: (
+    input: FeeInvoiceAllocationInput,
+  ) => Promise<FeeInvoiceAllocationResult>
+  getStudentOutstandingInvoices: (
+    studentId: string,
+  ) => Promise<FeeInvoice[]>
+  getFeeInvoiceSummary: (
+    filter?: FeeInvoiceFilter,
+  ) => Promise<FeeInvoiceSummary>
+  getFeeInvoiceAccountsReport: (
+    filter?: FeeInvoiceFilter,
+  ) => Promise<FeeInvoiceAccountsReport>
+  getStudentFeeLedger: (
+    studentId: string,
+  ) => Promise<StudentFeeLedgerEntry[]>
+  getFeeInvoiceAccountMappings: () => Promise<FeeInvoiceAccountMapping[]>
+  saveFeeInvoiceAccountMapping: (
+    input: SaveFeeInvoiceAccountMappingInput,
+  ) => Promise<FeeInvoiceAccountMapping>
+  deleteFeeInvoiceAccountMapping: (
+    id: string,
+  ) => Promise<{ success: boolean }>
 
   getAttendance: () => Promise<AttendanceRecord[]>
   getAttendanceByDate: (date: string) => Promise<AttendanceRecord[]>
@@ -453,6 +714,30 @@ export interface ErpApi {
     id: string,
     input: UpdateAttendanceInput,
   ) => Promise<AttendanceRecord>
+  getEmployeeAttendanceByDate: (
+    date: string,
+    filters?: EmployeeAttendanceFilter,
+  ) => Promise<EmployeeAttendanceRecord[]>
+  getEmployeeAttendanceByRange: (
+    filter?: EmployeeAttendanceFilter,
+  ) => Promise<EmployeeAttendanceRecord[]>
+  saveEmployeeAttendanceBulk: (
+    records: SaveEmployeeAttendanceInput[],
+  ) => Promise<EmployeeAttendanceRecord[]>
+  updateEmployeeAttendance: (
+    id: string,
+    input: UpdateEmployeeAttendanceInput,
+  ) => Promise<EmployeeAttendanceRecord>
+  getEmployeeAttendanceSummary: (
+    filter?: EmployeeAttendanceFilter,
+  ) => Promise<EmployeeAttendanceSummary>
+  getEmployeeMonthlyAttendance: (
+    employeeId: string,
+    month: string,
+  ) => Promise<EmployeeMonthlyAttendance>
+  getEmployeeAttendanceReport: (
+    filter?: EmployeeAttendanceFilter,
+  ) => Promise<EmployeeAttendanceReport>
 
   getClasses: () => Promise<ClassItem[]>
   createClass: (input: CreateClassInput) => Promise<ClassItem>
@@ -495,6 +780,55 @@ export interface ErpApi {
   ) => Promise<MarkRecord[]>
   saveMarksBulk: (records: SaveMarkInput[]) => Promise<MarkRecord[]>
   updateMark: (id: string, input: UpdateMarkInput) => Promise<MarkRecord>
+  getGradingSchemes: () => Promise<GradingScheme[]>
+  getGradingSchemeById: (id: string) => Promise<GradingScheme | null>
+  createGradingScheme: (
+    input: CreateGradingSchemeInput,
+  ) => Promise<GradingScheme>
+  updateGradingScheme: (
+    id: string,
+    input: UpdateGradingSchemeInput,
+  ) => Promise<GradingScheme>
+  deleteGradingScheme: (id: string) => Promise<{ success: boolean }>
+  setDefaultGradingScheme: (id: string) => Promise<GradingScheme>
+  calculateGrade: (
+    input: CalculateGradeInput,
+  ) => Promise<CalculateGradeResult>
+  getReportCardTemplates: () => Promise<ReportCardTemplate[]>
+  createReportCardTemplate: (
+    input: ReportCardTemplateInput,
+  ) => Promise<ReportCardTemplate>
+  updateReportCardTemplate: (
+    id: string,
+    input: UpdateReportCardTemplateInput,
+  ) => Promise<ReportCardTemplate>
+  deleteReportCardTemplate: (id: string) => Promise<{ success: boolean }>
+  getReportCardPreview: (
+    input: ReportCardPreviewInput,
+  ) => Promise<ReportCardPreview>
+  generateStudentReportCard: (
+    input: GenerateReportCardInput,
+  ) => Promise<StudentReportCard>
+  generateClassReportCards: (
+    input: GenerateClassReportCardsInput,
+  ) => Promise<GenerateClassReportCardsResult>
+  getStudentReportCards: (
+    filter?: ReportCardFilter,
+  ) => Promise<StudentReportCard[]>
+  getStudentReportCardById: (
+    id: string,
+  ) => Promise<StudentReportCard | null>
+  updateReportCardRemarks: (
+    id: string,
+    input: UpdateReportCardRemarksInput,
+  ) => Promise<StudentReportCard>
+  deleteReportCard: (id: string) => Promise<{ success: boolean }>
+  getClassResultSummary: (
+    filter?: ReportCardFilter,
+  ) => Promise<ClassResultSummary>
+  getResultPositions: (
+    filter?: ReportCardFilter,
+  ) => Promise<ResultPosition[]>
 
   getCertificateTemplates: () => Promise<CertificateTemplate[]>
   createCertificateTemplate: (

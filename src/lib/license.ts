@@ -1,4 +1,8 @@
-import type { LicenseState, LicenseStatus } from '../types'
+import type {
+  LicenseState,
+  LicenseStatus,
+  RemoteLicenseDisplayStatus,
+} from '../types'
 
 export const licenseStatusLabels: Record<LicenseState, string> = {
   missing: 'Activation Required',
@@ -7,6 +11,18 @@ export const licenseStatusLabels: Record<LicenseState, string> = {
   expired: 'Expired',
   'maintenance-expired': 'Maintenance Expired',
   invalid: 'Invalid',
+}
+
+export const remoteLicenseStatusLabels: Record<
+  RemoteLicenseDisplayStatus,
+  string
+> = {
+  'Online Verified': 'Online Verified',
+  'Offline Grace': 'Offline Grace',
+  Suspended: 'Suspended',
+  Expired: 'Expired',
+  Revoked: 'Revoked',
+  'Check Required': 'Check Required',
 }
 
 export function formatLicenseDate(value: string | null | undefined) {
@@ -19,6 +35,15 @@ export function formatLicenseDate(value: string | null | undefined) {
         month: 'short',
         year: 'numeric',
       }).format(date)
+}
+
+export function shouldCheckRemoteLicense(
+  status: LicenseStatus | null | undefined,
+) {
+  const nextRequiredCheckAt = status?.remote?.nextRequiredCheckAt
+  if (!status?.isValid || !nextRequiredCheckAt) return false
+  const date = new Date(nextRequiredCheckAt)
+  return !Number.isNaN(date.getTime()) && date.getTime() <= Date.now()
 }
 
 const normalizeFeature = (feature: string) =>

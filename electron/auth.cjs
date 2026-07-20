@@ -1,7 +1,15 @@
 const crypto = require("node:crypto");
+const os = require("node:os");
 
 const USER_ROLES = new Set([
   "Owner",
+  "Admin",
+  "Accountant",
+  "Teacher",
+  "Viewer",
+  "Student",
+]);
+const EMPLOYEE_LOGIN_ROLES = new Set([
   "Admin",
   "Accountant",
   "Teacher",
@@ -16,6 +24,10 @@ function requiredText(value, fieldName) {
     throw new Error(`${fieldName} is required.`);
   }
   return text;
+}
+
+function optionalText(value) {
+  return typeof value === "string" ? value.trim() : "";
 }
 
 function validatePassword(password) {
@@ -59,6 +71,7 @@ function verifyPassword(password, storedHash, storedSalt) {
 
 function createAuthService(database) {
   let currentUser = null;
+  let currentLoginHistoryId = null;
 
   function requireAuthenticated() {
     if (!currentUser) {
@@ -88,6 +101,110 @@ function createAuthService(database) {
       throw new Error("Only an Owner can manage Owner accounts.");
     }
     return manager;
+  }
+
+  function getPrimaryEntityLinkForUser(userId) {
+    return database.getPrimaryUserEntityLink?.(userId) ?? null;
+  }
+
+  function withPrimaryEntityLink(user) {
+    if (!user) return null;
+    return {
+      ...user,
+      entityLink: getPrimaryEntityLinkForUser(user.id),
+    };
+  }
+
+  function requireCurrentStudentLink() {
+    const user = requireAuthenticated();
+    if (user.role !== "Student" || user.accountType !== "Student") {
+      throw new Error("A linked Student account is required.");
+    }
+    const link = getPrimaryEntityLinkForUser(user.id);
+    if (!link || link.entityType !== "Student") {
+      throw new Error("This student account is not linked to an active student.");
+    }
+    const student = database.getStudentById(link.entityId);
+    if (!student || student.status !== "Active") {
+      throw new Error("This student account is not linked to an active student.");
+    }
+    return { user, link, student };
+  }
+
+  function requireCurrentEmployeeLink() {
+    const user = requireAuthenticated();
+    const link = getPrimaryEntityLinkForUser(user.id);
+    if (!link || link.entityType !== "Employee") {
+      throw new Error("This account is not linked to an active employee.");
+    }
+    const employee = database.getEmployeeById(link.entityId);
+    if (!employee || employee.status !== "Active") {
+      throw new Error("This account is not linked to an active employee.");
+    }
+    return { user, link, employee };
+  }
+
+  function ensureEntityLoginManager() {
+    return requireRoles(["Owner", "Admin"]);
+  }
+
+  function ensureOwnerForAdminRole(role) {
+    const manager = ensureEntityLoginManager();
+    if (role === "Admin" && manager.role !== "Owner") {
+      throw new Error("Only an Owner can assign Admin employee accounts.");
+    }
+    return manager;
+  }
+
+  function createLinkedUserAccount({
+    entityType,
+    entity,
+    role,
+    accountType,
+    username,
+    password,
+    mustChangePassword = true,
+    status = "Active",
+    email = "",
+    allowDuplicateEntity = false,
+  }) {
+    const credentials = createPasswordCredentials(password);
+    const user = database.createUserRecord({
+      name: entity.name,
+      username,
+      email,
+      role,
+      status,
+      accountType,
+      mustChangePassword,
+      ...credentials,
+    });
+    const link = database.createUserEntityLink({
+      userId: user.id,
+      entityType,
+      entityId: entity.id,
+      entityCode:
+        entityType === "Student" ? entity.admissionNo : entity.employeeNo,
+      entityName: entity.name,
+      isPrimary: true,
+      allowDuplicateEntity,
+    });
+    return { user, link };
+  }
+
+  function getDeviceContext() {
+    return {
+      deviceName: os.hostname(),
+      os: `${process.platform} ${process.arch}`,
+    };
+  }
+
+  function recordLoginHistory(input) {
+    if (typeof database.createLoginHistory !== "function") return null;
+    return database.createLoginHistory({
+      ...getDeviceContext(),
+      ...input,
+    });
   }
 
   return {
@@ -120,14 +237,81 @@ function createAuthService(database) {
     login(username, password) {
       const normalizedUsername = requiredText(username, "Username");
       const record = database.getUserAuthRecord(normalizedUsername);
+      const lockedUntil = record?.locked_until
+        ? new Date(record.locked_until)
+        : null;
+      if (
+        lockedUntil &&
+        !Number.isNaN(lockedUntil.getTime()) &&
+        lockedUntil.getTime() > Date.now()
+      ) {
+        recordLoginHistory({
+          userId: record.id,
+          username: normalizedUsername,
+          role: record.role,
+          success: false,
+          failureReason: "Account temporarily locked.",
+        });
+        throw new Error("Account is temporarily locked. Contact an administrator.");
+      }
       if (
         !record ||
         record.status !== "Active" ||
         !verifyPassword(password, record.password_hash, record.password_salt)
       ) {
+        if (record) database.recordFailedLogin?.(record.id);
+        recordLoginHistory({
+          userId: record?.id ?? "",
+          username: normalizedUsername,
+          role: record?.role ?? "",
+          success: false,
+          failureReason: "Invalid username or password.",
+        });
         throw new Error("Invalid username or password.");
       }
-      currentUser = database.updateUserLastLogin(record.id);
+      if (record.role === "Student" || record.account_type === "Student") {
+        const link = database.getPrimaryUserEntityLink?.(record.id);
+        const student = link?.entityType === "Student"
+          ? database.getStudentById(link.entityId)
+          : null;
+        if (!link || !student || student.status !== "Active") {
+          recordLoginHistory({
+            userId: record.id,
+            username: normalizedUsername,
+            role: record.role,
+            success: false,
+            failureReason: "Student account is not linked.",
+          });
+          throw new Error("This student account is not linked to an active student.");
+        }
+      }
+      if (record.account_type === "Staff") {
+        const link = database.getPrimaryUserEntityLink?.(record.id);
+        if (link?.entityType === "Employee") {
+          const employee = database.getEmployeeById(link.entityId);
+          if (!employee || employee.status !== "Active") {
+            recordLoginHistory({
+              userId: record.id,
+              username: normalizedUsername,
+              role: record.role,
+              success: false,
+              failureReason: "Employee account is not linked.",
+            });
+            throw new Error("This employee account is not linked to an active employee.");
+          }
+        }
+      }
+      if (currentLoginHistoryId) {
+        database.finishLoginHistory?.(currentLoginHistoryId);
+      }
+      currentUser = withPrimaryEntityLink(database.updateUserLastLogin(record.id));
+      const history = recordLoginHistory({
+        userId: currentUser.id,
+        username: currentUser.username,
+        role: currentUser.role,
+        success: true,
+      });
+      currentLoginHistoryId = history?.id ?? null;
       audit("User login", "Authentication", "Offline login successful.");
       return currentUser;
     },
@@ -136,7 +320,11 @@ function createAuthService(database) {
       if (currentUser) {
         audit("User logout", "Authentication", "User logged out.");
       }
+      if (currentLoginHistoryId) {
+        database.finishLoginHistory?.(currentLoginHistoryId);
+      }
       currentUser = null;
+      currentLoginHistoryId = null;
       return { success: true };
     },
 
@@ -147,7 +335,7 @@ function createAuthService(database) {
         currentUser = null;
         return null;
       }
-      currentUser = refreshed;
+      currentUser = withPrimaryEntityLink(refreshed);
       return currentUser;
     },
 
@@ -175,6 +363,72 @@ function createAuthService(database) {
       );
       audit("Password changed", "Users", "User changed their own password.");
       return { success: true };
+    },
+
+    changeTemporaryPassword(input = {}) {
+      const user = requireAuthenticated();
+      if (!user.mustChangePassword) {
+        throw new Error("This account does not require a temporary password change.");
+      }
+      const record = database.getUserAuthRecord(user.username);
+      if (
+        !record ||
+        !verifyPassword(
+          input.currentPassword,
+          record.password_hash,
+          record.password_salt,
+        )
+      ) {
+        throw new Error("Current password is incorrect.");
+      }
+      const credentials = createPasswordCredentials(input.newPassword);
+      const updated = database.setUserPassword(
+        user.id,
+        credentials.passwordHash,
+        credentials.passwordSalt,
+        { mustChangePassword: false },
+      );
+      currentUser = withPrimaryEntityLink(updated);
+      audit(
+        "Forced password change completed",
+        "Authentication",
+        "Temporary password was changed by the user.",
+      );
+      return updated;
+    },
+
+    getCurrentAccountProfile() {
+      return requireAuthenticated();
+    },
+
+    updateCurrentAccountProfile(input = {}) {
+      const user = requireAuthenticated();
+      const updated = database.updateUserRecord(user.id, {
+        name: input.name,
+        username: input.username,
+        email: input.email,
+      });
+      currentUser = withPrimaryEntityLink(updated);
+      audit(
+        "Own profile updated",
+        "Account Settings",
+        `Updated account profile for "${updated.username}".`,
+      );
+      return updated;
+    },
+
+    changeCurrentPassword(input = {}) {
+      const user = requireAuthenticated();
+      return this.changePassword(
+        user.id,
+        input.currentPassword,
+        input.newPassword,
+      );
+    },
+
+    getCurrentLoginHistory(filter = {}) {
+      const user = requireAuthenticated();
+      return database.getLoginHistory(filter, user.id);
     },
 
     getUsers() {
@@ -224,7 +478,7 @@ function createAuthService(database) {
       }
       const user = database.updateUserRecord(id, input);
       if (currentUser?.id === user.id) {
-        currentUser = user;
+        currentUser = withPrimaryEntityLink(user);
       }
       audit(
         "User updated",
@@ -252,6 +506,392 @@ function createAuthService(database) {
         `Reset password for "${target.username}".`,
       );
       return { success: true };
+    },
+
+    getStudentLoginAccounts(filter = {}) {
+      requireRoles(["Owner", "Admin", "Teacher"]);
+      return database.getStudentLoginAccounts(filter);
+    },
+
+    createStudentLoginAccount(input = {}) {
+      const manager = ensureEntityLoginManager();
+      const student = database.getStudentById(input.studentId);
+      if (!student || student.status !== "Active") {
+        throw new Error("Select an active student.");
+      }
+      const existingLinks = database.getUserEntityLinks?.({
+        entityType: "Student",
+        entityId: student.id,
+      }) ?? [];
+      if (existingLinks.some((link) => link.isPrimary)) {
+        throw new Error("Student already has an active login account.");
+      }
+      const { user, link } = createLinkedUserAccount({
+        entityType: "Student",
+        entity: student,
+        role: "Student",
+        accountType: "Student",
+        username: input.username,
+        password: input.password,
+        mustChangePassword: input.mustChangePassword !== false,
+        status: input.status,
+        email: input.email ?? student.email,
+      });
+      audit(
+        "Student login created",
+        "Student Login Management",
+        `Created login for ${student.admissionNo}.`,
+        manager,
+      );
+      return database.getStudentLoginAccounts({}).find(
+        (account) => account.id === link.id,
+      );
+    },
+
+    updateStudentLoginAccount(id, input = {}) {
+      const manager = ensureEntityLoginManager();
+      const account = database
+        .getStudentLoginAccounts({})
+        .find((item) => item.id === id);
+      if (!account) throw new Error("Student login account was not found.");
+      const updated = database.updateUserRecord(account.userId, {
+        name: input.name ?? account.studentName,
+        username: input.username ?? account.username,
+        status: input.status ?? account.status,
+        role: "Student",
+        accountType: "Student",
+        mustChangePassword:
+          input.mustChangePassword === undefined
+            ? account.mustChangePassword
+            : input.mustChangePassword,
+        lockedUntil: input.lockedUntil,
+        failedLoginCount: input.failedLoginCount,
+      });
+      audit(
+        "Student login updated",
+        "Student Login Management",
+        `Updated login "${updated.username}".`,
+        manager,
+      );
+      return database
+        .getStudentLoginAccounts({})
+        .find((item) => item.id === account.id);
+    },
+
+    disableStudentLoginAccount(id, reason = "") {
+      const manager = ensureEntityLoginManager();
+      const account = database
+        .getStudentLoginAccounts({})
+        .find((item) => item.id === id);
+      if (!account) throw new Error("Student login account was not found.");
+      const updated = database.updateUserRecord(account.userId, {
+        status: "Inactive",
+      });
+      audit(
+        "Account disabled",
+        "Student Login Management",
+        `Disabled student login "${updated.username}". Reason: ${requiredText(reason || "Not provided", "Reason")}.`,
+        manager,
+      );
+      return database
+        .getStudentLoginAccounts({})
+        .find((item) => item.id === id);
+    },
+
+    enableStudentLoginAccount(id) {
+      const manager = ensureEntityLoginManager();
+      const account = database
+        .getStudentLoginAccounts({})
+        .find((item) => item.id === id);
+      if (!account) throw new Error("Student login account was not found.");
+      const updated = database.updateUserRecord(account.userId, {
+        status: "Active",
+        lockedUntil: "",
+        failedLoginCount: 0,
+      });
+      database.clearUserLock?.(account.userId);
+      audit(
+        "Account enabled",
+        "Student Login Management",
+        `Enabled student login "${updated.username}".`,
+        manager,
+      );
+      return database
+        .getStudentLoginAccounts({})
+        .find((item) => item.id === id);
+    },
+
+    resetStudentLoginPassword(id, input = {}) {
+      const manager = ensureEntityLoginManager();
+      const account = database
+        .getStudentLoginAccounts({})
+        .find((item) => item.id === id);
+      if (!account) throw new Error("Student login account was not found.");
+      const credentials = createPasswordCredentials(input.password);
+      database.setUserPassword(
+        account.userId,
+        credentials.passwordHash,
+        credentials.passwordSalt,
+        { mustChangePassword: input.mustChangePassword !== false },
+      );
+      audit(
+        "Password reset",
+        "Student Login Management",
+        `Reset password for student login "${account.username}".`,
+        manager,
+      );
+      return { success: true };
+    },
+
+    unlinkStudentLoginAccount(id) {
+      const manager = ensureEntityLoginManager();
+      const result = database.unlinkUserEntity(id);
+      if (result.success) {
+        audit(
+          "Entity unlinked",
+          "Student Login Management",
+          "Unlinked a student login account.",
+          manager,
+        );
+      }
+      return result;
+    },
+
+    getEmployeeLoginAccounts(filter = {}) {
+      requireRoles(["Owner", "Admin"]);
+      return database.getEmployeeLoginAccounts(filter);
+    },
+
+    createEmployeeLoginAccount(input = {}) {
+      const role = requiredText(input.role, "Role");
+      if (!EMPLOYEE_LOGIN_ROLES.has(role) || role === "Owner") {
+        throw new Error("Employee account role is invalid.");
+      }
+      const manager = ensureOwnerForAdminRole(role);
+      const employee = database.getEmployeeById(input.employeeId);
+      if (!employee || employee.status !== "Active") {
+        throw new Error("Select an active employee.");
+      }
+      const existingLinks = database.getUserEntityLinks?.({
+        entityType: "Employee",
+        entityId: employee.id,
+      }) ?? [];
+      if (existingLinks.some((link) => link.isPrimary)) {
+        throw new Error("Employee already has an active login account.");
+      }
+      const { link } = createLinkedUserAccount({
+        entityType: "Employee",
+        entity: employee,
+        role,
+        accountType: "Staff",
+        username: input.username,
+        password: input.password,
+        mustChangePassword: input.mustChangePassword !== false,
+        status: input.status,
+        email: input.email ?? employee.email,
+      });
+      audit(
+        "Employee login created",
+        "Employee Login Management",
+        `Created login for ${employee.employeeNo}.`,
+        manager,
+      );
+      return database.getEmployeeLoginAccounts({}).find(
+        (account) => account.id === link.id,
+      );
+    },
+
+    updateEmployeeLoginAccount(id, input = {}) {
+      const account = database
+        .getEmployeeLoginAccounts({})
+        .find((item) => item.id === id);
+      if (!account) throw new Error("Employee login account was not found.");
+      const role = input.role ?? account.role;
+      if (!EMPLOYEE_LOGIN_ROLES.has(role) || role === "Owner") {
+        throw new Error("Employee account role is invalid.");
+      }
+      const manager = ensureOwnerForAdminRole(role);
+      if (manager.id === account.userId && role !== account.role) {
+        throw new Error("You cannot change your own role.");
+      }
+      const updated = database.updateUserRecord(account.userId, {
+        name: input.name ?? account.employeeName,
+        username: input.username ?? account.username,
+        role,
+        status: input.status ?? account.status,
+        accountType: "Staff",
+        mustChangePassword:
+          input.mustChangePassword === undefined
+            ? account.mustChangePassword
+            : input.mustChangePassword,
+        lockedUntil: input.lockedUntil,
+        failedLoginCount: input.failedLoginCount,
+      });
+      audit(
+        role !== account.role ? "Role changed" : "Employee login updated",
+        "Employee Login Management",
+        `Updated employee login "${updated.username}".`,
+        manager,
+      );
+      return database
+        .getEmployeeLoginAccounts({})
+        .find((item) => item.id === id);
+    },
+
+    disableEmployeeLoginAccount(id, reason = "") {
+      const manager = ensureEntityLoginManager();
+      const account = database
+        .getEmployeeLoginAccounts({})
+        .find((item) => item.id === id);
+      if (!account) throw new Error("Employee login account was not found.");
+      if (manager.id === account.userId) {
+        throw new Error("You cannot disable your own account.");
+      }
+      const updated = database.updateUserRecord(account.userId, {
+        status: "Inactive",
+      });
+      audit(
+        "Account disabled",
+        "Employee Login Management",
+        `Disabled employee login "${updated.username}". Reason: ${optionalText(reason) || "Not provided"}.`,
+        manager,
+      );
+      return database
+        .getEmployeeLoginAccounts({})
+        .find((item) => item.id === id);
+    },
+
+    enableEmployeeLoginAccount(id) {
+      const manager = ensureEntityLoginManager();
+      const account = database
+        .getEmployeeLoginAccounts({})
+        .find((item) => item.id === id);
+      if (!account) throw new Error("Employee login account was not found.");
+      const updated = database.updateUserRecord(account.userId, {
+        status: "Active",
+        lockedUntil: "",
+        failedLoginCount: 0,
+      });
+      database.clearUserLock?.(account.userId);
+      audit(
+        "Account enabled",
+        "Employee Login Management",
+        `Enabled employee login "${updated.username}".`,
+        manager,
+      );
+      return database
+        .getEmployeeLoginAccounts({})
+        .find((item) => item.id === id);
+    },
+
+    resetEmployeeLoginPassword(id, input = {}) {
+      const manager = ensureEntityLoginManager();
+      const account = database
+        .getEmployeeLoginAccounts({})
+        .find((item) => item.id === id);
+      if (!account) throw new Error("Employee login account was not found.");
+      const credentials = createPasswordCredentials(input.password);
+      database.setUserPassword(
+        account.userId,
+        credentials.passwordHash,
+        credentials.passwordSalt,
+        { mustChangePassword: input.mustChangePassword !== false },
+      );
+      audit(
+        "Password reset",
+        "Employee Login Management",
+        `Reset password for employee login "${account.username}".`,
+        manager,
+      );
+      return { success: true };
+    },
+
+    unlinkEmployeeLoginAccount(id) {
+      const manager = ensureEntityLoginManager();
+      const result = database.unlinkUserEntity(id);
+      if (result.success) {
+        audit(
+          "Entity unlinked",
+          "Employee Login Management",
+          "Unlinked an employee login account.",
+          manager,
+        );
+      }
+      return result;
+    },
+
+    getCurrentUserEntityLink() {
+      const user = requireAuthenticated();
+      return database.getPrimaryUserEntityLink?.(user.id) ?? null;
+    },
+
+    getCurrentStudentPortalData() {
+      const { student } = requireCurrentStudentLink();
+      const guardians = database.getStudentGuardians?.(student.id) ?? [];
+      const attendance = database
+        .getAttendance()
+        .filter((record) => record.studentId === student.id);
+      const timetable = database.getTimetableByClass(
+        student.className,
+        student.section,
+      );
+      const homework = database.getHomeworkByClass(
+        student.className,
+        student.section,
+      );
+      const classTests = database.getClassTestsByClass(
+        student.className,
+        student.section,
+      );
+      const marks = database
+        .getMarks()
+        .filter((mark) => mark.studentId === student.id);
+      const reportCards = database.getStudentReportCards({ studentId: student.id });
+      const feePayments = database
+        .getFeePayments()
+        .filter((payment) => payment.studentId === student.id);
+      const feeLedger =
+        typeof database.getStudentFeeLedger === "function"
+          ? database.getStudentFeeLedger(student.id)
+          : [];
+      const invoices =
+        typeof database.getStudentOutstandingInvoices === "function"
+          ? database.getStudentOutstandingInvoices(student.id)
+          : [];
+      const certificates =
+        typeof database.getIssuedCertificatesByStudent === "function"
+          ? database.getIssuedCertificatesByStudent(student.id)
+          : [];
+      return {
+        student,
+        guardians,
+        attendance,
+        timetable,
+        homework,
+        classTests,
+        marks,
+        reportCards,
+        feePayments,
+        feeLedger,
+        invoices,
+        certificates,
+      };
+    },
+
+    getCurrentEmployeePortalData() {
+      const { employee } = requireCurrentEmployeeLink();
+      const attendance =
+        typeof database.getEmployeeAttendanceByRange === "function"
+          ? database.getEmployeeAttendanceByRange({ employeeId: employee.id })
+          : [];
+      const salaryPayments = database.getSalaryPaymentsByEmployee(employee.id);
+      const timetable = database.getTimetableByTeacher(employee.id);
+      return {
+        employee,
+        attendance,
+        salaryPayments,
+        timetable,
+      };
     },
 
     deleteUser(id) {

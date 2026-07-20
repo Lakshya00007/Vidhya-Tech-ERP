@@ -42,12 +42,18 @@ export const BEHAVIOUR_SKILLS_API_UNAVAILABLE_MESSAGE =
 export const ACADEMIC_SESSIONS_API_UNAVAILABLE_MESSAGE =
   'Academic session management is available only inside the Electron desktop app.'
 
+export const REPORT_CARDS_API_UNAVAILABLE_MESSAGE =
+  'Report card management is available only inside the Electron desktop app.'
+
 const licenseApiMethods = [
   'getDeviceId',
   'getLicenseStatus',
   'activateLicense',
+  'updateLicenseKey',
   'deactivateLicense',
   'getLicenseInfo',
+  'checkRemoteLicenseNow',
+  'getRemoteLicenseStatus',
 ] as const satisfies ReadonlyArray<keyof ErpApi>
 
 const authApiMethods = [
@@ -56,6 +62,7 @@ const authApiMethods = [
   'login',
   'logout',
   'getCurrentUser',
+  'changeTemporaryPassword',
 ] as const satisfies ReadonlyArray<keyof ErpApi>
 
 const attendanceApiMethods = [
@@ -66,6 +73,13 @@ const attendanceApiMethods = [
   'getAttendanceSummary',
   'saveAttendanceBulk',
   'updateAttendance',
+  'getEmployeeAttendanceByDate',
+  'getEmployeeAttendanceByRange',
+  'saveEmployeeAttendanceBulk',
+  'updateEmployeeAttendance',
+  'getEmployeeAttendanceSummary',
+  'getEmployeeMonthlyAttendance',
+  'getEmployeeAttendanceReport',
 ] as const satisfies ReadonlyArray<keyof ErpApi>
 
 const backupApiMethods = [
@@ -213,6 +227,29 @@ const academicSessionsApiMethods = [
   'getCarryForwardDues',
   'updateCarryForwardDue',
   'waiveCarryForwardDue',
+] as const satisfies ReadonlyArray<keyof ErpApi>
+
+const reportCardsApiMethods = [
+  'getGradingSchemes',
+  'getGradingSchemeById',
+  'createGradingScheme',
+  'updateGradingScheme',
+  'deleteGradingScheme',
+  'setDefaultGradingScheme',
+  'calculateGrade',
+  'getReportCardTemplates',
+  'createReportCardTemplate',
+  'updateReportCardTemplate',
+  'deleteReportCardTemplate',
+  'getReportCardPreview',
+  'generateStudentReportCard',
+  'generateClassReportCards',
+  'getStudentReportCards',
+  'getStudentReportCardById',
+  'updateReportCardRemarks',
+  'deleteReportCard',
+  'getClassResultSummary',
+  'getResultPositions',
 ] as const satisfies ReadonlyArray<keyof ErpApi>
 
 export function getErpApi(): ErpApi {
@@ -375,6 +412,19 @@ export function getAcademicSessionsErpApi(): ErpApi {
     )
   ) {
     throw new Error(ACADEMIC_SESSIONS_API_UNAVAILABLE_MESSAGE)
+  }
+  return api
+}
+
+export function getReportCardsErpApi(): ErpApi {
+  const api = window.erpApi
+  if (
+    !api ||
+    reportCardsApiMethods.some(
+      (method) => typeof api[method] !== 'function',
+    )
+  ) {
+    throw new Error(REPORT_CARDS_API_UNAVAILABLE_MESSAGE)
   }
   return api
 }

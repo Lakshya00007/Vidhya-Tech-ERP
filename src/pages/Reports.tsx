@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { DataTable, type TableColumn } from '../components/DataTable'
 import { Icon } from '../components/Icon'
 import { getErpApi, getErrorMessage } from '../lib/erpApi'
+import { StudentReportCards } from './reports/StudentReportCards'
+import { ParentsInfoReport } from './reports/ParentsInfoReport'
 import {
   exportCsv,
   formatCurrency,
@@ -22,6 +24,7 @@ import type {
   SectionItem,
   Student,
   StudentStatus,
+  AuthUser,
 } from '../types'
 
 export type ReportTab =
@@ -30,6 +33,8 @@ export type ReportTab =
   | 'monthly'
   | 'attendance'
   | 'fee-due'
+  | 'parents-info'
+  | 'report-cards'
 
 interface ReportMetric {
   label: string
@@ -50,6 +55,8 @@ const reportTabs: { id: ReportTab; label: string }[] = [
   { id: 'monthly', label: 'Monthly Collection' },
   { id: 'attendance', label: 'Attendance' },
   { id: 'fee-due', label: 'Fee Due' },
+  { id: 'parents-info', label: 'Parents Info' },
+  { id: 'report-cards', label: 'Report Cards' },
 ]
 
 const paymentModes: PaymentMode[] = [
@@ -297,10 +304,14 @@ function CollectionReport({
 }
 
 interface ReportsProps {
+  currentUser: AuthUser
   initialTab?: ReportTab
 }
 
-export function Reports({ initialTab = 'students' }: ReportsProps) {
+export function Reports({
+  currentUser,
+  initialTab = 'students',
+}: ReportsProps) {
   const [activeTab, setActiveTab] = useState<ReportTab>(initialTab)
   const [students, setStudents] = useState<Student[]>([])
   const [classes, setClasses] = useState<ClassItem[]>([])
@@ -329,6 +340,31 @@ export function Reports({ initialTab = 'students' }: ReportsProps) {
   const [isMonthlyLoading, setIsMonthlyLoading] = useState(false)
   const [isAttendanceLoading, setIsAttendanceLoading] = useState(false)
   const [error, setError] = useState('')
+  const canViewFinanceReports = ['Owner', 'Admin', 'Accountant'].includes(
+    currentUser.role,
+  )
+
+  const visibleReportTabs = useMemo(
+    () =>
+      reportTabs.filter((tab) => {
+        if (currentUser.role === 'Owner' || currentUser.role === 'Admin') {
+          return true
+        }
+        if (currentUser.role === 'Accountant') {
+          return true
+        }
+        return ['students', 'attendance', 'parents-info', 'report-cards'].includes(tab.id)
+      }),
+    [currentUser.role],
+  )
+
+  useEffect(() => {
+    if (!visibleReportTabs.some((tab) => tab.id === activeTab)) {
+      void Promise.resolve().then(() =>
+        setActiveTab(visibleReportTabs[0]?.id ?? 'students'),
+      )
+    }
+  }, [activeTab, visibleReportTabs])
 
   useEffect(() => {
     let isCurrent = true
@@ -340,8 +376,10 @@ export function Reports({ initialTab = 'students' }: ReportsProps) {
           api.getStudents(),
           api.getClasses(),
           api.getSections(),
-          api.getFeeStructures(),
-          api.getFeePayments(),
+          canViewFinanceReports
+            ? api.getFeeStructures()
+            : Promise.resolve([]),
+          canViewFinanceReports ? api.getFeePayments() : Promise.resolve([]),
           api.getSchoolSettings(),
         ])
       })
@@ -377,7 +415,7 @@ export function Reports({ initialTab = 'students' }: ReportsProps) {
     return () => {
       isCurrent = false
     }
-  }, [])
+  }, [canViewFinanceReports])
 
   useEffect(() => {
     if (activeTab !== 'daily' || !dailyDate) return
@@ -845,7 +883,7 @@ export function Reports({ initialTab = 'students' }: ReportsProps) {
       </section>
 
       <nav className="report-tabs" aria-label="Report types">
-        {reportTabs.map((tab) => (
+        {visibleReportTabs.map((tab) => (
           <button
             className={`report-tab${activeTab === tab.id ? ' report-tab--active' : ''}`}
             key={tab.id}
@@ -1270,6 +1308,12 @@ export function Reports({ initialTab = 'students' }: ReportsProps) {
           </section>
         </>
       )}
+
+      {activeTab === 'report-cards' && (
+        <StudentReportCards currentUser={currentUser} />
+      )}
+
+      {activeTab === 'parents-info' && <ParentsInfoReport />}
     </div>
   )
 }

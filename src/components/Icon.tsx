@@ -12,6 +12,8 @@ export type IconName =
   | 'lock'
   | 'bell'
   | 'chevron'
+  | 'chevron-up'
+  | 'chevron-down'
   | 'calendar'
   | 'download'
   | 'print'
@@ -25,6 +27,7 @@ export type IconName =
   | 'school'
   | 'trash'
   | 'edit'
+  | 'view'
 
 interface IconProps {
   name: IconName
@@ -90,6 +93,8 @@ const paths: Record<IconName, React.ReactNode> = {
   ),
   bell: <><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" /><path d="M13.7 21a2 2 0 0 1-3.4 0" /></>,
   chevron: <path d="m9 18 6-6-6-6" />,
+  'chevron-up': <path d="m18 15-6-6-6 6" />,
+  'chevron-down': <path d="m6 9 6 6 6-6" />,
   calendar: <><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></>,
   download: <><path d="M12 3v12M7 10l5 5 5-5" /><path d="M5 21h14" /></>,
   print: <><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><rect x="6" y="14" width="12" height="8" /></>,
@@ -103,6 +108,7 @@ const paths: Record<IconName, React.ReactNode> = {
   school: <><path d="M3 10l9-6 9 6M5 9v11h14V9M3 20h18" /><path d="M9 20v-6h6v6M9 10h6" /></>,
   trash: <><path d="M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14M10 11v6M14 11v6" /></>,
   edit: <><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L8 18l-4 1 1-4z" /></>,
+  view: <><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z" /><circle cx="12" cy="12" r="3" /></>,
 }
 
 export function Icon({ name, size = 20, className }: IconProps) {

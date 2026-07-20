@@ -1,4 +1,5 @@
 const path = require("node:path");
+const os = require("node:os");
 const { app, BrowserWindow } = require("electron");
 const {
   applyPendingDatabaseRestore,
@@ -66,6 +67,8 @@ app
       database,
       deviceIdService,
       publicKeyPath: path.join(__dirname, "license-public-key.pem"),
+      appVersion: app.getVersion(),
+      os: `${process.platform} ${os.release()}`,
     });
     const authService = createAuthService(database);
     const backupService = createBackupService({

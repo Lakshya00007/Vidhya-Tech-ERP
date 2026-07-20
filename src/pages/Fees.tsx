@@ -3,8 +3,15 @@ import { DataTable, type TableColumn } from '../components/DataTable'
 import { Icon } from '../components/Icon'
 import { ReceiptPreview } from '../components/ReceiptPreview'
 import { getErpApi, getErrorMessage } from '../lib/erpApi'
+import { FeeInvoiceGenerator } from './fees/FeeInvoiceGenerator'
+import { FeeInvoiceList } from './fees/FeeInvoiceList'
+import { FeeReversalCancellation } from './fees/FeeReversalCancellation'
+import { StudentDiscounts } from './fees/StudentDiscounts'
 import type {
+  AuthUser,
   FeeHead,
+  FeeInvoice,
+  FeePaymentInvoiceAllocationInput,
   FeePayment,
   FeeStructure,
   PaymentMode,
@@ -60,9 +67,45 @@ const getStructuredAmount = (
   )
 }
 
-export function Fees() {
+const buildOldestFirstAllocations = (
+  paymentAmount: number,
+  invoices: FeeInvoice[],
+) => {
+  let remainingAmount = paymentAmount
+  const nextAllocations: Record<string, string> = {}
+  invoices.forEach((invoice) => {
+    if (remainingAmount <= 0) {
+      nextAllocations[invoice.id] = ''
+      return
+    }
+    const allocatedAmount = Math.min(invoice.balanceAmount, remainingAmount)
+    nextAllocations[invoice.id] = allocatedAmount > 0 ? String(allocatedAmount) : ''
+    remainingAmount -= allocatedAmount
+  })
+  return nextAllocations
+}
+
+export type FeesView =
+  | 'generate-invoice'
+  | 'invoices'
+  | 'collect'
+  | 'receipts'
+  | 'discounts'
+  | 'reversal'
+
+interface FeesProps {
+  initialView?: FeesView
+  currentUser: AuthUser
+}
+
+export function Fees({ initialView = 'collect', currentUser }: FeesProps) {
+  const [activeView, setActiveView] = useState<FeesView>(initialView)
   const [studentRows, setStudentRows] = useState<Student[]>([])
   const [paymentRows, setPaymentRows] = useState<FeePayment[]>([])
+  const [outstandingInvoices, setOutstandingInvoices] = useState<FeeInvoice[]>([])
+  const [invoiceAllocations, setInvoiceAllocations] = useState<Record<string, string>>({})
+  const [applyToInvoices, setApplyToInvoices] = useState(true)
+  const [allocationMode, setAllocationMode] = useState<'oldest' | 'manual'>('oldest')
   const [feeHeads, setFeeHeads] = useState<FeeHead[]>([])
   const [feeStructures, setFeeStructures] = useState<FeeStructure[]>([])
   const [settings, setSettings] = useState<SchoolSettings | null>(null)
@@ -153,10 +196,37 @@ export function Fees() {
   }, [search, studentRows])
 
   const selectedStudent = studentRows.find((student) => student.id === selectedStudentId)
+  const visibleReceipts =
+    activeView === 'receipts' ? paymentRows : paymentRows.slice(0, 10)
   const activeFeeHeads = useMemo(
     () => feeHeads.filter((feeHead) => feeHead.status === 'Active'),
     [feeHeads],
   )
+  useEffect(() => {
+    let isCurrent = true
+
+    if (!selectedStudentId) {
+      return () => {
+        isCurrent = false
+      }
+    }
+
+    Promise.resolve()
+      .then(() => getErpApi().getStudentOutstandingInvoices(selectedStudentId))
+      .then((rows) => {
+        if (!isCurrent) return
+        setOutstandingInvoices(rows)
+      })
+      .catch((loadError: unknown) => {
+        if (isCurrent) {
+          setError(getErrorMessage(loadError))
+        }
+      })
+
+    return () => {
+      isCurrent = false
+    }
+  }, [selectedStudentId])
   const configuredFee = useMemo(
     () =>
       selectedStudent
@@ -176,10 +246,41 @@ export function Fees() {
     () =>
       selectedStudent
         ? paymentRows
-            .filter((payment) => payment.studentId === selectedStudent.id)
+            .filter(
+              (payment) =>
+                payment.studentId === selectedStudent.id &&
+                payment.status !== 'Reversed',
+            )
             .reduce((total, payment) => total + payment.amount, 0)
         : 0,
     [paymentRows, selectedStudent],
+  )
+  const effectiveInvoiceAllocations = useMemo(
+    () =>
+      allocationMode === 'oldest'
+        ? buildOldestFirstAllocations(Number(amount || 0), outstandingInvoices)
+        : invoiceAllocations,
+    [allocationMode, amount, invoiceAllocations, outstandingInvoices],
+  )
+  const selectedInvoiceAllocations = useMemo<FeePaymentInvoiceAllocationInput[]>(
+    () =>
+      applyToInvoices
+        ? outstandingInvoices
+            .map((invoice) => ({
+              invoiceId: invoice.id,
+              allocatedAmount: Number(effectiveInvoiceAllocations[invoice.id] || 0),
+            }))
+            .filter((allocation) => allocation.allocatedAmount > 0)
+        : [],
+    [applyToInvoices, effectiveInvoiceAllocations, outstandingInvoices],
+  )
+  const totalInvoiceAllocation = useMemo(
+    () =>
+      selectedInvoiceAllocations.reduce(
+        (total, allocation) => total + allocation.allocatedAmount,
+        0,
+      ),
+    [selectedInvoiceAllocations],
   )
 
   const selectStudent = (student: Student) => {
@@ -191,6 +292,9 @@ export function Fees() {
     )
     setSelectedStudentId(student.id)
     setAmount(structuredAmount ? String(structuredAmount) : '')
+    setApplyToInvoices(true)
+    setAllocationMode('oldest')
+    setInvoiceAllocations({})
   }
 
   const selectFeeType = (nextFeeType: string) => {
@@ -256,6 +360,15 @@ export function Fees() {
       render: (payment) => <span className="neutral-badge">{payment.paymentMode}</span>,
     },
     {
+      key: 'status',
+      header: 'Status',
+      render: (payment) => (
+        <span className={`status-badge status-badge--${payment.status.toLowerCase()}`}>
+          {payment.status}
+        </span>
+      ),
+    },
+    {
       key: 'amount',
       header: 'Amount',
       className: 'align-right',
@@ -299,6 +412,10 @@ export function Fees() {
       setError('Select a student and fee head, then enter a valid whole-number amount.')
       return
     }
+    if (totalInvoiceAllocation > numericAmount) {
+      setError('Invoice allocations cannot exceed the payment amount.')
+      return
+    }
 
     setIsSaving(true)
     try {
@@ -309,9 +426,19 @@ export function Fees() {
         paymentMode,
         paymentDate,
         notes,
+        invoiceAllocations:
+          selectedInvoiceAllocations.length > 0
+            ? selectedInvoiceAllocations
+            : undefined,
       })
-      setPaymentRows(await getErpApi().getFeePayments())
+      const [payments, invoices] = await Promise.all([
+        getErpApi().getFeePayments(),
+        getErpApi().getStudentOutstandingInvoices(selectedStudent.id),
+      ])
+      setPaymentRows(payments)
+      setOutstandingInvoices(invoices)
       setNotes('')
+      setInvoiceAllocations({})
       setMessage(`Payment recorded. Receipt ${payment.receiptNo} was generated.`)
       setSelectedReceipt(payment)
       setError('')
@@ -323,22 +450,130 @@ export function Fees() {
     }
   }
 
+  const openCollectForStudent = (studentId: string) => {
+    const student = studentRows.find((item) => item.id === studentId)
+    if (student) {
+      selectStudent(student)
+    } else {
+      setSelectedStudentId(studentId)
+    }
+    setActiveView('collect')
+  }
+
+  const pageCopy = {
+    'generate-invoice': {
+      title: 'Generate Fee Invoice',
+      subtitle: 'Create receivable invoices from fee structures and concessions.',
+    },
+    invoices: {
+      title: 'Fee Invoice List',
+      subtitle: 'Review invoices, outstanding balances and fee-head reports.',
+    },
+    collect: {
+      title: 'Fee Collection',
+      subtitle: 'Find a student, collect a configured fee and issue a receipt.',
+    },
+    receipts: {
+      title: 'Fees Paid Slip',
+      subtitle: 'Open and print persisted fee receipts.',
+    },
+    discounts: {
+      title: 'Student Discounts',
+      subtitle: 'Assign concessions that apply during invoice preview.',
+    },
+    reversal: {
+      title: 'Fee Reversal & Cancellation',
+      subtitle: 'Reverse receipts and cancel unpaid invoices without deleting records.',
+    },
+  } satisfies Record<FeesView, { title: string; subtitle: string }>
+  const canCancelOrReverse =
+    currentUser.role === 'Owner' || currentUser.role === 'Admin'
+
   return (
     <div className="page-stack">
       <section className="page-header">
         <div>
-          <h2>Fee Collection</h2>
-          <p>Find a student, collect a configured fee and issue a receipt.</p>
+          <h2>{pageCopy[activeView].title}</h2>
+          <p>{pageCopy[activeView].subtitle}</p>
         </div>
+        {(activeView === 'collect' || activeView === 'receipts') && (
+          <button
+            className="secondary-button"
+            type="button"
+            onClick={() => setMessage('Today’s collection is shown on the dashboard.')}
+          >
+            <Icon name="reports" size={17} />
+            Today’s Summary
+          </button>
+        )}
+      </section>
+
+      <nav className="settings-tabs fees-tabs" aria-label="Fees sections">
         <button
-          className="secondary-button"
+          className={`settings-tab${
+            activeView === 'generate-invoice' ? ' settings-tab--active' : ''
+          }`}
+          onClick={() => setActiveView('generate-invoice')}
           type="button"
-          onClick={() => setMessage('Today’s collection is shown on the dashboard.')}
+        >
+          <Icon name="plus" size={17} />
+          Generate Invoice
+        </button>
+        <button
+          className={`settings-tab${
+            activeView === 'invoices' ? ' settings-tab--active' : ''
+          }`}
+          onClick={() => setActiveView('invoices')}
+          type="button"
         >
           <Icon name="reports" size={17} />
-          Today’s Summary
+          Invoice List
         </button>
-      </section>
+        <button
+          className={`settings-tab${
+            activeView === 'collect' ? ' settings-tab--active' : ''
+          }`}
+          onClick={() => setActiveView('collect')}
+          type="button"
+        >
+          <Icon name="wallet" size={17} />
+          Collect Fees
+        </button>
+        <button
+          className={`settings-tab${
+            activeView === 'receipts' ? ' settings-tab--active' : ''
+          }`}
+          onClick={() => setActiveView('receipts')}
+          type="button"
+        >
+          <Icon name="reports" size={17} />
+          Fees Paid Slip
+        </button>
+        {canCancelOrReverse && (
+          <button
+            className={`settings-tab${
+              activeView === 'discounts' ? ' settings-tab--active' : ''
+            }`}
+            onClick={() => setActiveView('discounts')}
+            type="button"
+          >
+            <Icon name="minus" size={17} />
+            Student Discounts
+          </button>
+        )}
+        {canCancelOrReverse && (
+          <button
+            className={`settings-tab${
+              activeView === 'reversal' ? ' settings-tab--active' : ''
+            }`}
+            onClick={() => setActiveView('reversal')}
+            type="button"
+          >
+            <Icon name="lock" size={17} />
+            Reversal
+          </button>
+        )}
+      </nav>
 
       {message && (
         <div className="inline-message">
@@ -360,203 +595,311 @@ export function Fees() {
         </div>
       )}
 
-      <section className="fee-workspace">
-        <div className="panel student-finder">
-          <div className="panel-heading">
-            <div>
-              <h3>Find Student</h3>
-              <p>Search by name, admission number or mobile</p>
-            </div>
-          </div>
-          <label className="search-field">
-            <Icon name="search" size={18} />
-            <input
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search student..."
-              type="search"
-              value={search}
-            />
-          </label>
-          <div className="student-results">
-            {matchingStudents.map((student) => (
-              <button
-                className={`student-result${selectedStudent?.id === student.id ? ' student-result--active' : ''}`}
-                key={student.id}
-                onClick={() => selectStudent(student)}
-                type="button"
-              >
-                <span className="person-avatar person-avatar--blue">
-                  {student.name.split(' ').map((name) => name[0]).join('').slice(0, 2)}
-                </span>
-                <span>
-                  <strong>{student.name}</strong>
-                  <small>{student.admissionNo} · Class {student.className}-{student.section}</small>
-                </span>
-                {selectedStudent?.id === student.id && (
-                  <span className="selected-check"><Icon name="check" size={14} /></span>
-                )}
-              </button>
-            ))}
-            {!isLoading && matchingStudents.length === 0 && (
-              <p className="empty-result">
-                {studentRows.length === 0
-                  ? 'Add a student before recording a fee payment.'
-                  : 'No student found.'}
-              </p>
-            )}
-          </div>
-        </div>
+      {activeView === 'generate-invoice' && (
+        <FeeInvoiceGenerator
+          onCreated={(invoice) => {
+            setMessage(`Invoice ${invoice.invoiceNo} generated.`)
+            setActiveView('invoices')
+          }}
+        />
+      )}
 
-        <div className="panel fee-entry-panel">
-          <div className="panel-heading">
-            <div>
-              <h3>Payment Entry</h3>
-              <p>
-                {selectedStudent
-                  ? `Collecting for ${selectedStudent.name}`
-                  : 'Select a student to begin'}
-              </p>
-            </div>
-            {selectedStudent && (
-              <span className="active-student-badge">
-                <Icon name="user" size={15} />
-                {selectedStudent.admissionNo}
-              </span>
-            )}
-          </div>
+      {activeView === 'invoices' && (
+        <FeeInvoiceList
+          canCancel={canCancelOrReverse}
+          onCollect={openCollectForStudent}
+        />
+      )}
 
-          {selectedStudent && (
-            <div className="selected-student-details">
-              <div><span>Student</span><strong>{selectedStudent.name}</strong></div>
-              <div><span>Admission No.</span><strong>{selectedStudent.admissionNo}</strong></div>
-              <div><span>Class</span><strong>{selectedStudent.className}</strong></div>
-              <div><span>Section</span><strong>{selectedStudent.section || '—'}</strong></div>
-              <div><span>Guardian</span><strong>{selectedStudent.guardianName || '—'}</strong></div>
-              <div><span>Mobile</span><strong>{selectedStudent.mobile || '—'}</strong></div>
-            </div>
-          )}
+      {activeView === 'discounts' && canCancelOrReverse && <StudentDiscounts />}
 
-          <div className="fee-summary-grid">
-            <div>
-              <span>Configured Fee</span>
-              <strong>{formatCurrency(configuredFee)}</strong>
-            </div>
-            <div>
-              <span>Recorded Paid</span>
-              <strong className="text-success">{formatCurrency(recordedPaid)}</strong>
-            </div>
-            <div>
-              <span>Current Balance</span>
-              <strong className="text-danger">
-                {formatCurrency(Math.max(configuredFee - recordedPaid, 0))}
-              </strong>
-            </div>
-          </div>
+      {activeView === 'reversal' && canCancelOrReverse && (
+        <FeeReversalCancellation />
+      )}
 
-          <form className="payment-form" onSubmit={(event) => void handlePayment(event)}>
-            {activeFeeHeads.length === 0 && !isLoading && (
-              <div className="form-note form-note--warning">
-                <Icon name="clock" size={17} />
-                Create fee heads from Settings first.
+      {activeView === 'collect' && (
+        <section className="fee-workspace">
+          <div className="panel student-finder">
+            <div className="panel-heading">
+              <div>
+                <h3>Find Student</h3>
+                <p>Search by name, admission number or mobile</p>
               </div>
-            )}
-            <div className="form-row form-row--four">
-              <label className="form-field">
-                <span>Fee Head</span>
-                <select
-                  disabled={!selectedStudent || activeFeeHeads.length === 0}
-                  required
-                  value={feeType}
-                  onChange={(event) => selectFeeType(event.target.value)}
-                >
-                  {activeFeeHeads.length === 0 && (
-                    <option value="">No fee heads available</option>
-                  )}
-                  {activeFeeHeads.map((feeHead) => (
-                    <option key={feeHead.id} value={feeHead.name}>
-                      {feeHead.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="form-field">
-                <span>Amount (₹)</span>
-                <input
-                  disabled={!selectedStudent}
-                  min="1"
-                  onChange={(event) => setAmount(event.target.value)}
-                  placeholder="Enter amount"
-                  required
-                  step="1"
-                  type="number"
-                  value={amount}
-                />
-              </label>
-              <label className="form-field">
-                <span>Payment Mode</span>
-                <select
-                  disabled={!selectedStudent}
-                  value={paymentMode}
-                  onChange={(event) => setPaymentMode(event.target.value as PaymentMode)}
-                >
-                  <option>Cash</option>
-                  <option>UPI</option>
-                  <option>Card</option>
-                  <option>Bank Transfer</option>
-                  <option>Cheque</option>
-                </select>
-              </label>
-              <label className="form-field">
-                <span>Payment Date</span>
-                <input
-                  disabled={!selectedStudent}
-                  required
-                  type="date"
-                  value={paymentDate}
-                  onChange={(event) => setPaymentDate(event.target.value)}
-                />
-              </label>
             </div>
-            <label className="form-field">
-              <span>Notes</span>
+            <label className="search-field">
+              <Icon name="search" size={18} />
               <input
-                disabled={!selectedStudent}
-                onChange={(event) => setNotes(event.target.value)}
-                placeholder="Optional note, cheque number or transaction reference"
-                value={notes}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Search student..."
+                type="search"
+                value={search}
               />
             </label>
-            <div className="payment-actions">
-              <span>Receipt number is generated automatically when payment is saved.</span>
-              <button
-                className="primary-button"
-                disabled={!selectedStudent || isSaving || activeFeeHeads.length === 0}
-                type="submit"
-              >
-                <Icon name="wallet" size={17} />
-                {isSaving ? 'Recording...' : 'Collect Fee & Generate Receipt'}
-              </button>
+            <div className="student-results">
+              {matchingStudents.map((student) => (
+                <button
+                  className={`student-result${selectedStudent?.id === student.id ? ' student-result--active' : ''}`}
+                  key={student.id}
+                  onClick={() => selectStudent(student)}
+                  type="button"
+                >
+                  <span className="person-avatar person-avatar--blue">
+                    {student.name.split(' ').map((name) => name[0]).join('').slice(0, 2)}
+                  </span>
+                  <span>
+                    <strong>{student.name}</strong>
+                    <small>{student.admissionNo} · Class {student.className}-{student.section}</small>
+                  </span>
+                  {selectedStudent?.id === student.id && (
+                    <span className="selected-check"><Icon name="check" size={14} /></span>
+                  )}
+                </button>
+              ))}
+              {!isLoading && matchingStudents.length === 0 && (
+                <p className="empty-result">
+                  {studentRows.length === 0
+                    ? 'Add a student before recording a fee payment.'
+                    : 'No student found.'}
+                </p>
+              )}
             </div>
-          </form>
-        </div>
-      </section>
-
-      <section className="panel">
-        <div className="panel-heading">
-          <div>
-            <h3>Recent Receipts</h3>
-            <p>Latest persisted fee receipts</p>
           </div>
-        </div>
-        <DataTable
-          columns={columns}
-          getRowKey={(payment) => payment.id}
-          rows={paymentRows.slice(0, 10)}
-          emptyMessage={
-            isLoading ? 'Loading fee receipts...' : 'No fee receipts recorded yet.'
-          }
-        />
-      </section>
+
+          <div className="panel fee-entry-panel">
+            <div className="panel-heading">
+              <div>
+                <h3>Payment Entry</h3>
+                <p>
+                  {selectedStudent
+                    ? `Collecting for ${selectedStudent.name}`
+                    : 'Select a student to begin'}
+                </p>
+              </div>
+              {selectedStudent && (
+                <span className="active-student-badge">
+                  <Icon name="user" size={15} />
+                  {selectedStudent.admissionNo}
+                </span>
+              )}
+            </div>
+
+            {selectedStudent && (
+              <div className="selected-student-details">
+                <div><span>Student</span><strong>{selectedStudent.name}</strong></div>
+                <div><span>Admission No.</span><strong>{selectedStudent.admissionNo}</strong></div>
+                <div><span>Class</span><strong>{selectedStudent.className}</strong></div>
+                <div><span>Section</span><strong>{selectedStudent.section || '—'}</strong></div>
+                <div><span>Guardian</span><strong>{selectedStudent.guardianName || '—'}</strong></div>
+                <div><span>Mobile</span><strong>{selectedStudent.mobile || '—'}</strong></div>
+              </div>
+            )}
+
+            <div className="fee-summary-grid">
+              <div>
+                <span>Configured Fee</span>
+                <strong>{formatCurrency(configuredFee)}</strong>
+              </div>
+              <div>
+                <span>Recorded Paid</span>
+                <strong className="text-success">{formatCurrency(recordedPaid)}</strong>
+              </div>
+              <div>
+                <span>Current Balance</span>
+                <strong className="text-danger">
+                  {formatCurrency(Math.max(configuredFee - recordedPaid, 0))}
+                </strong>
+              </div>
+            </div>
+
+            {selectedStudent && outstandingInvoices.length > 0 && (
+              <div className="invoice-allocation-panel">
+                <div className="panel-heading panel-heading--inline">
+                  <div>
+                    <h3>Outstanding Invoices</h3>
+                    <p>Allocate this receipt to open invoices</p>
+                  </div>
+                  <label className="toggle-row toggle-row--compact">
+                    <input
+                      checked={applyToInvoices}
+                      type="checkbox"
+                      onChange={(event) => setApplyToInvoices(event.target.checked)}
+                    />
+                    <span>Allocate</span>
+                  </label>
+                </div>
+                {applyToInvoices && (
+                  <>
+                    <div className="allocation-mode-row">
+                      <button
+                        className={`segmented-button${
+                          allocationMode === 'oldest' ? ' segmented-button--active' : ''
+                        }`}
+                        onClick={() => setAllocationMode('oldest')}
+                        type="button"
+                      >
+                        Oldest first
+                      </button>
+                      <button
+                        className={`segmented-button${
+                          allocationMode === 'manual' ? ' segmented-button--active' : ''
+                        }`}
+                        onClick={() => {
+                          setInvoiceAllocations(effectiveInvoiceAllocations)
+                          setAllocationMode('manual')
+                        }}
+                        type="button"
+                      >
+                        Manual
+                      </button>
+                    </div>
+                    <div className="invoice-allocation-list">
+                      {outstandingInvoices.map((invoice) => (
+                        <div className="invoice-allocation-row" key={invoice.id}>
+                          <div>
+                            <strong>{invoice.invoiceNo}</strong>
+                            <span>
+                              {invoice.billingPeriod} · Balance {formatCurrency(invoice.balanceAmount)}
+                            </span>
+                          </div>
+                          <input
+                            disabled={allocationMode === 'oldest'}
+                            min="0"
+                            max={invoice.balanceAmount}
+                            step="1"
+                            type="number"
+                            value={effectiveInvoiceAllocations[invoice.id] ?? ''}
+                            onChange={(event) =>
+                              setInvoiceAllocations({
+                                ...effectiveInvoiceAllocations,
+                                [invoice.id]: event.target.value,
+                              })
+                            }
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    <div className="allocation-total-row">
+                      <span>Allocated from this receipt</span>
+                      <strong>{formatCurrency(totalInvoiceAllocation)}</strong>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
+            <form className="payment-form" onSubmit={(event) => void handlePayment(event)}>
+              {activeFeeHeads.length === 0 && !isLoading && (
+                <div className="form-note form-note--warning">
+                  <Icon name="clock" size={17} />
+                  Create fee heads from Settings first.
+                </div>
+              )}
+              <div className="form-row form-row--four">
+                <label className="form-field">
+                  <span>Fee Head</span>
+                  <select
+                    disabled={!selectedStudent || activeFeeHeads.length === 0}
+                    required
+                    value={feeType}
+                    onChange={(event) => selectFeeType(event.target.value)}
+                  >
+                    {activeFeeHeads.length === 0 && (
+                      <option value="">No fee heads available</option>
+                    )}
+                    {activeFeeHeads.map((feeHead) => (
+                      <option key={feeHead.id} value={feeHead.name}>
+                        {feeHead.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="form-field">
+                  <span>Amount (₹)</span>
+                  <input
+                    disabled={!selectedStudent}
+                    min="1"
+                    onChange={(event) => setAmount(event.target.value)}
+                    placeholder="Enter amount"
+                    required
+                    step="1"
+                    type="number"
+                    value={amount}
+                  />
+                </label>
+                <label className="form-field">
+                  <span>Payment Mode</span>
+                  <select
+                    disabled={!selectedStudent}
+                    value={paymentMode}
+                    onChange={(event) => setPaymentMode(event.target.value as PaymentMode)}
+                  >
+                    <option>Cash</option>
+                    <option>UPI</option>
+                    <option>Card</option>
+                    <option>Bank Transfer</option>
+                    <option>Cheque</option>
+                  </select>
+                </label>
+                <label className="form-field">
+                  <span>Payment Date</span>
+                  <input
+                    disabled={!selectedStudent}
+                    required
+                    type="date"
+                    value={paymentDate}
+                    onChange={(event) => setPaymentDate(event.target.value)}
+                  />
+                </label>
+              </div>
+              <label className="form-field">
+                <span>Notes</span>
+                <input
+                  disabled={!selectedStudent}
+                  onChange={(event) => setNotes(event.target.value)}
+                  placeholder="Optional note, cheque number or transaction reference"
+                  value={notes}
+                />
+              </label>
+              <div className="payment-actions">
+                <span>Receipt number is generated automatically when payment is saved.</span>
+                <button
+                  className="primary-button"
+                  disabled={!selectedStudent || isSaving || activeFeeHeads.length === 0}
+                  type="submit"
+                >
+                  <Icon name="wallet" size={17} />
+                  {isSaving ? 'Recording...' : 'Collect Fee & Generate Receipt'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </section>
+      )}
+
+      {(activeView === 'collect' || activeView === 'receipts') && (
+        <section className="panel">
+          <div className="panel-heading">
+            <div>
+              <h3>
+                {activeView === 'receipts' ? 'Fees Paid Slips' : 'Recent Receipts'}
+              </h3>
+              <p>
+                {activeView === 'receipts'
+                  ? 'Open and print persisted fee receipts'
+                  : 'Latest persisted fee receipts'}
+              </p>
+            </div>
+          </div>
+          <DataTable
+            columns={columns}
+            getRowKey={(payment) => payment.id}
+            rows={visibleReceipts}
+            emptyMessage={
+              isLoading ? 'Loading fee receipts...' : 'No fee receipts recorded yet.'
+            }
+          />
+        </section>
+      )}
 
       {selectedReceipt && settings && (
         <ReceiptPreview

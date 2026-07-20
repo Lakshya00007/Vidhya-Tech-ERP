@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { DataTable, type TableColumn } from '../../components/DataTable'
 import { Icon } from '../../components/Icon'
+import { getAttendanceErpApi, getErrorMessage } from '../../lib/erpApi'
 import {
   formatCurrency,
   formatGeneratedAt,
@@ -8,7 +9,12 @@ import {
   formatReportMonth,
   getCurrentMonthValue,
 } from '../../lib/reportUtils'
-import type { Employee, SalaryPayment, SchoolSettings } from '../../types'
+import type {
+  Employee,
+  EmployeeMonthlyAttendanceRow,
+  SalaryPayment,
+  SchoolSettings,
+} from '../../types'
 
 interface SalarySheetProps {
   employees: Employee[]
@@ -18,6 +24,7 @@ interface SalarySheetProps {
 }
 
 interface SalarySheetRow {
+  attendance: EmployeeMonthlyAttendanceRow | null
   employee: Employee
   payment: SalaryPayment | null
 }
@@ -29,26 +36,64 @@ export function SalarySheet({
   settings,
 }: SalarySheetProps) {
   const [salaryMonth, setSalaryMonth] = useState(getCurrentMonthValue)
+  const [attendanceRows, setAttendanceRows] = useState<
+    EmployeeMonthlyAttendanceRow[]
+  >([])
+  const [attendanceError, setAttendanceError] = useState('')
+  const attendanceByEmployee = useMemo(
+    () =>
+      new Map(
+        attendanceRows.map((attendance) => [
+          attendance.employeeId,
+          attendance,
+        ]),
+      ),
+    [attendanceRows],
+  )
   const rows = useMemo<SalarySheetRow[]>(
     () =>
       employees
         .filter((employee) => employee.status === 'Active')
         .map((employee) => ({
+          attendance: attendanceByEmployee.get(employee.id) ?? null,
           employee,
           payment:
             payments.find(
               (payment) =>
                 payment.employeeId === employee.id &&
-                payment.salaryMonth === salaryMonth,
+              payment.salaryMonth === salaryMonth,
             ) ?? null,
         })),
-    [employees, payments, salaryMonth],
+    [attendanceByEmployee, employees, payments, salaryMonth],
   )
   const paidRows = rows.filter((row) => row.payment)
   const totalPaid = paidRows.reduce(
     (total, row) => total + (row.payment?.netSalary ?? 0),
     0,
   )
+
+  useEffect(() => {
+    let isCurrent = true
+    Promise.resolve()
+      .then(() =>
+        getAttendanceErpApi().getEmployeeAttendanceReport({
+          month: salaryMonth,
+        }),
+      )
+      .then((report) => {
+        if (!isCurrent) return
+        setAttendanceRows(report.monthlyRows)
+        setAttendanceError('')
+      })
+      .catch((error: unknown) => {
+        if (!isCurrent) return
+        setAttendanceRows([])
+        setAttendanceError(getErrorMessage(error))
+      })
+    return () => {
+      isCurrent = false
+    }
+  }, [salaryMonth])
 
   const columns: TableColumn<SalarySheetRow>[] = [
     {
@@ -76,6 +121,30 @@ export function SalarySheet({
       header: 'Base Salary',
       className: 'align-right',
       render: (row) => formatCurrency(row.employee.salaryAmount),
+    },
+    {
+      key: 'presentDays',
+      header: 'Present Days',
+      className: 'align-right',
+      render: (row) => row.attendance?.present ?? '—',
+    },
+    {
+      key: 'absentDays',
+      header: 'Absent Days',
+      className: 'align-right',
+      render: (row) => row.attendance?.absent ?? '—',
+    },
+    {
+      key: 'leaveDays',
+      header: 'Leave Days',
+      className: 'align-right',
+      render: (row) => row.attendance?.leave ?? '—',
+    },
+    {
+      key: 'halfDays',
+      header: 'Half Days',
+      className: 'align-right',
+      render: (row) => row.attendance?.halfDays ?? '—',
     },
     {
       key: 'paid',
@@ -146,6 +215,11 @@ export function SalarySheet({
           <Icon name="print" size={15} />
           Print Salary Sheet
         </button>
+        {attendanceError && (
+          <p className="form-note">
+            Attendance summary unavailable: {attendanceError}
+          </p>
+        )}
       </section>
 
       <section className="panel salary-sheet-print-area">

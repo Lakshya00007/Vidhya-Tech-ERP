@@ -1,11 +1,19 @@
-import type { AuthUser, LicenseStatus, PageId } from '../types'
+import type {
+  AuthUser,
+  LicenseStatus,
+  PageId,
+  PreferenceLanguage,
+} from '../types'
 import { APP_VERSION } from '../lib/appInfo'
-import { licenseStatusLabels } from '../lib/license'
+import { translateText } from '../lib/i18n'
+import { licenseStatusLabels, remoteLicenseStatusLabels } from '../lib/license'
 
 interface TopbarProps {
   activePage: PageId
+  activeSubtitle?: string
   activeTitle?: string
   currentUser: AuthUser
+  language: PreferenceLanguage
   licenseStatus: LicenseStatus
   onLogout: () => void
 }
@@ -13,6 +21,7 @@ interface TopbarProps {
 const pageTitles: Record<PageId, string> = {
   dashboard: 'Dashboard',
   students: 'Student Management',
+  families: 'Family & Guardian Management',
   fees: 'Fee Collection',
   attendance: 'Attendance',
   exams: 'Examinations',
@@ -28,6 +37,10 @@ const pageTitles: Record<PageId, string> = {
   'question-paper': 'Question Paper',
   'behaviour-skills': 'Behaviour & Skills',
   'academic-sessions': 'Academic Sessions & Promotion',
+  'student-login-management': 'Student Manage Login',
+  'employee-login-management': 'Employee Manage Login',
+  'student-portal': 'Student Dashboard',
+  'employee-portal': 'My Workspace',
   placeholder: 'Advanced Module',
 }
 
@@ -40,14 +53,25 @@ const getInitials = (name: string) =>
     .slice(0, 2)
     .toUpperCase()
 
+const remoteBadgeClass = (status: LicenseStatus) =>
+  (status.remote?.displayStatus || status.status)
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+
 export function Topbar({
   activePage,
+  activeSubtitle,
   activeTitle,
   currentUser,
+  language,
   licenseStatus,
   onLogout,
 }: TopbarProps) {
-  const pageTitle = activeTitle || pageTitles[activePage]
+  const pageTitle = activeTitle || translateText(pageTitles[activePage], language)
+  const breadcrumb = activeSubtitle
+    ? `${activeSubtitle} / ${pageTitle}`
+    : `Vidhya Public School / ${pageTitle}`
+  const remoteStatus = licenseStatus.remote
 
   return (
     <header className="topbar">
@@ -55,30 +79,44 @@ export function Topbar({
         <span>Vidhya School ERP · v{APP_VERSION}</span>
         <div>
           <h1>{pageTitle}</h1>
-          <span className="breadcrumb">Vidhya Public School / {pageTitle}</span>
+          <span className="breadcrumb">{breadcrumb}</span>
         </div>
       </div>
       <div className="topbar-actions">
-        <div className={`license-badge license-badge--${licenseStatus.status}`}>
-          {licenseStatusLabels[licenseStatus.status]}
+        <div
+          className={`license-badge license-badge--${remoteBadgeClass(licenseStatus)}`}
+          title={remoteStatus?.message || licenseStatus.message}
+        >
+          {remoteStatus
+            ? remoteLicenseStatusLabels[remoteStatus.displayStatus]
+            : licenseStatusLabels[licenseStatus.status]}
         </div>
+        {remoteStatus?.displayStatus === 'Offline Grace' && (
+          <div className="license-grace-warning">{remoteStatus.message}</div>
+        )}
         <div className="offline-badge">
           <span />
-          Offline Ready
+          {language === 'Hindi' ? 'ऑफलाइन तैयार' : 'Offline Ready'}
         </div>
         <div className="database-badge">
           <span />
-          Database Connected
+          {language === 'Hindi' ? 'डेटाबेस कनेक्टेड' : 'Database Connected'}
         </div>
         <div className="admin-profile">
           <div className="admin-avatar">{getInitials(currentUser.name) || 'U'}</div>
           <div>
             <strong>{currentUser.name}</strong>
-            <span>{currentUser.role}</span>
+            <span>
+              {currentUser.accountType === 'Student'
+                ? 'Student'
+                : currentUser.entityLink?.entityType === 'Employee'
+                  ? `Employee · ${currentUser.role}`
+                  : currentUser.role}
+            </span>
           </div>
         </div>
         <button className="secondary-button topbar-logout" type="button" onClick={onLogout}>
-          Logout
+          {translateText('Logout', language)}
         </button>
       </div>
     </header>

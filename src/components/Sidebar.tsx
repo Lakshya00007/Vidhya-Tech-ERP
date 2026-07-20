@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { hasLicenseFeature } from '../lib/license'
+import { translateText } from '../lib/i18n'
 import {
   canSeeNavigationEntry,
   erpNavigation,
@@ -10,6 +11,7 @@ import {
 import type {
   LicenseStatus,
   ModulePlaceholderInfo,
+  PreferenceLanguage,
   PermissionRole,
 } from '../types'
 import { Icon } from './Icon'
@@ -20,6 +22,7 @@ interface SidebarProps {
   onLogout: () => void
   onNavigate: (target: NavigationTarget, navigationId: string) => void
   onPlaceholder: (info: ModulePlaceholderInfo) => void
+  language: PreferenceLanguage
   role: PermissionRole
 }
 
@@ -30,9 +33,13 @@ interface VisibleGroup extends ErpMenuGroup {
 const matches = (value: string, query: string) =>
   value.toLocaleLowerCase().includes(query)
 
+const getPlaceholderStatus = (item: ErpMenuItem) =>
+  item.availability ?? 'missing'
+
 export function Sidebar({
   activeNavigationId,
   licenseStatus,
+  language,
   onLogout,
   onNavigate,
   onPlaceholder,
@@ -63,16 +70,23 @@ export function Sidebar({
     if (!normalizedQuery) return roleNavigation
     return roleNavigation
       .map((group) => {
-        if (matches(group.label, normalizedQuery)) return group
+        if (
+          matches(group.label, normalizedQuery) ||
+          matches(translateText(group.label, language), normalizedQuery)
+        ) {
+          return group
+        }
         const items = group.items?.filter((item) =>
-          matches(item.label, normalizedQuery),
+          matches(item.label, normalizedQuery) ||
+          matches(translateText(item.label, language), normalizedQuery),
         )
         return { ...group, items }
       })
       .filter((group) => group.target
-        ? matches(group.label, normalizedQuery)
+        ? matches(group.label, normalizedQuery) ||
+          matches(translateText(group.label, language), normalizedQuery)
         : (group.items?.length ?? 0) > 0)
-  }, [normalizedQuery, roleNavigation])
+  }, [language, normalizedQuery, roleNavigation])
 
   const toggleGroup = (id: string) => {
     setExpanded((current) => {
@@ -105,6 +119,7 @@ export function Sidebar({
       description: item.description,
       id: item.id,
       module: group.label,
+      status: getPlaceholderStatus(item),
       title: item.label,
     })
   }
@@ -127,7 +142,7 @@ export function Sidebar({
           <input
             aria-label="Search ERP menu"
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search menu..."
+            placeholder={translateText('Search menu...', language)}
             type="search"
             value={query}
           />
@@ -144,7 +159,10 @@ export function Sidebar({
 
         <nav className="sidebar-nav" aria-label="ERP modules">
           <span className="nav-label">
-            {normalizedQuery ? 'Search results' : 'ERP Modules'}
+            {translateText(
+              normalizedQuery ? 'Search results' : 'ERP Modules',
+              language,
+            )}
           </span>
 
           {visibleNavigation.map((group) => {
@@ -159,7 +177,7 @@ export function Sidebar({
                   type="button"
                 >
                   <Icon name={group.icon} size={18} />
-                  <span>{group.label}</span>
+                  <span>{translateText(group.label, language)}</span>
                 </button>
               )
             }
@@ -182,7 +200,7 @@ export function Sidebar({
                   type="button"
                 >
                   <Icon name={group.icon} size={18} />
-                  <span>{group.label}</span>
+                  <span>{translateText(group.label, language)}</span>
                   <Icon
                     className="nav-group-button__toggle"
                     name={isExpanded ? 'minus' : 'plus'}
@@ -199,23 +217,40 @@ export function Sidebar({
                           licenseStatus,
                           item.feature ?? item.id,
                         )
+                      const isPlaceholder = !item.target && item.id !== 'logout'
+                      const status = getPlaceholderStatus(item)
                       return (
                         <button
                           className={`nav-subitem${
                             activeNavigationId === item.id
                               ? ' nav-subitem--active'
                               : ''
-                          }${isLocked ? ' nav-subitem--locked' : ''}`}
+                          }${
+                            isLocked || isPlaceholder
+                              ? ' nav-subitem--locked'
+                              : ''
+                          }`}
                           key={item.id}
                           onClick={() => openItem(group, item)}
                           type="button"
                         >
                           <span className="nav-subitem__bullet" />
-                          <span className="nav-subitem__label">{item.label}</span>
+                          <span className="nav-subitem__label">
+                            {translateText(item.label, language)}
+                          </span>
                           {isLocked && (
                             <span className="nav-pro-badge">
                               <Icon name="lock" size={10} />
                               Pro
+                            </span>
+                          )}
+                          {!isLocked && isPlaceholder && (
+                            <span
+                              className={`nav-status-badge nav-status-badge--${status}`}
+                            >
+                              {status === 'online'
+                                ? 'Online'
+                                : 'Not implemented'}
                             </span>
                           )}
                         </button>

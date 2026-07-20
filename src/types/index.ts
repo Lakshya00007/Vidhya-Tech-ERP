@@ -1,6 +1,7 @@
 export type PageId =
   | 'dashboard'
   | 'students'
+  | 'families'
   | 'fees'
   | 'attendance'
   | 'exams'
@@ -16,6 +17,10 @@ export type PageId =
   | 'question-paper'
   | 'behaviour-skills'
   | 'academic-sessions'
+  | 'student-login-management'
+  | 'employee-login-management'
+  | 'student-portal'
+  | 'employee-portal'
   | 'placeholder'
 
 export interface ModulePlaceholderInfo {
@@ -23,6 +28,7 @@ export interface ModulePlaceholderInfo {
   module: string
   title: string
   description?: string
+  status?: 'missing' | 'online'
 }
 
 export type PermissionRole =
@@ -31,6 +37,11 @@ export type PermissionRole =
   | 'Accountant'
   | 'Teacher'
   | 'Viewer'
+  | 'Student'
+
+export type UserAccountType = 'Staff' | 'Student'
+
+export type EntityType = 'Student' | 'Employee'
 
 export type LicenseState =
   | 'missing'
@@ -39,6 +50,21 @@ export type LicenseState =
   | 'expired'
   | 'maintenance-expired'
   | 'invalid'
+
+export type RemoteLicenseState =
+  | 'Active'
+  | 'Suspended'
+  | 'Expired'
+  | 'Revoked'
+  | 'Unknown'
+
+export type RemoteLicenseDisplayStatus =
+  | 'Online Verified'
+  | 'Offline Grace'
+  | 'Suspended'
+  | 'Expired'
+  | 'Revoked'
+  | 'Check Required'
 
 export interface LicenseInfo {
   licenseId: string
@@ -54,6 +80,22 @@ export interface LicenseInfo {
   customerEmail: string
 }
 
+export interface RemoteLicenseStatus {
+  licenseId: string
+  deviceId: string
+  remoteStatus: RemoteLicenseState
+  displayStatus: RemoteLicenseDisplayStatus
+  blocksUsage: boolean
+  canUseGrace: boolean
+  checkRequired: boolean
+  lastOnlineCheckAt: string | null
+  nextRequiredCheckAt: string | null
+  graceUntil: string | null
+  lastError: string
+  serverMessage: string
+  message: string
+}
+
 export interface LicenseStatus {
   status: LicenseState
   isValid: boolean
@@ -63,6 +105,7 @@ export interface LicenseStatus {
   license: LicenseInfo | null
   activatedAt: string | null
   lastCheckedAt: string | null
+  remote: RemoteLicenseStatus | null
 }
 
 export interface User {
@@ -71,12 +114,18 @@ export interface User {
   email: string
   username: string
   role: PermissionRole
+  accountType: UserAccountType
+  mustChangePassword: boolean
+  passwordChangedAt: string | null
   status: MasterStatus
   lastLoginAt: string | null
+  failedLoginCount: number
+  lockedUntil: string | null
   createdAt: string
   updatedAt: string
   deletedAt: string | null
   syncStatus: SyncStatus
+  entityLink?: UserEntityLink | null
 }
 
 export type AuthUser = User
@@ -100,8 +149,249 @@ export interface CreateUserInput {
 export interface UpdateUserInput {
   name?: string
   email?: string
+  username?: string
   role?: PermissionRole
   status?: MasterStatus
+}
+
+export interface ChangeTemporaryPasswordInput {
+  currentPassword: string
+  newPassword: string
+}
+
+export interface UserEntityLink {
+  id: string
+  userId: string
+  username: string
+  userName: string
+  role: PermissionRole
+  accountType: UserAccountType
+  status: MasterStatus
+  mustChangePassword: boolean
+  lastLoginAt: string | null
+  entityType: EntityType
+  entityId: string
+  entityCode: string
+  entityName: string
+  isPrimary: boolean
+  createdAt: string
+  updatedAt: string
+  deletedAt: string | null
+  syncStatus: SyncStatus
+}
+
+export interface StudentLoginAccount {
+  id: string
+  userId: string
+  studentId: string
+  admissionNo: string
+  studentName: string
+  className: string
+  section: string
+  username: string
+  email: string
+  role: 'Student'
+  accountType: 'Student'
+  status: MasterStatus
+  mustChangePassword: boolean
+  lastLoginAt: string | null
+  lockedUntil: string | null
+}
+
+export interface StudentLoginFilter {
+  search?: string
+  status?: MasterStatus | 'All'
+}
+
+export interface CreateStudentLoginAccountInput {
+  studentId: string
+  username: string
+  password: string
+  email?: string
+  status?: MasterStatus
+  mustChangePassword?: boolean
+}
+
+export interface UpdateStudentLoginAccountInput {
+  username?: string
+  status?: MasterStatus
+  mustChangePassword?: boolean
+  lockedUntil?: string
+  failedLoginCount?: number
+}
+
+export interface ResetLoginPasswordInput {
+  password: string
+  mustChangePassword?: boolean
+}
+
+export interface EmployeeLoginAccount {
+  id: string
+  userId: string
+  employeeId: string
+  employeeCode: string
+  employeeName: string
+  department: string
+  designation: string
+  username: string
+  email: string
+  role: Exclude<PermissionRole, 'Owner' | 'Student'>
+  accountType: 'Staff'
+  status: MasterStatus
+  mustChangePassword: boolean
+  lastLoginAt: string | null
+  lockedUntil: string | null
+}
+
+export interface EmployeeLoginFilter {
+  search?: string
+  status?: MasterStatus | 'All'
+  role?: PermissionRole | 'All'
+}
+
+export interface CreateEmployeeLoginAccountInput {
+  employeeId: string
+  username: string
+  password: string
+  email?: string
+  role: Exclude<PermissionRole, 'Owner' | 'Student'>
+  status?: MasterStatus
+  mustChangePassword?: boolean
+}
+
+export interface UpdateEmployeeLoginAccountInput {
+  username?: string
+  role?: Exclude<PermissionRole, 'Owner' | 'Student'>
+  status?: MasterStatus
+  mustChangePassword?: boolean
+  lockedUntil?: string
+  failedLoginCount?: number
+}
+
+export type RuleCategory =
+  | 'General'
+  | 'Fees'
+  | 'Attendance'
+  | 'Discipline'
+  | 'Examination'
+  | 'Transport'
+  | 'Uniform'
+  | 'Library'
+  | 'Safety'
+  | 'Other'
+
+export interface SchoolRule {
+  id: string
+  title: string
+  category: RuleCategory
+  ruleText: string
+  displayOrder: number
+  status: MasterStatus
+  academicSessionId: string
+  academicSessionName: string
+  effectiveFrom: string
+  createdBy: string
+  createdAt: string
+  updatedAt: string
+  deletedAt: string | null
+  syncStatus: SyncStatus
+}
+
+export interface SchoolRuleFilter {
+  category?: RuleCategory | 'All' | ''
+  status?: MasterStatus | 'All' | ''
+  academicSessionId?: string
+  search?: string
+}
+
+export interface CreateSchoolRuleInput {
+  title: string
+  category: RuleCategory
+  ruleText: string
+  displayOrder?: number
+  status?: MasterStatus
+  academicSessionId?: string
+  academicSessionName?: string
+  effectiveFrom?: string
+}
+
+export type UpdateSchoolRuleInput = Partial<CreateSchoolRuleInput>
+
+export interface ReorderSchoolRuleInput {
+  id: string
+  displayOrder: number
+}
+
+export type PreferenceScope = 'Application' | 'User'
+export type ThemeMode = 'Light' | 'Dark' | 'System'
+export type AccentColor = 'Blue' | 'Indigo' | 'Green' | 'Purple' | 'Orange'
+export type PreferenceLanguage = 'English' | 'Hindi'
+export type FontScale = 'Small' | 'Normal' | 'Large'
+export type DateFormatPreference =
+  | 'DD/MM/YYYY'
+  | 'MM/DD/YYYY'
+  | 'YYYY-MM-DD'
+  | 'DD MMM YYYY'
+export type TimeFormatPreference = '12 Hour' | '24 Hour'
+
+export interface AppPreference {
+  id: string
+  preferenceScope: PreferenceScope
+  userId: string
+  themeMode: ThemeMode
+  accentColor: AccentColor
+  language: PreferenceLanguage
+  compactSidebar: boolean
+  fontScale: FontScale
+  dateFormat: DateFormatPreference
+  timeFormat: TimeFormatPreference
+  createdAt: string
+  updatedAt: string
+}
+
+export type UpdatePreferenceInput = Partial<
+  Pick<
+    AppPreference,
+    | 'themeMode'
+    | 'accentColor'
+    | 'language'
+    | 'compactSidebar'
+    | 'fontScale'
+    | 'dateFormat'
+    | 'timeFormat'
+  >
+>
+
+export interface AccountProfileInput {
+  name: string
+  username: string
+  email?: string
+}
+
+export interface ChangeCurrentPasswordInput {
+  currentPassword: string
+  newPassword: string
+}
+
+export interface LoginHistoryFilter {
+  startDate?: string
+  endDate?: string
+  success?: boolean
+  limit?: number
+}
+
+export interface LoginHistoryEntry {
+  id: string
+  userId: string
+  username: string
+  role: string
+  loginAt: string
+  logoutAt: string
+  success: boolean
+  deviceName: string
+  os: string
+  failureReason: string
+  createdAt: string
 }
 
 export interface AuditLog {
@@ -167,6 +457,264 @@ export interface CreateStudentInput {
 }
 
 export type UpdateStudentInput = Partial<CreateStudentInput>
+
+export type GuardianRelation =
+  | 'Father'
+  | 'Mother'
+  | 'Guardian'
+  | 'Grandfather'
+  | 'Grandmother'
+  | 'Brother'
+  | 'Sister'
+  | 'Uncle'
+  | 'Aunt'
+  | 'Other'
+
+export interface Family {
+  id: string
+  familyCode: string
+  familyName: string
+  primaryContactName: string
+  primaryMobile: string
+  secondaryMobile: string
+  email: string
+  address: string
+  city: string
+  state: string
+  postalCode: string
+  emergencyContactName: string
+  emergencyContactMobile: string
+  notes: string
+  status: MasterStatus
+  studentCount: number
+  guardianCount: number
+  createdAt: string
+  updatedAt: string
+  deletedAt: string | null
+  syncStatus: SyncStatus
+}
+
+export interface Guardian {
+  id: string
+  familyId: string
+  familyCode: string
+  familyName: string
+  fullName: string
+  relation: GuardianRelation
+  mobile: string
+  alternateMobile: string
+  email: string
+  occupation: string
+  qualification: string
+  annualIncome: number | null
+  address: string
+  isPrimary: boolean
+  canPickupStudent: boolean
+  emergencyContact: boolean
+  status: MasterStatus
+  linkedStudentCount: number
+  createdAt: string
+  updatedAt: string
+  deletedAt: string | null
+  syncStatus: SyncStatus
+}
+
+export interface StudentGuardianLink {
+  id: string
+  studentId: string
+  studentName: string
+  admissionNo: string
+  className: string
+  section: string
+  guardianId: string
+  guardianName: string
+  guardianFullName: string
+  relation: GuardianRelation | string
+  mobile: string
+  alternateMobile: string
+  email: string
+  occupation: string
+  address: string
+  familyId: string
+  familyCode: string
+  familyName: string
+  relationToStudent: GuardianRelation | string
+  isPrimary: boolean
+  livesWithStudent: boolean
+  financialResponsibility: boolean
+  pickupAuthorized: boolean
+  guardianCanPickupStudent: boolean
+  guardianEmergencyContact: boolean
+  emergencyContactName: string
+  emergencyContactMobile: string
+  createdAt: string
+  updatedAt: string
+  deletedAt: string | null
+  syncStatus: SyncStatus
+}
+
+export interface FamilyProfile extends Family {
+  guardians: Guardian[]
+  students: Student[]
+}
+
+export interface FamilyFilter {
+  search?: string
+  status?: MasterStatus | 'All'
+}
+
+export interface GuardianFilter {
+  search?: string
+  familyId?: string
+  relation?: GuardianRelation | 'All'
+  status?: MasterStatus | 'All'
+}
+
+export interface CreateFamilyInput {
+  familyCode?: string
+  familyName?: string
+  primaryContactName?: string
+  primaryMobile?: string
+  secondaryMobile?: string
+  email?: string
+  address?: string
+  city?: string
+  state?: string
+  postalCode?: string
+  emergencyContactName?: string
+  emergencyContactMobile?: string
+  notes?: string
+  status?: MasterStatus
+}
+
+export type UpdateFamilyInput = Partial<CreateFamilyInput>
+
+export interface CreateGuardianInput {
+  familyId?: string
+  fullName: string
+  relation: GuardianRelation
+  mobile?: string
+  alternateMobile?: string
+  email?: string
+  occupation?: string
+  qualification?: string
+  annualIncome?: number | null
+  address?: string
+  isPrimary?: boolean
+  canPickupStudent?: boolean
+  emergencyContact?: boolean
+  status?: MasterStatus
+}
+
+export type UpdateGuardianInput = Partial<CreateGuardianInput>
+
+export interface LinkGuardianToStudentInput {
+  studentId: string
+  guardianId: string
+  familyId?: string
+  relationToStudent?: string
+  isPrimary?: boolean
+  livesWithStudent?: boolean
+  financialResponsibility?: boolean
+  pickupAuthorized?: boolean
+}
+
+export type UpdateStudentGuardianLinkInput =
+  Partial<Omit<LinkGuardianToStudentInput, 'studentId' | 'guardianId'>>
+
+export interface LinkSiblingStudentsInput {
+  studentIds: string[]
+  familyId?: string
+}
+
+export interface ParentsInfoReportFilter {
+  academicSessionId?: string
+  className?: string
+  section?: string
+  studentId?: string
+  guardianRelation?: GuardianRelation | 'All'
+  missingMobile?: boolean
+  missingEmail?: boolean
+  emergencyContact?: boolean
+  pickupAuthorized?: boolean
+}
+
+export interface ParentsInfoReportRow {
+  studentId: string
+  admissionNo: string
+  studentName: string
+  className: string
+  section: string
+  familyId: string
+  familyCode: string
+  familyName: string
+  guardianId: string
+  primaryGuardian: string
+  relation: string
+  mobile: string
+  alternateMobile: string
+  email: string
+  occupation: string
+  address: string
+  emergencyContact: boolean
+  emergencyContactName: string
+  emergencyContactMobile: string
+  pickupAuthorized: boolean
+  hasLinkedGuardian: boolean
+  source: 'Linked' | 'Legacy'
+}
+
+export interface ParentsInfoReport {
+  rows: ParentsInfoReportRow[]
+  summary: {
+    totalFamilies: number
+    totalGuardians: number
+    missingMobile: number
+    missingEmail: number
+    studentsWithoutLinkedGuardian: number
+  }
+}
+
+export interface EmergencyContactReportRow {
+  studentId: string
+  admissionNo: string
+  studentName: string
+  className: string
+  section: string
+  primaryGuardian: string
+  emergencyContactName: string
+  emergencyContactMobile: string
+  pickupAuthorized: boolean
+  pickupAuthorizedPeople: string
+}
+
+export interface EmergencyContactsReport {
+  rows: EmergencyContactReportRow[]
+  summary: {
+    totalRows: number
+    missingEmergencyMobile: number
+    pickupAuthorized: number
+  }
+}
+
+export interface SiblingReportRow {
+  familyId: string
+  familyCode: string
+  familyName: string
+  primaryContactName: string
+  primaryMobile: string
+  guardianCount: number
+  studentCount: number
+  students: Student[]
+}
+
+export interface SiblingReport {
+  rows: SiblingReportRow[]
+  summary: {
+    siblingFamilies: number
+    linkedStudents: number
+  }
+}
 
 export interface Employee {
   id: string
@@ -1290,6 +1838,16 @@ export type SaveSchoolSettingsInput = Pick<
 >
 
 export type PaymentMode = 'Cash' | 'UPI' | 'Card' | 'Bank Transfer' | 'Cheque'
+export type FeePaymentStatus = 'Active' | 'Reversed'
+export type DiscountMode = 'Fixed' | 'Percentage'
+export type BillingPeriod = 'Monthly' | 'Quarterly' | 'Term' | 'Annual' | 'Custom'
+export type FeeInvoiceStatus =
+  | 'Draft'
+  | 'Unpaid'
+  | 'Partially Paid'
+  | 'Paid'
+  | 'Overdue'
+  | 'Cancelled'
 
 export interface FeePayment {
   id: string
@@ -1307,9 +1865,18 @@ export interface FeePayment {
   paymentDate: string
   notes: string
   cashierName: string
+  status: FeePaymentStatus
+  reversedAt: string | null
+  reversedBy: string
+  reversalReason: string
   createdAt: string
   updatedAt: string
   syncStatus: 'pending' | 'synced'
+}
+
+export interface FeePaymentInvoiceAllocationInput {
+  invoiceId: string
+  allocatedAmount: number
 }
 
 export interface CreateFeePaymentInput {
@@ -1319,9 +1886,300 @@ export interface CreateFeePaymentInput {
   paymentMode: PaymentMode
   paymentDate: string
   notes?: string
+  invoiceAllocations?: FeePaymentInvoiceAllocationInput[]
 }
 
 export type Receipt = FeePayment
+
+export interface DiscountType {
+  id: string
+  name: string
+  discountMode: DiscountMode
+  defaultValue: number
+  description: string
+  status: MasterStatus
+  createdAt: string
+  updatedAt: string
+  deletedAt: string | null
+  syncStatus: SyncStatus
+}
+
+export interface CreateDiscountTypeInput {
+  name: string
+  discountMode: DiscountMode
+  defaultValue?: number
+  description?: string
+  status?: MasterStatus
+}
+
+export type UpdateDiscountTypeInput = Partial<CreateDiscountTypeInput>
+
+export interface StudentDiscount {
+  id: string
+  studentId: string
+  admissionNo: string
+  studentName: string
+  discountTypeId: string
+  discountTypeName: string
+  discountMode: DiscountMode
+  discountValue: number
+  feeHeadId: string
+  feeHeadName: string
+  academicSessionId: string
+  academicSessionName: string
+  startDate: string
+  endDate: string
+  reason: string
+  status: MasterStatus
+  approvedBy: string
+  createdAt: string
+  updatedAt: string
+  deletedAt: string | null
+  syncStatus: SyncStatus
+}
+
+export interface StudentDiscountFilter {
+  studentId?: string
+  academicSessionId?: string
+  status?: MasterStatus | 'All'
+}
+
+export interface CreateStudentDiscountInput {
+  studentId: string
+  discountTypeId: string
+  discountMode?: DiscountMode
+  discountValue?: number
+  feeHeadId?: string
+  academicSessionId?: string
+  startDate?: string
+  endDate?: string
+  reason?: string
+  status?: MasterStatus
+  approvedBy?: string
+}
+
+export type UpdateStudentDiscountInput =
+  Partial<CreateStudentDiscountInput>
+
+export interface FeeInvoiceItem {
+  id: string
+  invoiceId: string
+  feeHeadId: string
+  feeHeadName: string
+  description: string
+  quantity: number
+  unitAmount: number
+  grossAmount: number
+  discountAmount: number
+  netAmount: number
+  displayOrder: number
+  createdAt: string
+  updatedAt: string
+  syncStatus: SyncStatus
+}
+
+export interface FeeInvoicePreviewItem {
+  feeHeadId: string
+  feeHeadName: string
+  description: string
+  quantity: number
+  unitAmount: number
+  grossAmount: number
+  discountAmount: number
+  netAmount: number
+  displayOrder: number
+}
+
+export interface FeeInvoiceAllocation {
+  id: string
+  invoiceId: string
+  feePaymentId: string
+  receiptNo: string
+  allocatedAmount: number
+  createdAt: string
+  reversedAt: string | null
+  reversalId: string
+  syncStatus: SyncStatus
+}
+
+export interface FeeInvoice {
+  id: string
+  invoiceNo: string
+  studentId: string
+  admissionNo: string
+  studentName: string
+  className: string
+  section: string
+  academicSessionId: string
+  academicSessionName: string
+  billingPeriod: BillingPeriod
+  invoiceDate: string
+  dueDate: string
+  subtotal: number
+  discountAmount: number
+  previousDue: number
+  lateFee: number
+  adjustmentAmount: number
+  grandTotal: number
+  paidAmount: number
+  balanceAmount: number
+  status: FeeInvoiceStatus
+  notes: string
+  generatedBy: string
+  createdAt: string
+  updatedAt: string
+  cancelledAt: string | null
+  cancelledBy: string
+  cancellationReason: string
+  syncStatus: SyncStatus
+  items: FeeInvoiceItem[]
+  allocations: FeeInvoiceAllocation[]
+}
+
+export interface FeeInvoicePreviewInput {
+  studentId: string
+  academicSessionId: string
+  billingPeriod: BillingPeriod
+  invoiceDate: string
+  dueDate?: string
+  includePreviousDue?: boolean
+  lateFee?: number
+  adjustmentAmount?: number
+  adjustmentReason?: string
+  notes?: string
+}
+
+export interface FeeInvoicePreview {
+  studentId: string
+  admissionNo: string
+  studentName: string
+  className: string
+  section: string
+  academicSessionId: string
+  academicSessionName: string
+  billingPeriod: BillingPeriod
+  invoiceDate: string
+  dueDate: string
+  subtotal: number
+  discountAmount: number
+  previousDue: number
+  lateFee: number
+  adjustmentAmount: number
+  adjustmentReason: string
+  grandTotal: number
+  balanceAmount: number
+  items: FeeInvoicePreviewItem[]
+  discounts: StudentDiscount[]
+  possibleDuplicates: FeeInvoice[]
+}
+
+export interface CreateFeeInvoiceInput extends FeeInvoicePreviewInput {
+  allowDuplicate?: boolean
+}
+
+export interface FeeInvoiceFilter {
+  academicSessionId?: string
+  className?: string
+  section?: string
+  studentId?: string
+  status?: FeeInvoiceStatus | 'All'
+  startDate?: string
+  endDate?: string
+}
+
+export interface FeeInvoiceAllocationInput {
+  feePaymentId: string
+  allocations: FeePaymentInvoiceAllocationInput[]
+}
+
+export interface FeeInvoiceAllocationResult {
+  allocations: FeeInvoiceAllocation[]
+  invoices: FeeInvoice[]
+}
+
+export interface FeeInvoiceSummary {
+  invoiceCount: number
+  activeInvoiceCount: number
+  cancelledInvoiceCount: number
+  unpaidInvoiceCount: number
+  partiallyPaidInvoiceCount: number
+  paidInvoiceCount: number
+  overdueInvoiceCount: number
+  subtotal: number
+  discountAmount: number
+  previousDue: number
+  lateFee: number
+  adjustmentAmount: number
+  grandTotal: number
+  paidAmount: number
+  balanceAmount: number
+}
+
+export interface FeeInvoiceAccountsReport {
+  summary: {
+    invoicedAmount: number
+    collectedAmount: number
+    outstandingAmount: number
+    discountAmount: number
+    previousDue: number
+  }
+  feeHeads: {
+    feeHeadId: string
+    feeHeadName: string
+    invoicedAmount: number
+    collectedAmount: number
+    outstandingAmount: number
+    discountAmount: number
+  }[]
+}
+
+export interface StudentFeeLedgerEntry {
+  id: string
+  date: string
+  type: string
+  referenceNo: string
+  description: string
+  debit: number
+  credit: number
+  status: string
+  balance: number
+}
+
+export interface FeeInvoiceAccountMapping {
+  id: string
+  feeHeadId: string
+  feeHeadName: string
+  accountCategoryId: string
+  accountCategoryName: string
+  status: MasterStatus
+  createdAt: string
+  updatedAt: string
+  deletedAt: string | null
+  syncStatus: SyncStatus
+}
+
+export interface SaveFeeInvoiceAccountMappingInput {
+  feeHeadId: string
+  accountCategoryId: string
+  status?: MasterStatus
+}
+
+export interface FeePaymentReversal {
+  id: string
+  feePaymentId: string
+  receiptNo: string
+  amount: number
+  reason: string
+  reversedBy: string
+  createdAt: string
+  syncStatus: SyncStatus
+}
+
+export interface FeePaymentReversalResult {
+  payment: FeePayment
+  reversal: FeePaymentReversal
+  affectedInvoices: FeeInvoice[]
+}
 
 export type AttendanceStatus = 'Present' | 'Absent' | 'Leave'
 
@@ -1360,6 +2218,114 @@ export interface AttendanceSummary {
   absent: number
   leave: number
   percentage: number | null
+}
+
+export type EmployeeAttendanceStatus =
+  | 'Present'
+  | 'Absent'
+  | 'Leave'
+  | 'Half Day'
+  | 'Late'
+  | 'Holiday'
+
+export interface EmployeeAttendanceRecord {
+  id: string
+  employeeId: string
+  employeeCode: string
+  employeeName: string
+  department: string
+  designation: string
+  attendanceDate: string
+  status: EmployeeAttendanceStatus
+  checkInTime: string
+  checkOutTime: string
+  lateMinutes: number
+  overtimeMinutes: number
+  leaveType: string
+  remarks: string
+  markedBy: string
+  createdAt: string
+  updatedAt: string
+  deletedAt: string | null
+  syncStatus: SyncStatus
+}
+
+export interface EmployeeAttendanceFilter {
+  date?: string
+  startDate?: string
+  endDate?: string
+  month?: string
+  employeeId?: string
+  department?: string
+  designation?: string
+  status?: EmployeeAttendanceStatus | 'All'
+}
+
+export interface SaveEmployeeAttendanceInput {
+  employeeId: string
+  attendanceDate: string
+  status: EmployeeAttendanceStatus
+  checkInTime?: string
+  checkOutTime?: string
+  lateMinutes?: number
+  overtimeMinutes?: number
+  leaveType?: string
+  remarks?: string
+}
+
+export interface UpdateEmployeeAttendanceInput {
+  status?: EmployeeAttendanceStatus
+  checkInTime?: string
+  checkOutTime?: string
+  lateMinutes?: number
+  overtimeMinutes?: number
+  leaveType?: string
+  remarks?: string
+}
+
+export interface EmployeeAttendanceSummary {
+  startDate: string
+  endDate: string
+  month: string
+  totalEmployees: number
+  totalMarked: number
+  present: number
+  absent: number
+  leave: number
+  halfDay: number
+  late: number
+  holiday: number
+  overtimeMinutes: number
+  attendancePercentage: number | null
+}
+
+export interface EmployeeMonthlyAttendanceRow {
+  employeeId: string
+  employeeCode: string
+  employeeName: string
+  department: string
+  designation: string
+  month: string
+  workingDays: number
+  present: number
+  absent: number
+  leave: number
+  halfDays: number
+  lateDays: number
+  holidays: number
+  overtimeMinutes: number
+  attendancePercentage: number | null
+}
+
+export interface EmployeeMonthlyAttendance
+  extends EmployeeMonthlyAttendanceRow {
+  records: EmployeeAttendanceRecord[]
+}
+
+export interface EmployeeAttendanceReport {
+  rows: EmployeeAttendanceRecord[]
+  summary: EmployeeAttendanceSummary
+  monthlyRows: EmployeeMonthlyAttendanceRow[]
 }
 
 export interface Subject {
@@ -1454,6 +2420,313 @@ export interface MarksheetSummary {
   remarks: string
 }
 
+export type GradingCalculationMode = 'Percentage' | 'Marks'
+export type GradingResultStatus = 'Pass' | 'Fail'
+export type ReportCardResultStatus =
+  | 'Pass'
+  | 'Fail'
+  | 'Promoted'
+  | 'Detained'
+  | 'Pending'
+
+export interface GradingRange {
+  id: string
+  gradingSchemeId: string
+  minValue: number
+  maxValue: number
+  grade: string
+  gradePoint: number | null
+  resultStatus: GradingResultStatus
+  description: string
+  displayOrder: number
+  createdAt: string
+  updatedAt: string
+  deletedAt: string | null
+  syncStatus: SyncStatus
+}
+
+export interface GradingRangeInput {
+  id?: string
+  minValue: number
+  maxValue: number
+  grade: string
+  gradePoint?: number | null
+  resultStatus?: GradingResultStatus
+  description?: string
+  displayOrder?: number
+}
+
+export interface GradingScheme {
+  id: string
+  name: string
+  academicSessionId: string
+  academicSessionName: string
+  className: string
+  calculationMode: GradingCalculationMode
+  status: MasterStatus
+  isDefault: boolean
+  description: string
+  createdBy: string
+  createdAt: string
+  updatedAt: string
+  deletedAt: string | null
+  syncStatus: SyncStatus
+  ranges: GradingRange[]
+}
+
+export interface CreateGradingSchemeInput {
+  name: string
+  academicSessionId?: string
+  className?: string
+  calculationMode?: GradingCalculationMode
+  status?: MasterStatus
+  isDefault?: boolean
+  description?: string
+  ranges: GradingRangeInput[]
+}
+
+export type UpdateGradingSchemeInput = Partial<CreateGradingSchemeInput>
+
+export interface CalculateGradeInput {
+  value: number
+  gradingSchemeId?: string
+  academicSessionId?: string
+  className?: string
+}
+
+export interface CalculateGradeResult {
+  scheme: GradingScheme
+  value: number
+  grade: string
+  gradePoint: number | null
+  resultStatus: GradingResultStatus
+  range: GradingRange | null
+}
+
+export interface ReportCardTemplate {
+  id: string
+  name: string
+  templateType: 'Standard' | 'Detailed'
+  academicSessionId: string
+  className: string
+  showAttendance: boolean
+  showClassTests: boolean
+  showBehaviour: boolean
+  showSkills: boolean
+  showTeacherRemarks: boolean
+  showPrincipalSignature: boolean
+  headerText: string
+  footerText: string
+  status: MasterStatus
+  createdAt: string
+  updatedAt: string
+  deletedAt: string | null
+  syncStatus: SyncStatus
+}
+
+export interface ReportCardTemplateInput {
+  name: string
+  templateType?: 'Standard' | 'Detailed'
+  academicSessionId?: string
+  className?: string
+  showAttendance?: boolean
+  showClassTests?: boolean
+  showBehaviour?: boolean
+  showSkills?: boolean
+  showTeacherRemarks?: boolean
+  showPrincipalSignature?: boolean
+  headerText?: string
+  footerText?: string
+  status?: MasterStatus
+}
+
+export type UpdateReportCardTemplateInput =
+  Partial<ReportCardTemplateInput>
+
+export interface StudentReportCardSubject {
+  id: string
+  reportCardId: string
+  subjectId: string
+  subjectName: string
+  maxMarks: number
+  passingMarks: number
+  obtainedMarks: number
+  percentage: number
+  grade: string
+  gradePoint: number | null
+  resultStatus: string
+  remarks: string
+  displayOrder: number
+  createdAt: string
+  updatedAt: string
+  syncStatus: SyncStatus
+}
+
+export interface ReportCardClassTestSnapshot {
+  testName: string
+  subjectName: string
+  testDate: string
+  maxMarks: number
+  passingMarks: number
+  obtainedMarks: number
+  resultStatus: string
+  remarks: string
+}
+
+export interface ReportCardPreview {
+  student: {
+    id: string
+    admissionNo: string
+    name: string
+    className: string
+    section: string
+    guardianName: string
+    rollNo: string
+  }
+  exam: Exam
+  academicSession: AcademicSession | null
+  gradingScheme: GradingScheme
+  template: ReportCardTemplate
+  subjects: StudentReportCardSubject[]
+  totalMaxMarks: number
+  totalObtainedMarks: number
+  percentage: number
+  overallGrade: string
+  overallGradePoint: number | null
+  resultStatus: ReportCardResultStatus
+  attendance: {
+    workingDays: number
+    presentDays: number
+    percentage: number
+    startDate: string
+    endDate: string
+  }
+  behaviourRatings: BehaviourRating[]
+  affectiveSkills: SkillRating[]
+  psychomotorSkills: SkillRating[]
+  classTests: ReportCardClassTestSnapshot[]
+  teacherRemarks: string
+  principalRemarks: string
+  rankingMethod: string
+}
+
+export interface ReportCardPreviewInput {
+  academicSessionId?: string
+  className?: string
+  section?: string
+  examId: string
+  gradingSchemeId?: string
+  templateId?: string
+  studentId: string
+  teacherRemarks?: string
+  principalRemarks?: string
+}
+
+export interface GenerateReportCardInput extends ReportCardPreviewInput {
+  generatedDate?: string
+  regenerate?: boolean
+  regenerateReportCardId?: string
+}
+
+export interface GenerateClassReportCardsInput
+  extends Omit<GenerateReportCardInput, 'studentId'> {
+  studentId?: string
+}
+
+export interface StudentReportCard {
+  id: string
+  reportCardNo: string
+  studentId: string
+  admissionNo: string
+  studentName: string
+  className: string
+  section: string
+  academicSessionId: string
+  academicSessionName: string
+  examId: string
+  examName: string
+  gradingSchemeId: string
+  gradingSchemeName: string
+  totalMaxMarks: number
+  totalObtainedMarks: number
+  percentage: number
+  overallGrade: string
+  resultStatus: ReportCardResultStatus
+  attendanceWorkingDays: number
+  attendancePresentDays: number
+  attendancePercentage: number
+  classPosition: number | null
+  sectionPosition: number | null
+  teacherRemarks: string
+  principalRemarks: string
+  generatedBy: string
+  generatedAt: string
+  updatedAt: string
+  deletedAt: string | null
+  syncStatus: SyncStatus
+  subjects: StudentReportCardSubject[]
+}
+
+export interface ReportCardFilter {
+  academicSessionId?: string
+  className?: string
+  section?: string
+  examId?: string
+  studentId?: string
+  resultStatus?: ReportCardResultStatus | 'All'
+}
+
+export interface UpdateReportCardRemarksInput {
+  teacherRemarks?: string
+  principalRemarks?: string
+}
+
+export interface ClassResultSubjectSummary {
+  subjectName: string
+  appeared: number
+  passed: number
+  failed: number
+  highest: number
+  lowest: number
+  average: number
+  passPercentage: number
+}
+
+export interface ResultPosition {
+  position: number
+  reportCardId: string
+  studentId: string
+  studentName: string
+  admissionNo: string
+  total: number
+  percentage: number
+  grade: string
+  resultStatus: ReportCardResultStatus
+}
+
+export interface ClassResultSummary {
+  summary: {
+    totalStudents: number
+    resultComplete: number
+    passed: number
+    failed: number
+    absentOrIncomplete: number
+    passPercentage: number
+    highestPercentage: number
+    lowestPercentage: number
+    classAverage: number
+  }
+  subjectSummaries: ClassResultSubjectSummary[]
+  rankings: ResultPosition[]
+  cards: StudentReportCard[]
+  rankingMethod: string
+}
+
+export interface GenerateClassReportCardsResult {
+  count: number
+  reportCards: StudentReportCard[]
+}
+
 export type CertificateType =
   | 'Bonafide'
   | 'Character'
@@ -1505,6 +2778,28 @@ export interface IssueCertificateInput {
   studentId: string
   templateId: string
   issuedDate: string
+}
+
+export interface StudentPortalData {
+  student: Student
+  guardians: StudentGuardianLink[]
+  attendance: AttendanceRecord[]
+  timetable: TimetableEntry[]
+  homework: Homework[]
+  classTests: ClassTest[]
+  marks: MarkRecord[]
+  reportCards: StudentReportCard[]
+  feePayments: FeePayment[]
+  feeLedger: StudentFeeLedgerEntry[]
+  invoices: FeeInvoice[]
+  certificates: IssuedCertificate[]
+}
+
+export interface EmployeePortalData {
+  employee: Employee
+  attendance: EmployeeAttendanceRecord[]
+  salaryPayments: SalaryPayment[]
+  timetable: TimetableEntry[]
 }
 
 export interface DatabaseInfo {

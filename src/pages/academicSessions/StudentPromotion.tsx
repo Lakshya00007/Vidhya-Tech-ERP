@@ -247,7 +247,11 @@ export function StudentPromotion({
         <div className="panel-heading">
           <div>
             <h3>Promotion Setup</h3>
-            <p>Load the current class roster and review every action before committing.</p>
+            <p>
+              Load the current class roster and review every action before
+              committing. Old dues are editable estimates based on configured
+              fees and recorded payments.
+            </p>
           </div>
         </div>
         <div className="promotion-filter-grid">

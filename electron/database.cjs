@@ -18,13 +18,24 @@ const SALARY_PAYMENT_MODES = new Set([
   "Cheque",
 ]);
 const ATTENDANCE_STATUSES = new Set(["Present", "Absent", "Leave"]);
+const EMPLOYEE_ATTENDANCE_STATUSES = new Set([
+  "Present",
+  "Absent",
+  "Leave",
+  "Half Day",
+  "Late",
+  "Holiday",
+]);
 const USER_ROLES = new Set([
   "Owner",
   "Admin",
   "Accountant",
   "Teacher",
   "Viewer",
+  "Student",
 ]);
+const USER_ACCOUNT_TYPES = new Set(["Staff", "Student"]);
+const USER_ENTITY_TYPES = new Set(["Student", "Employee"]);
 const FEE_FREQUENCIES = new Set([
   "Monthly",
   "Quarterly",
@@ -108,6 +119,30 @@ const PROMOTION_ACTIONS = new Set([
   "Inactive",
 ]);
 const CARRY_FORWARD_STATUSES = new Set(["Pending", "Paid", "Waived"]);
+const DISCOUNT_MODES = new Set(["Fixed", "Percentage"]);
+const BILLING_PERIODS = new Set([
+  "Monthly",
+  "Quarterly",
+  "Term",
+  "Annual",
+  "Custom",
+]);
+const FEE_INVOICE_STATUSES = new Set([
+  "Draft",
+  "Unpaid",
+  "Partially Paid",
+  "Paid",
+  "Overdue",
+  "Cancelled",
+]);
+const FEE_PAYMENT_STATUSES = new Set(["Active", "Reversed"]);
+const REMOTE_LICENSE_STATUSES = new Set([
+  "Active",
+  "Suspended",
+  "Expired",
+  "Revoked",
+  "Unknown",
+]);
 const STUDENT_IMPORT_TEMPLATE_COLUMNS = [
   "Admission No",
   "Student Name",
@@ -119,6 +154,67 @@ const STUDENT_IMPORT_TEMPLATE_COLUMNS = [
   "Date of Birth",
   "Admission Date",
   "Status",
+];
+const GRADING_CALCULATION_MODES = new Set(["Percentage", "Marks"]);
+const GRADING_RESULT_STATUSES = new Set(["Pass", "Fail"]);
+const REPORT_CARD_TEMPLATE_TYPES = new Set(["Standard", "Detailed"]);
+const REPORT_CARD_RESULT_STATUSES = new Set([
+  "Pass",
+  "Fail",
+  "Promoted",
+  "Detained",
+  "Pending",
+]);
+const SCHOOL_RULE_CATEGORIES = new Set([
+  "General",
+  "Fees",
+  "Attendance",
+  "Discipline",
+  "Examination",
+  "Transport",
+  "Uniform",
+  "Library",
+  "Safety",
+  "Other",
+]);
+const PREFERENCE_SCOPES = new Set(["Application", "User"]);
+const THEME_MODES = new Set(["Light", "Dark", "System"]);
+const ACCENT_COLORS = new Set([
+  "Blue",
+  "Indigo",
+  "Green",
+  "Purple",
+  "Orange",
+]);
+const PREFERENCE_LANGUAGES = new Set(["English", "Hindi"]);
+const FONT_SCALES = new Set(["Small", "Normal", "Large"]);
+const DATE_FORMATS = new Set([
+  "DD/MM/YYYY",
+  "MM/DD/YYYY",
+  "YYYY-MM-DD",
+  "DD MMM YYYY",
+]);
+const TIME_FORMATS = new Set(["12 Hour", "24 Hour"]);
+const GUARDIAN_RELATIONS = new Set([
+  "Father",
+  "Mother",
+  "Guardian",
+  "Grandfather",
+  "Grandmother",
+  "Brother",
+  "Sister",
+  "Uncle",
+  "Aunt",
+  "Other",
+]);
+const DEFAULT_GRADING_RANGES = [
+  { minValue: 90, maxValue: 100, grade: "A+", gradePoint: 10, resultStatus: "Pass" },
+  { minValue: 80, maxValue: 89.99, grade: "A", gradePoint: 9, resultStatus: "Pass" },
+  { minValue: 70, maxValue: 79.99, grade: "B+", gradePoint: 8, resultStatus: "Pass" },
+  { minValue: 60, maxValue: 69.99, grade: "B", gradePoint: 7, resultStatus: "Pass" },
+  { minValue: 50, maxValue: 59.99, grade: "C", gradePoint: 6, resultStatus: "Pass" },
+  { minValue: 33, maxValue: 49.99, grade: "D", gradePoint: 5, resultStatus: "Pass" },
+  { minValue: 0, maxValue: 32.99, grade: "F", gradePoint: 0, resultStatus: "Fail" },
 ];
 
 class StudentImportValidationError extends Error {}
@@ -788,8 +884,150 @@ function paymentFromRow(row) {
     paymentDate: row.payment_date,
     notes: row.notes ?? "",
     cashierName: row.cashier_name ?? "",
+    status: row.status ?? "Active",
+    reversedAt: row.reversed_at ?? null,
+    reversedBy: row.reversed_by ?? "",
+    reversalReason: row.reversal_reason ?? "",
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    syncStatus: row.sync_status,
+  };
+}
+
+function discountTypeFromRow(row) {
+  return {
+    id: row.id,
+    name: row.name,
+    discountMode: row.discount_mode,
+    defaultValue: Number(row.default_value ?? 0),
+    description: row.description ?? "",
+    status: row.status,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at,
+    syncStatus: row.sync_status,
+  };
+}
+
+function studentDiscountFromRow(row) {
+  return {
+    id: row.id,
+    studentId: row.student_id,
+    admissionNo: row.admission_no ?? "",
+    studentName: row.student_name ?? "",
+    discountTypeId: row.discount_type_id,
+    discountTypeName: row.discount_type_name,
+    discountMode: row.discount_mode,
+    discountValue: Number(row.discount_value ?? 0),
+    feeHeadId: row.fee_head_id ?? "",
+    feeHeadName: row.fee_head_name ?? "",
+    academicSessionId: row.academic_session_id ?? "",
+    academicSessionName: row.academic_session_name ?? "",
+    startDate: row.start_date ?? "",
+    endDate: row.end_date ?? "",
+    reason: row.reason ?? "",
+    status: row.status,
+    approvedBy: row.approved_by ?? "",
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at,
+    syncStatus: row.sync_status,
+  };
+}
+
+function feeInvoiceItemFromRow(row) {
+  return {
+    id: row.id,
+    invoiceId: row.invoice_id,
+    feeHeadId: row.fee_head_id ?? "",
+    feeHeadName: row.fee_head_name,
+    description: row.description ?? "",
+    quantity: Number(row.quantity ?? 1),
+    unitAmount: Number(row.unit_amount ?? 0),
+    grossAmount: Number(row.gross_amount ?? 0),
+    discountAmount: Number(row.discount_amount ?? 0),
+    netAmount: Number(row.net_amount ?? 0),
+    displayOrder: Number(row.display_order ?? 0),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    syncStatus: row.sync_status,
+  };
+}
+
+function feeInvoiceAllocationFromRow(row) {
+  return {
+    id: row.id,
+    invoiceId: row.invoice_id,
+    feePaymentId: row.fee_payment_id,
+    receiptNo: row.receipt_no ?? "",
+    allocatedAmount: Number(row.allocated_amount ?? 0),
+    createdAt: row.created_at,
+    reversedAt: row.reversed_at ?? null,
+    reversalId: row.reversal_id ?? "",
+    syncStatus: row.sync_status,
+  };
+}
+
+function feeInvoiceFromRow(row, items = [], allocations = []) {
+  return {
+    id: row.id,
+    invoiceNo: row.invoice_no,
+    studentId: row.student_id,
+    admissionNo: row.admission_no ?? "",
+    studentName: row.student_name,
+    className: row.class_name ?? "",
+    section: row.section ?? "",
+    academicSessionId: row.academic_session_id ?? "",
+    academicSessionName: row.academic_session_name ?? "",
+    billingPeriod: row.billing_period ?? "",
+    invoiceDate: row.invoice_date,
+    dueDate: row.due_date ?? "",
+    subtotal: Number(row.subtotal ?? 0),
+    discountAmount: Number(row.discount_amount ?? 0),
+    previousDue: Number(row.previous_due ?? 0),
+    lateFee: Number(row.late_fee ?? 0),
+    adjustmentAmount: Number(row.adjustment_amount ?? 0),
+    grandTotal: Number(row.grand_total ?? 0),
+    paidAmount: Number(row.paid_amount ?? 0),
+    balanceAmount: Number(row.balance_amount ?? 0),
+    status: row.status,
+    notes: row.notes ?? "",
+    generatedBy: row.generated_by ?? "",
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    cancelledAt: row.cancelled_at ?? null,
+    cancelledBy: row.cancelled_by ?? "",
+    cancellationReason: row.cancellation_reason ?? "",
+    syncStatus: row.sync_status,
+    items,
+    allocations,
+  };
+}
+
+function feeInvoiceAccountMappingFromRow(row) {
+  return {
+    id: row.id,
+    feeHeadId: row.fee_head_id,
+    feeHeadName: row.fee_head_name,
+    accountCategoryId: row.account_category_id,
+    accountCategoryName: row.account_category_name,
+    status: row.status,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at,
+    syncStatus: row.sync_status,
+  };
+}
+
+function feePaymentReversalFromRow(row) {
+  return {
+    id: row.id,
+    feePaymentId: row.fee_payment_id,
+    receiptNo: row.receipt_no ?? "",
+    amount: Number(row.amount ?? 0),
+    reason: row.reason ?? "",
+    reversedBy: row.reversed_by ?? "",
+    createdAt: row.created_at,
     syncStatus: row.sync_status,
   };
 }
@@ -807,6 +1045,30 @@ function attendanceFromRow(row) {
     remarks: row.remarks ?? "",
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    syncStatus: row.sync_status,
+  };
+}
+
+function employeeAttendanceFromRow(row) {
+  return {
+    id: row.id,
+    employeeId: row.employee_id,
+    employeeCode: row.employee_code ?? "",
+    employeeName: row.employee_name,
+    department: row.department ?? "",
+    designation: row.designation ?? "",
+    attendanceDate: row.attendance_date,
+    status: row.status,
+    checkInTime: row.check_in_time ?? "",
+    checkOutTime: row.check_out_time ?? "",
+    lateMinutes: Number(row.late_minutes ?? 0),
+    overtimeMinutes: Number(row.overtime_minutes ?? 0),
+    leaveType: row.leave_type ?? "",
+    remarks: row.remarks ?? "",
+    markedBy: row.marked_by ?? "",
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at,
     syncStatus: row.sync_status,
   };
 }
@@ -922,6 +1184,137 @@ function markFromRow(row) {
   };
 }
 
+function gradingRangeFromRow(row) {
+  return {
+    id: row.id,
+    gradingSchemeId: row.grading_scheme_id,
+    minValue: Number(row.min_value ?? 0),
+    maxValue: Number(row.max_value ?? 0),
+    grade: row.grade,
+    gradePoint:
+      row.grade_point === null || row.grade_point === undefined
+        ? null
+        : Number(row.grade_point),
+    resultStatus: row.result_status,
+    description: row.description ?? "",
+    displayOrder: Number(row.display_order ?? 0),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at,
+    syncStatus: row.sync_status,
+  };
+}
+
+function gradingSchemeFromRow(row, ranges = []) {
+  return {
+    id: row.id,
+    name: row.name,
+    academicSessionId: row.academic_session_id ?? "",
+    academicSessionName: row.academic_session_name ?? "",
+    className: row.class_name ?? "",
+    calculationMode: row.calculation_mode,
+    status: row.status,
+    isDefault: Number(row.is_default ?? 0) === 1,
+    description: row.description ?? "",
+    createdBy: row.created_by ?? "",
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at,
+    syncStatus: row.sync_status,
+    ranges,
+  };
+}
+
+function reportCardTemplateFromRow(row) {
+  return {
+    id: row.id,
+    name: row.name,
+    templateType: row.template_type,
+    academicSessionId: row.academic_session_id ?? "",
+    className: row.class_name ?? "",
+    showAttendance: Number(row.show_attendance ?? 1) === 1,
+    showClassTests: Number(row.show_class_tests ?? 0) === 1,
+    showBehaviour: Number(row.show_behaviour ?? 1) === 1,
+    showSkills: Number(row.show_skills ?? 1) === 1,
+    showTeacherRemarks: Number(row.show_teacher_remarks ?? 1) === 1,
+    showPrincipalSignature:
+      Number(row.show_principal_signature ?? 1) === 1,
+    headerText: row.header_text ?? "",
+    footerText: row.footer_text ?? "",
+    status: row.status,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at,
+    syncStatus: row.sync_status,
+  };
+}
+
+function reportCardSubjectFromRow(row) {
+  return {
+    id: row.id,
+    reportCardId: row.report_card_id,
+    subjectId: row.subject_id ?? "",
+    subjectName: row.subject_name,
+    maxMarks: Number(row.max_marks ?? 0),
+    passingMarks: Number(row.passing_marks ?? 0),
+    obtainedMarks: Number(row.obtained_marks ?? 0),
+    percentage: Number(row.percentage ?? 0),
+    grade: row.grade ?? "",
+    gradePoint:
+      row.grade_point === null || row.grade_point === undefined
+        ? null
+        : Number(row.grade_point),
+    resultStatus: row.result_status ?? "",
+    remarks: row.remarks ?? "",
+    displayOrder: Number(row.display_order ?? 0),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    syncStatus: row.sync_status,
+  };
+}
+
+function reportCardFromRow(row, subjects = []) {
+  return {
+    id: row.id,
+    reportCardNo: row.report_card_no,
+    studentId: row.student_id,
+    admissionNo: row.admission_no ?? "",
+    studentName: row.student_name,
+    className: row.class_name ?? "",
+    section: row.section ?? "",
+    academicSessionId: row.academic_session_id ?? "",
+    academicSessionName: row.academic_session_name ?? "",
+    examId: row.exam_id ?? "",
+    examName: row.exam_name ?? "",
+    gradingSchemeId: row.grading_scheme_id ?? "",
+    gradingSchemeName: row.grading_scheme_name ?? "",
+    totalMaxMarks: Number(row.total_max_marks ?? 0),
+    totalObtainedMarks: Number(row.total_obtained_marks ?? 0),
+    percentage: Number(row.percentage ?? 0),
+    overallGrade: row.overall_grade ?? "",
+    resultStatus: row.result_status,
+    attendanceWorkingDays: Number(row.attendance_working_days ?? 0),
+    attendancePresentDays: Number(row.attendance_present_days ?? 0),
+    attendancePercentage: Number(row.attendance_percentage ?? 0),
+    classPosition:
+      row.class_position === null || row.class_position === undefined
+        ? null
+        : Number(row.class_position),
+    sectionPosition:
+      row.section_position === null || row.section_position === undefined
+        ? null
+        : Number(row.section_position),
+    teacherRemarks: row.teacher_remarks ?? "",
+    principalRemarks: row.principal_remarks ?? "",
+    generatedBy: row.generated_by ?? "",
+    generatedAt: row.generated_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at,
+    syncStatus: row.sync_status,
+    subjects,
+  };
+}
+
 function userFromRow(row) {
   return {
     id: row.id,
@@ -930,11 +1323,215 @@ function userFromRow(row) {
     username: row.username,
     role: row.role,
     status: row.status,
+    accountType: row.account_type ?? "Staff",
+    mustChangePassword: Number(row.must_change_password ?? 0) === 1,
+    passwordChangedAt: row.password_changed_at ?? null,
+    failedLoginCount: Number(row.failed_login_count ?? 0),
+    lockedUntil: row.locked_until ?? null,
     lastLoginAt: row.last_login_at ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at,
     syncStatus: row.sync_status,
+  };
+}
+
+function userEntityLinkFromRow(row) {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    username: row.username ?? "",
+    userName: row.user_name ?? "",
+    role: row.role ?? "",
+    accountType: row.account_type ?? "",
+    status: row.user_status ?? row.status ?? "",
+    mustChangePassword: Number(row.must_change_password ?? 0) === 1,
+    lastLoginAt: row.last_login_at ?? null,
+    entityType: row.entity_type,
+    entityId: row.entity_id,
+    entityCode: row.entity_code ?? "",
+    entityName: row.entity_name ?? "",
+    isPrimary: Number(row.is_primary ?? 1) === 1,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at,
+    syncStatus: row.sync_status,
+  };
+}
+
+function schoolRuleFromRow(row) {
+  return {
+    id: row.id,
+    title: row.title,
+    category: row.category,
+    ruleText: row.rule_text,
+    displayOrder: Number(row.display_order ?? 0),
+    status: row.status,
+    academicSessionId: row.academic_session_id ?? "",
+    academicSessionName: row.academic_session_name ?? "",
+    effectiveFrom: row.effective_from ?? "",
+    createdBy: row.created_by ?? "",
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at,
+    syncStatus: row.sync_status,
+  };
+}
+
+function appPreferenceFromRow(row) {
+  return {
+    id: row.id,
+    preferenceScope: row.preference_scope,
+    userId: row.user_id ?? "",
+    themeMode: row.theme_mode ?? "Light",
+    accentColor: row.accent_color ?? "Blue",
+    language: row.language ?? "English",
+    compactSidebar: Number(row.compact_sidebar ?? 0) === 1,
+    fontScale: row.font_scale ?? "Normal",
+    dateFormat: row.date_format ?? "DD/MM/YYYY",
+    timeFormat: row.time_format ?? "12 Hour",
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function loginHistoryFromRow(row) {
+  return {
+    id: row.id,
+    userId: row.user_id ?? "",
+    username: row.username ?? "",
+    role: row.role ?? "",
+    loginAt: row.login_at ?? "",
+    logoutAt: row.logout_at ?? "",
+    success: Number(row.success ?? 1) === 1,
+    deviceName: row.device_name ?? "",
+    os: row.os ?? "",
+    failureReason: row.failure_reason ?? "",
+    createdAt: row.created_at,
+  };
+}
+
+function familyFromRow(row) {
+  return {
+    id: row.id,
+    familyCode: row.family_code,
+    familyName: row.family_name ?? "",
+    primaryContactName: row.primary_contact_name ?? "",
+    primaryMobile: row.primary_mobile ?? "",
+    secondaryMobile: row.secondary_mobile ?? "",
+    email: row.email ?? "",
+    address: row.address ?? "",
+    city: row.city ?? "",
+    state: row.state ?? "",
+    postalCode: row.postal_code ?? "",
+    emergencyContactName: row.emergency_contact_name ?? "",
+    emergencyContactMobile: row.emergency_contact_mobile ?? "",
+    notes: row.notes ?? "",
+    status: row.status ?? "Active",
+    studentCount: Number(row.student_count ?? 0),
+    guardianCount: Number(row.guardian_count ?? 0),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at,
+    syncStatus: row.sync_status,
+  };
+}
+
+function guardianFromRow(row) {
+  return {
+    id: row.id,
+    familyId: row.family_id ?? "",
+    familyCode: row.family_code ?? "",
+    familyName: row.family_name ?? "",
+    fullName: row.full_name,
+    relation: row.relation,
+    mobile: row.mobile ?? "",
+    alternateMobile: row.alternate_mobile ?? "",
+    email: row.email ?? "",
+    occupation: row.occupation ?? "",
+    qualification: row.qualification ?? "",
+    annualIncome:
+      row.annual_income === null || row.annual_income === undefined
+        ? null
+        : Number(row.annual_income),
+    address: row.address ?? "",
+    isPrimary: Number(row.is_primary ?? 0) === 1,
+    canPickupStudent: Number(row.can_pickup_student ?? 1) === 1,
+    emergencyContact: Number(row.emergency_contact ?? 0) === 1,
+    status: row.status ?? "Active",
+    linkedStudentCount: Number(row.linked_student_count ?? 0),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at,
+    syncStatus: row.sync_status,
+  };
+}
+
+function studentGuardianLinkFromRow(row) {
+  return {
+    id: row.id,
+    studentId: row.student_id,
+    studentName: row.student_name ?? "",
+    admissionNo: row.admission_no ?? "",
+    className: row.class_name ?? "",
+    section: row.section ?? "",
+    guardianId: row.guardian_id,
+    guardianName: row.guardian_name ?? row.full_name ?? "",
+    guardianFullName: row.full_name ?? row.guardian_name ?? "",
+    relation: row.relation ?? "",
+    mobile: row.mobile ?? "",
+    alternateMobile: row.alternate_mobile ?? "",
+    email: row.email ?? "",
+    occupation: row.occupation ?? "",
+    address: row.address ?? "",
+    familyId: row.family_id ?? "",
+    familyCode: row.family_code ?? "",
+    familyName: row.family_name ?? "",
+    relationToStudent: row.relation_to_student ?? row.relation ?? "",
+    isPrimary: Number(row.is_primary ?? 0) === 1,
+    livesWithStudent: Number(row.lives_with_student ?? 1) === 1,
+    financialResponsibility:
+      Number(row.financial_responsibility ?? 0) === 1,
+    pickupAuthorized: Number(row.pickup_authorized ?? 1) === 1,
+    guardianCanPickupStudent:
+      Number(row.guardian_can_pickup_student ?? row.can_pickup_student ?? 1) ===
+      1,
+    guardianEmergencyContact:
+      Number(row.guardian_emergency_contact ?? row.emergency_contact ?? 0) ===
+      1,
+    emergencyContactName: row.emergency_contact_name ?? "",
+    emergencyContactMobile: row.emergency_contact_mobile ?? "",
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at,
+    syncStatus: row.sync_status,
+  };
+}
+
+function parentsInfoRowFromRow(row) {
+  return {
+    studentId: row.student_id,
+    admissionNo: row.admission_no ?? "",
+    studentName: row.student_name ?? "",
+    className: row.class_name ?? "",
+    section: row.section ?? "",
+    familyId: row.family_id ?? "",
+    familyCode: row.family_code ?? "",
+    familyName: row.family_name ?? "",
+    guardianId: row.guardian_id ?? "",
+    primaryGuardian: row.primary_guardian ?? "",
+    relation: row.relation ?? "",
+    mobile: row.mobile ?? "",
+    alternateMobile: row.alternate_mobile ?? "",
+    email: row.email ?? "",
+    occupation: row.occupation ?? "",
+    address: row.address ?? "",
+    emergencyContact: Number(row.emergency_contact ?? 0) === 1,
+    emergencyContactName: row.emergency_contact_name ?? "",
+    emergencyContactMobile: row.emergency_contact_mobile ?? "",
+    pickupAuthorized: Number(row.pickup_authorized ?? 0) === 1,
+    hasLinkedGuardian: Number(row.has_linked_guardian ?? 0) === 1,
+    source: row.source ?? "Legacy",
   };
 }
 
@@ -1013,6 +1610,23 @@ function licenseActivationFromRow(row) {
   };
 }
 
+function remoteLicenseStatusFromRow(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    licenseId: row.license_id ?? "",
+    deviceId: row.device_id ?? "",
+    remoteStatus: row.remote_status ?? "Unknown",
+    lastOnlineCheckAt: row.last_online_check_at ?? null,
+    nextRequiredCheckAt: row.next_required_check_at ?? null,
+    graceUntil: row.grace_until ?? null,
+    lastError: row.last_error ?? "",
+    serverMessage: row.server_message ?? "",
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
 function masterStatus(value, fallback = "Active") {
   const status = optionalText(value) || fallback;
   if (!MASTER_STATUSES.has(status)) {
@@ -1038,6 +1652,22 @@ function wholeNumber(value, fieldName, minimum = 0) {
     throw new Error(`${fieldName} must be a whole number of at least ${minimum}.`);
   }
   return number;
+}
+
+function integerAmount(value, fieldName) {
+  const number = Number(value ?? 0);
+  if (!Number.isInteger(number)) {
+    throw new Error(`${fieldName} must be a whole number.`);
+  }
+  return number;
+}
+
+function decimalNumber(value, fieldName, minimum = 0) {
+  const number = Number(value);
+  if (!Number.isFinite(number) || number < minimum) {
+    throw new Error(`${fieldName} must be a number of at least ${minimum}.`);
+  }
+  return Math.round(number * 100) / 100;
 }
 
 function normalizeTime(value, fieldName) {
@@ -1100,6 +1730,75 @@ function createDatabase(databasePath) {
       sync_status TEXT DEFAULT 'pending'
     );
 
+    CREATE TABLE IF NOT EXISTS families (
+      id TEXT PRIMARY KEY,
+      family_code TEXT UNIQUE NOT NULL,
+      family_name TEXT,
+      primary_contact_name TEXT,
+      primary_mobile TEXT,
+      secondary_mobile TEXT,
+      email TEXT,
+      address TEXT,
+      city TEXT,
+      state TEXT,
+      postal_code TEXT,
+      emergency_contact_name TEXT,
+      emergency_contact_mobile TEXT,
+      notes TEXT,
+      status TEXT DEFAULT 'Active' CHECK (status IN ('Active', 'Inactive')),
+      created_at TEXT,
+      updated_at TEXT,
+      deleted_at TEXT,
+      sync_status TEXT DEFAULT 'pending'
+    );
+
+    CREATE TABLE IF NOT EXISTS guardians (
+      id TEXT PRIMARY KEY,
+      family_id TEXT,
+      full_name TEXT NOT NULL,
+      relation TEXT NOT NULL CHECK (
+        relation IN (
+          'Father', 'Mother', 'Guardian', 'Grandfather', 'Grandmother',
+          'Brother', 'Sister', 'Uncle', 'Aunt', 'Other'
+        )
+      ),
+      mobile TEXT,
+      alternate_mobile TEXT,
+      email TEXT,
+      occupation TEXT,
+      qualification TEXT,
+      annual_income INTEGER,
+      address TEXT,
+      is_primary INTEGER DEFAULT 0,
+      can_pickup_student INTEGER DEFAULT 1,
+      emergency_contact INTEGER DEFAULT 0,
+      status TEXT DEFAULT 'Active' CHECK (status IN ('Active', 'Inactive')),
+      created_at TEXT,
+      updated_at TEXT,
+      deleted_at TEXT,
+      sync_status TEXT DEFAULT 'pending',
+      FOREIGN KEY (family_id) REFERENCES families(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS student_guardian_links (
+      id TEXT PRIMARY KEY,
+      student_id TEXT NOT NULL,
+      guardian_id TEXT NOT NULL,
+      family_id TEXT,
+      relation_to_student TEXT,
+      is_primary INTEGER DEFAULT 0,
+      lives_with_student INTEGER DEFAULT 1,
+      financial_responsibility INTEGER DEFAULT 0,
+      pickup_authorized INTEGER DEFAULT 1,
+      created_at TEXT,
+      updated_at TEXT,
+      deleted_at TEXT,
+      sync_status TEXT DEFAULT 'pending',
+      FOREIGN KEY (student_id) REFERENCES students(id),
+      FOREIGN KEY (guardian_id) REFERENCES guardians(id),
+      FOREIGN KEY (family_id) REFERENCES families(id)
+    );
+
     CREATE TABLE IF NOT EXISTS employees (
       id TEXT PRIMARY KEY,
       employee_no TEXT UNIQUE NOT NULL,
@@ -1141,6 +1840,38 @@ function createDatabase(databasePath) {
       payment_date TEXT,
       notes TEXT,
       paid_by TEXT,
+      created_at TEXT,
+      updated_at TEXT,
+      deleted_at TEXT,
+      sync_status TEXT DEFAULT 'pending',
+      FOREIGN KEY (employee_id) REFERENCES employees(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS employee_attendance (
+      id TEXT PRIMARY KEY,
+      employee_id TEXT NOT NULL,
+      employee_code TEXT,
+      employee_name TEXT NOT NULL,
+      department TEXT,
+      designation TEXT,
+      attendance_date TEXT NOT NULL,
+      status TEXT NOT NULL CHECK (
+        status IN (
+          'Present',
+          'Absent',
+          'Leave',
+          'Half Day',
+          'Late',
+          'Holiday'
+        )
+      ),
+      check_in_time TEXT,
+      check_out_time TEXT,
+      late_minutes INTEGER DEFAULT 0,
+      overtime_minutes INTEGER DEFAULT 0,
+      leave_type TEXT,
+      remarks TEXT,
+      marked_by TEXT,
       created_at TEXT,
       updated_at TEXT,
       deleted_at TEXT,
@@ -1663,6 +2394,154 @@ function createDatabase(databasePath) {
       FOREIGN KEY (student_id) REFERENCES students(id)
     );
 
+    CREATE TABLE IF NOT EXISTS discount_types (
+      id TEXT PRIMARY KEY,
+      name TEXT UNIQUE NOT NULL,
+      discount_mode TEXT NOT NULL CHECK (
+        discount_mode IN ('Fixed', 'Percentage')
+      ),
+      default_value INTEGER DEFAULT 0,
+      description TEXT,
+      status TEXT DEFAULT 'Active' CHECK (status IN ('Active', 'Inactive')),
+      created_at TEXT,
+      updated_at TEXT,
+      deleted_at TEXT,
+      sync_status TEXT DEFAULT 'pending'
+    );
+
+    CREATE TABLE IF NOT EXISTS student_discounts (
+      id TEXT PRIMARY KEY,
+      student_id TEXT NOT NULL,
+      admission_no TEXT,
+      student_name TEXT,
+      discount_type_id TEXT NOT NULL,
+      discount_type_name TEXT NOT NULL,
+      discount_mode TEXT NOT NULL CHECK (
+        discount_mode IN ('Fixed', 'Percentage')
+      ),
+      discount_value INTEGER NOT NULL,
+      fee_head_id TEXT,
+      fee_head_name TEXT,
+      academic_session_id TEXT,
+      academic_session_name TEXT,
+      start_date TEXT,
+      end_date TEXT,
+      reason TEXT,
+      status TEXT DEFAULT 'Active' CHECK (status IN ('Active', 'Inactive')),
+      approved_by TEXT,
+      created_at TEXT,
+      updated_at TEXT,
+      deleted_at TEXT,
+      sync_status TEXT DEFAULT 'pending',
+      FOREIGN KEY (student_id) REFERENCES students(id),
+      FOREIGN KEY (discount_type_id) REFERENCES discount_types(id),
+      FOREIGN KEY (fee_head_id) REFERENCES fee_heads(id),
+      FOREIGN KEY (academic_session_id) REFERENCES academic_sessions(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS fee_invoices (
+      id TEXT PRIMARY KEY,
+      invoice_no TEXT UNIQUE NOT NULL,
+      student_id TEXT NOT NULL,
+      admission_no TEXT,
+      student_name TEXT NOT NULL,
+      class_name TEXT,
+      section TEXT,
+      academic_session_id TEXT,
+      academic_session_name TEXT,
+      billing_period TEXT,
+      invoice_date TEXT NOT NULL,
+      due_date TEXT,
+      subtotal INTEGER DEFAULT 0,
+      discount_amount INTEGER DEFAULT 0,
+      previous_due INTEGER DEFAULT 0,
+      late_fee INTEGER DEFAULT 0,
+      adjustment_amount INTEGER DEFAULT 0,
+      grand_total INTEGER NOT NULL,
+      paid_amount INTEGER DEFAULT 0,
+      balance_amount INTEGER NOT NULL,
+      status TEXT DEFAULT 'Unpaid' CHECK (
+        status IN (
+          'Draft',
+          'Unpaid',
+          'Partially Paid',
+          'Paid',
+          'Overdue',
+          'Cancelled'
+        )
+      ),
+      notes TEXT,
+      generated_by TEXT,
+      created_at TEXT,
+      updated_at TEXT,
+      cancelled_at TEXT,
+      cancelled_by TEXT,
+      cancellation_reason TEXT,
+      sync_status TEXT DEFAULT 'pending',
+      FOREIGN KEY (student_id) REFERENCES students(id),
+      FOREIGN KEY (academic_session_id) REFERENCES academic_sessions(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS fee_invoice_items (
+      id TEXT PRIMARY KEY,
+      invoice_id TEXT NOT NULL,
+      fee_head_id TEXT,
+      fee_head_name TEXT NOT NULL,
+      description TEXT,
+      quantity INTEGER DEFAULT 1,
+      unit_amount INTEGER DEFAULT 0,
+      gross_amount INTEGER DEFAULT 0,
+      discount_amount INTEGER DEFAULT 0,
+      net_amount INTEGER NOT NULL,
+      display_order INTEGER DEFAULT 0,
+      created_at TEXT,
+      updated_at TEXT,
+      sync_status TEXT DEFAULT 'pending',
+      FOREIGN KEY (invoice_id) REFERENCES fee_invoices(id),
+      FOREIGN KEY (fee_head_id) REFERENCES fee_heads(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS fee_invoice_allocations (
+      id TEXT PRIMARY KEY,
+      invoice_id TEXT NOT NULL,
+      fee_payment_id TEXT NOT NULL,
+      receipt_no TEXT,
+      allocated_amount INTEGER NOT NULL,
+      created_at TEXT,
+      reversed_at TEXT,
+      reversal_id TEXT,
+      sync_status TEXT DEFAULT 'pending',
+      FOREIGN KEY (invoice_id) REFERENCES fee_invoices(id),
+      FOREIGN KEY (fee_payment_id) REFERENCES fee_payments(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS fee_invoice_account_mappings (
+      id TEXT PRIMARY KEY,
+      fee_head_id TEXT NOT NULL,
+      fee_head_name TEXT NOT NULL,
+      account_category_id TEXT NOT NULL,
+      account_category_name TEXT NOT NULL,
+      status TEXT DEFAULT 'Active' CHECK (status IN ('Active', 'Inactive')),
+      created_at TEXT,
+      updated_at TEXT,
+      deleted_at TEXT,
+      sync_status TEXT DEFAULT 'pending',
+      FOREIGN KEY (fee_head_id) REFERENCES fee_heads(id),
+      FOREIGN KEY (account_category_id) REFERENCES account_categories(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS fee_payment_reversals (
+      id TEXT PRIMARY KEY,
+      fee_payment_id TEXT NOT NULL,
+      receipt_no TEXT,
+      amount INTEGER DEFAULT 0,
+      reason TEXT NOT NULL,
+      reversed_by TEXT,
+      created_at TEXT,
+      sync_status TEXT DEFAULT 'pending',
+      FOREIGN KEY (fee_payment_id) REFERENCES fee_payments(id)
+    );
+
     CREATE TABLE IF NOT EXISTS attendance (
       id TEXT PRIMARY KEY,
       student_id TEXT NOT NULL,
@@ -1781,6 +2660,123 @@ function createDatabase(databasePath) {
       FOREIGN KEY (subject_id) REFERENCES subjects(id)
     );
 
+    CREATE TABLE IF NOT EXISTS grading_schemes (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      academic_session_id TEXT,
+      academic_session_name TEXT,
+      class_name TEXT,
+      calculation_mode TEXT DEFAULT 'Percentage' CHECK (
+        calculation_mode IN ('Percentage', 'Marks')
+      ),
+      status TEXT DEFAULT 'Active' CHECK (status IN ('Active', 'Inactive')),
+      is_default INTEGER DEFAULT 0,
+      description TEXT,
+      created_by TEXT,
+      created_at TEXT,
+      updated_at TEXT,
+      deleted_at TEXT,
+      sync_status TEXT DEFAULT 'pending',
+      FOREIGN KEY (academic_session_id) REFERENCES academic_sessions(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS grading_ranges (
+      id TEXT PRIMARY KEY,
+      grading_scheme_id TEXT NOT NULL,
+      min_value REAL NOT NULL,
+      max_value REAL NOT NULL,
+      grade TEXT NOT NULL,
+      grade_point REAL,
+      result_status TEXT DEFAULT 'Pass' CHECK (result_status IN ('Pass', 'Fail')),
+      description TEXT,
+      display_order INTEGER DEFAULT 0,
+      created_at TEXT,
+      updated_at TEXT,
+      deleted_at TEXT,
+      sync_status TEXT DEFAULT 'pending',
+      FOREIGN KEY (grading_scheme_id) REFERENCES grading_schemes(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS report_card_templates (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      template_type TEXT DEFAULT 'Standard',
+      academic_session_id TEXT,
+      class_name TEXT,
+      show_attendance INTEGER DEFAULT 1,
+      show_class_tests INTEGER DEFAULT 0,
+      show_behaviour INTEGER DEFAULT 1,
+      show_skills INTEGER DEFAULT 1,
+      show_teacher_remarks INTEGER DEFAULT 1,
+      show_principal_signature INTEGER DEFAULT 1,
+      header_text TEXT,
+      footer_text TEXT,
+      status TEXT DEFAULT 'Active' CHECK (status IN ('Active', 'Inactive')),
+      created_at TEXT,
+      updated_at TEXT,
+      deleted_at TEXT,
+      sync_status TEXT DEFAULT 'pending',
+      FOREIGN KEY (academic_session_id) REFERENCES academic_sessions(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS student_report_cards (
+      id TEXT PRIMARY KEY,
+      report_card_no TEXT UNIQUE NOT NULL,
+      student_id TEXT NOT NULL,
+      admission_no TEXT,
+      student_name TEXT NOT NULL,
+      class_name TEXT,
+      section TEXT,
+      academic_session_id TEXT,
+      academic_session_name TEXT,
+      exam_id TEXT,
+      exam_name TEXT,
+      grading_scheme_id TEXT,
+      grading_scheme_name TEXT,
+      total_max_marks REAL DEFAULT 0,
+      total_obtained_marks REAL DEFAULT 0,
+      percentage REAL DEFAULT 0,
+      overall_grade TEXT,
+      result_status TEXT CHECK (
+        result_status IN ('Pass', 'Fail', 'Promoted', 'Detained', 'Pending')
+      ),
+      attendance_working_days INTEGER DEFAULT 0,
+      attendance_present_days INTEGER DEFAULT 0,
+      attendance_percentage REAL DEFAULT 0,
+      class_position INTEGER,
+      section_position INTEGER,
+      teacher_remarks TEXT,
+      principal_remarks TEXT,
+      generated_by TEXT,
+      generated_at TEXT,
+      updated_at TEXT,
+      deleted_at TEXT,
+      sync_status TEXT DEFAULT 'pending',
+      FOREIGN KEY (student_id) REFERENCES students(id),
+      FOREIGN KEY (exam_id) REFERENCES exams(id),
+      FOREIGN KEY (grading_scheme_id) REFERENCES grading_schemes(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS student_report_card_subjects (
+      id TEXT PRIMARY KEY,
+      report_card_id TEXT NOT NULL,
+      subject_id TEXT,
+      subject_name TEXT NOT NULL,
+      max_marks REAL DEFAULT 0,
+      passing_marks REAL DEFAULT 0,
+      obtained_marks REAL DEFAULT 0,
+      percentage REAL DEFAULT 0,
+      grade TEXT,
+      grade_point REAL,
+      result_status TEXT,
+      remarks TEXT,
+      display_order INTEGER DEFAULT 0,
+      created_at TEXT,
+      updated_at TEXT,
+      sync_status TEXT DEFAULT 'pending',
+      FOREIGN KEY (report_card_id) REFERENCES student_report_cards(id)
+    );
+
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -1790,11 +2786,93 @@ function createDatabase(databasePath) {
       password_salt TEXT NOT NULL,
       role TEXT NOT NULL,
       status TEXT DEFAULT 'Active',
+      account_type TEXT DEFAULT 'Staff',
+      must_change_password INTEGER DEFAULT 0,
+      password_changed_at TEXT,
+      failed_login_count INTEGER DEFAULT 0,
+      locked_until TEXT,
       last_login_at TEXT,
       created_at TEXT,
       updated_at TEXT,
       deleted_at TEXT,
       sync_status TEXT DEFAULT 'pending'
+    );
+
+    CREATE TABLE IF NOT EXISTS user_entity_links (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      entity_type TEXT NOT NULL CHECK (entity_type IN ('Student', 'Employee')),
+      entity_id TEXT NOT NULL,
+      entity_code TEXT,
+      entity_name TEXT,
+      is_primary INTEGER DEFAULT 1,
+      created_at TEXT,
+      updated_at TEXT,
+      deleted_at TEXT,
+      sync_status TEXT DEFAULT 'pending',
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS school_rules (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      category TEXT NOT NULL CHECK (
+        category IN (
+          'General', 'Fees', 'Attendance', 'Discipline', 'Examination',
+          'Transport', 'Uniform', 'Library', 'Safety', 'Other'
+        )
+      ),
+      rule_text TEXT NOT NULL,
+      display_order INTEGER DEFAULT 0,
+      status TEXT DEFAULT 'Active' CHECK (status IN ('Active', 'Inactive')),
+      academic_session_id TEXT,
+      academic_session_name TEXT,
+      effective_from TEXT,
+      created_by TEXT,
+      created_at TEXT,
+      updated_at TEXT,
+      deleted_at TEXT,
+      sync_status TEXT DEFAULT 'pending',
+      FOREIGN KEY (academic_session_id) REFERENCES academic_sessions(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS app_preferences (
+      id TEXT PRIMARY KEY,
+      preference_scope TEXT NOT NULL CHECK (
+        preference_scope IN ('Application', 'User')
+      ),
+      user_id TEXT,
+      theme_mode TEXT DEFAULT 'Light' CHECK (
+        theme_mode IN ('Light', 'Dark', 'System')
+      ),
+      accent_color TEXT DEFAULT 'Blue',
+      language TEXT DEFAULT 'English' CHECK (
+        language IN ('English', 'Hindi')
+      ),
+      compact_sidebar INTEGER DEFAULT 0,
+      font_scale TEXT DEFAULT 'Normal' CHECK (
+        font_scale IN ('Small', 'Normal', 'Large')
+      ),
+      date_format TEXT DEFAULT 'DD/MM/YYYY',
+      time_format TEXT DEFAULT '12 Hour',
+      updated_at TEXT,
+      created_at TEXT,
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS login_history (
+      id TEXT PRIMARY KEY,
+      user_id TEXT,
+      username TEXT,
+      role TEXT,
+      login_at TEXT,
+      logout_at TEXT,
+      success INTEGER DEFAULT 1,
+      device_name TEXT,
+      os TEXT,
+      failure_reason TEXT,
+      created_at TEXT,
+      FOREIGN KEY (user_id) REFERENCES users(id)
     );
 
     CREATE TABLE IF NOT EXISTS license_activation (
@@ -1812,6 +2890,22 @@ function createDatabase(databasePath) {
       status TEXT,
       activated_at TEXT,
       last_checked_at TEXT,
+      created_at TEXT,
+      updated_at TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS remote_license_status (
+      id TEXT PRIMARY KEY,
+      license_id TEXT,
+      device_id TEXT,
+      remote_status TEXT CHECK (
+        remote_status IN ('Active', 'Suspended', 'Expired', 'Revoked', 'Unknown')
+      ),
+      last_online_check_at TEXT,
+      next_required_check_at TEXT,
+      grace_until TEXT,
+      last_error TEXT,
+      server_message TEXT,
       created_at TEXT,
       updated_at TEXT
     );
@@ -1862,10 +2956,50 @@ function createDatabase(databasePath) {
 
     CREATE INDEX IF NOT EXISTS idx_students_active
       ON students(deleted_at, created_at);
+    CREATE INDEX IF NOT EXISTS idx_families_active
+      ON families(deleted_at, status, family_code, family_name);
+    CREATE INDEX IF NOT EXISTS idx_families_contact
+      ON families(primary_mobile, email, deleted_at);
+    CREATE INDEX IF NOT EXISTS idx_guardians_family
+      ON guardians(family_id, deleted_at, status, full_name);
+    CREATE INDEX IF NOT EXISTS idx_guardians_contact
+      ON guardians(mobile, email, deleted_at);
+    CREATE INDEX IF NOT EXISTS idx_student_guardian_links_student
+      ON student_guardian_links(student_id, deleted_at, is_primary);
+    CREATE INDEX IF NOT EXISTS idx_student_guardian_links_family
+      ON student_guardian_links(family_id, deleted_at, student_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_student_guardian_links_active_unique
+      ON student_guardian_links(student_id, guardian_id)
+      WHERE deleted_at IS NULL;
     CREATE INDEX IF NOT EXISTS idx_employees_active
       ON employees(deleted_at, status, department, designation, name);
     CREATE INDEX IF NOT EXISTS idx_fee_payments_date
       ON fee_payments(payment_date);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_employee_attendance_employee_date_active
+      ON employee_attendance(employee_id, attendance_date)
+      WHERE deleted_at IS NULL;
+    CREATE INDEX IF NOT EXISTS idx_employee_attendance_date
+      ON employee_attendance(attendance_date, deleted_at, department, designation, status);
+    CREATE INDEX IF NOT EXISTS idx_employee_attendance_employee
+      ON employee_attendance(employee_id, attendance_date, deleted_at);
+    CREATE INDEX IF NOT EXISTS idx_discount_types_active
+      ON discount_types(deleted_at, status, name);
+    CREATE INDEX IF NOT EXISTS idx_student_discounts_student
+      ON student_discounts(student_id, deleted_at, status);
+    CREATE INDEX IF NOT EXISTS idx_student_discounts_session
+      ON student_discounts(academic_session_id, deleted_at, status);
+    CREATE INDEX IF NOT EXISTS idx_fee_invoices_student
+      ON fee_invoices(student_id, academic_session_id, billing_period, status);
+    CREATE INDEX IF NOT EXISTS idx_fee_invoices_filter
+      ON fee_invoices(academic_session_id, class_name, section, status, invoice_date);
+    CREATE INDEX IF NOT EXISTS idx_fee_invoice_items_invoice
+      ON fee_invoice_items(invoice_id, display_order);
+    CREATE INDEX IF NOT EXISTS idx_fee_invoice_allocations_invoice
+      ON fee_invoice_allocations(invoice_id, reversed_at);
+    CREATE INDEX IF NOT EXISTS idx_fee_invoice_allocations_payment
+      ON fee_invoice_allocations(fee_payment_id, reversed_at);
+    CREATE INDEX IF NOT EXISTS idx_fee_payment_reversals_payment
+      ON fee_payment_reversals(fee_payment_id, created_at DESC);
     CREATE UNIQUE INDEX IF NOT EXISTS idx_attendance_student_date
       ON attendance(student_id, attendance_date);
     CREATE INDEX IF NOT EXISTS idx_classes_active
@@ -1888,6 +3022,14 @@ function createDatabase(databasePath) {
       ON marks(student_id, exam_id);
     CREATE INDEX IF NOT EXISTS idx_users_active
       ON users(deleted_at, status, role);
+    CREATE INDEX IF NOT EXISTS idx_school_rules_filter
+      ON school_rules(deleted_at, status, category, display_order);
+    CREATE INDEX IF NOT EXISTS idx_school_rules_session
+      ON school_rules(academic_session_id, deleted_at, display_order);
+    CREATE INDEX IF NOT EXISTS idx_login_history_user
+      ON login_history(user_id, login_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_login_history_login
+      ON login_history(login_at DESC, success);
     CREATE INDEX IF NOT EXISTS idx_audit_logs_created
       ON audit_logs(created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_certificate_templates_active
@@ -1903,8 +3045,530 @@ function createDatabase(databasePath) {
   addColumnIfMissing(db, "fee_payments", "guardian_name", "TEXT");
   addColumnIfMissing(db, "fee_payments", "mobile", "TEXT");
   addColumnIfMissing(db, "fee_payments", "cashier_name", "TEXT");
+  addColumnIfMissing(db, "fee_payments", "status", "TEXT DEFAULT 'Active'");
+  addColumnIfMissing(db, "fee_payments", "reversed_at", "TEXT");
+  addColumnIfMissing(db, "fee_payments", "reversed_by", "TEXT");
+  addColumnIfMissing(db, "fee_payments", "reversal_reason", "TEXT");
+  addColumnIfMissing(db, "fee_invoice_allocations", "reversed_at", "TEXT");
+  addColumnIfMissing(db, "fee_invoice_allocations", "reversal_id", "TEXT");
+  db.prepare(`
+    UPDATE fee_payments
+    SET status = 'Active'
+    WHERE status IS NULL OR trim(status) = ''
+  `).run();
   addColumnIfMissing(db, "attendance", "admission_no", "TEXT");
   addColumnIfMissing(db, "attendance", "remarks", "TEXT");
+  addColumnIfMissing(db, "users", "account_type", "TEXT DEFAULT 'Staff'");
+  addColumnIfMissing(db, "users", "must_change_password", "INTEGER DEFAULT 0");
+  addColumnIfMissing(db, "users", "password_changed_at", "TEXT");
+  addColumnIfMissing(db, "users", "failed_login_count", "INTEGER DEFAULT 0");
+  addColumnIfMissing(db, "users", "locked_until", "TEXT");
+  [
+    ["user_id", "TEXT"],
+    ["entity_type", "TEXT"],
+    ["entity_id", "TEXT"],
+    ["entity_code", "TEXT"],
+    ["entity_name", "TEXT"],
+    ["is_primary", "INTEGER DEFAULT 1"],
+    ["created_at", "TEXT"],
+    ["updated_at", "TEXT"],
+    ["deleted_at", "TEXT"],
+    ["sync_status", "TEXT DEFAULT 'pending'"],
+  ].forEach(([columnName, definition]) => {
+    addColumnIfMissing(db, "user_entity_links", columnName, definition);
+  });
+  [
+    ["family_code", "TEXT"],
+    ["family_name", "TEXT"],
+    ["primary_contact_name", "TEXT"],
+    ["primary_mobile", "TEXT"],
+    ["secondary_mobile", "TEXT"],
+    ["email", "TEXT"],
+    ["address", "TEXT"],
+    ["city", "TEXT"],
+    ["state", "TEXT"],
+    ["postal_code", "TEXT"],
+    ["emergency_contact_name", "TEXT"],
+    ["emergency_contact_mobile", "TEXT"],
+    ["notes", "TEXT"],
+    ["status", "TEXT DEFAULT 'Active'"],
+    ["created_at", "TEXT"],
+    ["updated_at", "TEXT"],
+    ["deleted_at", "TEXT"],
+    ["sync_status", "TEXT DEFAULT 'pending'"],
+  ].forEach(([columnName, definition]) => {
+    addColumnIfMissing(db, "families", columnName, definition);
+  });
+  [
+    ["family_id", "TEXT"],
+    ["full_name", "TEXT"],
+    ["relation", "TEXT"],
+    ["mobile", "TEXT"],
+    ["alternate_mobile", "TEXT"],
+    ["email", "TEXT"],
+    ["occupation", "TEXT"],
+    ["qualification", "TEXT"],
+    ["annual_income", "INTEGER"],
+    ["address", "TEXT"],
+    ["is_primary", "INTEGER DEFAULT 0"],
+    ["can_pickup_student", "INTEGER DEFAULT 1"],
+    ["emergency_contact", "INTEGER DEFAULT 0"],
+    ["status", "TEXT DEFAULT 'Active'"],
+    ["created_at", "TEXT"],
+    ["updated_at", "TEXT"],
+    ["deleted_at", "TEXT"],
+    ["sync_status", "TEXT DEFAULT 'pending'"],
+  ].forEach(([columnName, definition]) => {
+    addColumnIfMissing(db, "guardians", columnName, definition);
+  });
+  [
+    ["student_id", "TEXT"],
+    ["guardian_id", "TEXT"],
+    ["family_id", "TEXT"],
+    ["relation_to_student", "TEXT"],
+    ["is_primary", "INTEGER DEFAULT 0"],
+    ["lives_with_student", "INTEGER DEFAULT 1"],
+    ["financial_responsibility", "INTEGER DEFAULT 0"],
+    ["pickup_authorized", "INTEGER DEFAULT 1"],
+    ["created_at", "TEXT"],
+    ["updated_at", "TEXT"],
+    ["deleted_at", "TEXT"],
+    ["sync_status", "TEXT DEFAULT 'pending'"],
+  ].forEach(([columnName, definition]) => {
+    addColumnIfMissing(
+      db,
+      "student_guardian_links",
+      columnName,
+      definition,
+    );
+  });
+  [
+    ["employee_id", "TEXT"],
+    ["employee_code", "TEXT"],
+    ["employee_name", "TEXT"],
+    ["department", "TEXT"],
+    ["designation", "TEXT"],
+    ["attendance_date", "TEXT"],
+    ["status", "TEXT"],
+    ["check_in_time", "TEXT"],
+    ["check_out_time", "TEXT"],
+    ["late_minutes", "INTEGER DEFAULT 0"],
+    ["overtime_minutes", "INTEGER DEFAULT 0"],
+    ["leave_type", "TEXT"],
+    ["remarks", "TEXT"],
+    ["marked_by", "TEXT"],
+    ["created_at", "TEXT"],
+    ["updated_at", "TEXT"],
+    ["deleted_at", "TEXT"],
+    ["sync_status", "TEXT DEFAULT 'pending'"],
+  ].forEach(([columnName, definition]) => {
+    addColumnIfMissing(
+      db,
+      "employee_attendance",
+      columnName,
+      definition,
+    );
+  });
+  [
+    ["name", "TEXT"],
+    ["academic_session_id", "TEXT"],
+    ["academic_session_name", "TEXT"],
+    ["class_name", "TEXT"],
+    ["calculation_mode", "TEXT DEFAULT 'Percentage'"],
+    ["status", "TEXT DEFAULT 'Active'"],
+    ["is_default", "INTEGER DEFAULT 0"],
+    ["description", "TEXT"],
+    ["created_by", "TEXT"],
+    ["created_at", "TEXT"],
+    ["updated_at", "TEXT"],
+    ["deleted_at", "TEXT"],
+    ["sync_status", "TEXT DEFAULT 'pending'"],
+  ].forEach(([columnName, definition]) => {
+    addColumnIfMissing(db, "grading_schemes", columnName, definition);
+  });
+  [
+    ["grading_scheme_id", "TEXT"],
+    ["min_value", "REAL DEFAULT 0"],
+    ["max_value", "REAL DEFAULT 0"],
+    ["grade", "TEXT"],
+    ["grade_point", "REAL"],
+    ["result_status", "TEXT DEFAULT 'Pass'"],
+    ["description", "TEXT"],
+    ["display_order", "INTEGER DEFAULT 0"],
+    ["created_at", "TEXT"],
+    ["updated_at", "TEXT"],
+    ["deleted_at", "TEXT"],
+    ["sync_status", "TEXT DEFAULT 'pending'"],
+  ].forEach(([columnName, definition]) => {
+    addColumnIfMissing(db, "grading_ranges", columnName, definition);
+  });
+  [
+    ["name", "TEXT"],
+    ["template_type", "TEXT DEFAULT 'Standard'"],
+    ["academic_session_id", "TEXT"],
+    ["class_name", "TEXT"],
+    ["show_attendance", "INTEGER DEFAULT 1"],
+    ["show_class_tests", "INTEGER DEFAULT 0"],
+    ["show_behaviour", "INTEGER DEFAULT 1"],
+    ["show_skills", "INTEGER DEFAULT 1"],
+    ["show_teacher_remarks", "INTEGER DEFAULT 1"],
+    ["show_principal_signature", "INTEGER DEFAULT 1"],
+    ["header_text", "TEXT"],
+    ["footer_text", "TEXT"],
+    ["status", "TEXT DEFAULT 'Active'"],
+    ["created_at", "TEXT"],
+    ["updated_at", "TEXT"],
+    ["deleted_at", "TEXT"],
+    ["sync_status", "TEXT DEFAULT 'pending'"],
+  ].forEach(([columnName, definition]) => {
+    addColumnIfMissing(db, "report_card_templates", columnName, definition);
+  });
+  [
+    ["report_card_no", "TEXT"],
+    ["student_id", "TEXT"],
+    ["admission_no", "TEXT"],
+    ["student_name", "TEXT"],
+    ["class_name", "TEXT"],
+    ["section", "TEXT"],
+    ["academic_session_id", "TEXT"],
+    ["academic_session_name", "TEXT"],
+    ["exam_id", "TEXT"],
+    ["exam_name", "TEXT"],
+    ["grading_scheme_id", "TEXT"],
+    ["grading_scheme_name", "TEXT"],
+    ["total_max_marks", "REAL DEFAULT 0"],
+    ["total_obtained_marks", "REAL DEFAULT 0"],
+    ["percentage", "REAL DEFAULT 0"],
+    ["overall_grade", "TEXT"],
+    ["result_status", "TEXT DEFAULT 'Pending'"],
+    ["attendance_working_days", "INTEGER DEFAULT 0"],
+    ["attendance_present_days", "INTEGER DEFAULT 0"],
+    ["attendance_percentage", "REAL DEFAULT 0"],
+    ["class_position", "INTEGER"],
+    ["section_position", "INTEGER"],
+    ["teacher_remarks", "TEXT"],
+    ["principal_remarks", "TEXT"],
+    ["generated_by", "TEXT"],
+    ["generated_at", "TEXT"],
+    ["updated_at", "TEXT"],
+    ["deleted_at", "TEXT"],
+    ["sync_status", "TEXT DEFAULT 'pending'"],
+  ].forEach(([columnName, definition]) => {
+    addColumnIfMissing(db, "student_report_cards", columnName, definition);
+  });
+  [
+    ["report_card_id", "TEXT"],
+    ["subject_id", "TEXT"],
+    ["subject_name", "TEXT"],
+    ["max_marks", "REAL DEFAULT 0"],
+    ["passing_marks", "REAL DEFAULT 0"],
+    ["obtained_marks", "REAL DEFAULT 0"],
+    ["percentage", "REAL DEFAULT 0"],
+    ["grade", "TEXT"],
+    ["grade_point", "REAL"],
+    ["result_status", "TEXT"],
+    ["remarks", "TEXT"],
+    ["display_order", "INTEGER DEFAULT 0"],
+    ["created_at", "TEXT"],
+    ["updated_at", "TEXT"],
+    ["sync_status", "TEXT DEFAULT 'pending'"],
+  ].forEach(([columnName, definition]) => {
+    addColumnIfMissing(
+      db,
+      "student_report_card_subjects",
+      columnName,
+      definition,
+    );
+  });
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_grading_schemes_scope
+      ON grading_schemes(
+        deleted_at, status, is_default, academic_session_id, class_name
+      );
+    CREATE INDEX IF NOT EXISTS idx_grading_ranges_scheme
+      ON grading_ranges(grading_scheme_id, deleted_at, display_order, min_value);
+    CREATE INDEX IF NOT EXISTS idx_report_card_templates_scope
+      ON report_card_templates(
+        deleted_at, status, academic_session_id, class_name
+      );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_report_cards_student_exam_active
+      ON student_report_cards(
+        student_id, COALESCE(academic_session_id, ''), COALESCE(exam_id, '')
+      )
+      WHERE deleted_at IS NULL;
+    CREATE INDEX IF NOT EXISTS idx_report_cards_filter
+      ON student_report_cards(
+        academic_session_id, class_name, section, exam_id, result_status,
+        generated_at, deleted_at
+      );
+    CREATE INDEX IF NOT EXISTS idx_report_card_subjects_card
+      ON student_report_card_subjects(report_card_id, display_order);
+  `);
+  [
+    ["title", "TEXT"],
+    ["category", "TEXT DEFAULT 'General'"],
+    ["rule_text", "TEXT"],
+    ["display_order", "INTEGER DEFAULT 0"],
+    ["status", "TEXT DEFAULT 'Active'"],
+    ["academic_session_id", "TEXT"],
+    ["academic_session_name", "TEXT"],
+    ["effective_from", "TEXT"],
+    ["created_by", "TEXT"],
+    ["created_at", "TEXT"],
+    ["updated_at", "TEXT"],
+    ["deleted_at", "TEXT"],
+    ["sync_status", "TEXT DEFAULT 'pending'"],
+  ].forEach(([columnName, definition]) => {
+    addColumnIfMissing(db, "school_rules", columnName, definition);
+  });
+  [
+    ["preference_scope", "TEXT DEFAULT 'Application'"],
+    ["user_id", "TEXT"],
+    ["theme_mode", "TEXT DEFAULT 'Light'"],
+    ["accent_color", "TEXT DEFAULT 'Blue'"],
+    ["language", "TEXT DEFAULT 'English'"],
+    ["compact_sidebar", "INTEGER DEFAULT 0"],
+    ["font_scale", "TEXT DEFAULT 'Normal'"],
+    ["date_format", "TEXT DEFAULT 'DD/MM/YYYY'"],
+    ["time_format", "TEXT DEFAULT '12 Hour'"],
+    ["updated_at", "TEXT"],
+    ["created_at", "TEXT"],
+  ].forEach(([columnName, definition]) => {
+    addColumnIfMissing(db, "app_preferences", columnName, definition);
+  });
+  [
+    ["user_id", "TEXT"],
+    ["username", "TEXT"],
+    ["role", "TEXT"],
+    ["login_at", "TEXT"],
+    ["logout_at", "TEXT"],
+    ["success", "INTEGER DEFAULT 1"],
+    ["device_name", "TEXT"],
+    ["os", "TEXT"],
+    ["failure_reason", "TEXT"],
+    ["created_at", "TEXT"],
+  ].forEach(([columnName, definition]) => {
+    addColumnIfMissing(db, "login_history", columnName, definition);
+  });
+  db.exec(`
+    UPDATE guardians
+    SET status = 'Active'
+    WHERE status IS NULL OR trim(status) = '';
+    UPDATE families
+    SET status = 'Active'
+    WHERE status IS NULL OR trim(status) = '';
+    UPDATE users
+    SET account_type = 'Staff'
+    WHERE account_type IS NULL OR trim(account_type) = '';
+    UPDATE users
+    SET must_change_password = 0
+    WHERE must_change_password IS NULL;
+    UPDATE users
+    SET failed_login_count = 0
+    WHERE failed_login_count IS NULL;
+    UPDATE users
+    SET account_type = 'Student'
+    WHERE role = 'Student' AND account_type <> 'Student';
+    DELETE FROM student_guardian_links
+    WHERE deleted_at IS NULL
+      AND rowid NOT IN (
+        SELECT MIN(rowid)
+        FROM student_guardian_links
+        WHERE deleted_at IS NULL
+        GROUP BY student_id, guardian_id
+      );
+    DELETE FROM user_entity_links
+    WHERE deleted_at IS NULL
+      AND is_primary = 1
+      AND rowid NOT IN (
+        SELECT MIN(rowid)
+        FROM user_entity_links
+        WHERE deleted_at IS NULL AND is_primary = 1
+        GROUP BY user_id
+      );
+    DELETE FROM user_entity_links
+    WHERE deleted_at IS NULL
+      AND entity_type = 'Student'
+      AND is_primary = 1
+      AND rowid NOT IN (
+        SELECT MIN(rowid)
+        FROM user_entity_links
+        WHERE deleted_at IS NULL
+          AND entity_type = 'Student'
+          AND is_primary = 1
+        GROUP BY entity_type, entity_id
+      );
+    DELETE FROM user_entity_links
+    WHERE deleted_at IS NULL
+      AND entity_type = 'Employee'
+      AND is_primary = 1
+      AND rowid NOT IN (
+        SELECT MIN(rowid)
+        FROM user_entity_links
+        WHERE deleted_at IS NULL
+          AND entity_type = 'Employee'
+          AND is_primary = 1
+        GROUP BY entity_type, entity_id
+      );
+    DELETE FROM app_preferences
+    WHERE preference_scope = 'Application'
+      AND rowid NOT IN (
+        SELECT MIN(rowid)
+        FROM app_preferences
+        WHERE preference_scope = 'Application'
+      );
+    DELETE FROM app_preferences
+    WHERE preference_scope = 'User'
+      AND user_id IS NOT NULL
+      AND rowid NOT IN (
+        SELECT MIN(rowid)
+        FROM app_preferences
+        WHERE preference_scope = 'User' AND user_id IS NOT NULL
+        GROUP BY user_id
+      );
+  `);
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_users_account_type
+      ON users(account_type, deleted_at, status);
+    CREATE INDEX IF NOT EXISTS idx_user_entity_links_user
+      ON user_entity_links(user_id, entity_type, deleted_at);
+    CREATE INDEX IF NOT EXISTS idx_user_entity_links_entity
+      ON user_entity_links(entity_type, entity_id, deleted_at);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_user_entity_links_user_primary
+      ON user_entity_links(user_id)
+      WHERE deleted_at IS NULL AND is_primary = 1;
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_user_entity_links_student_primary
+      ON user_entity_links(entity_type, entity_id)
+      WHERE deleted_at IS NULL AND entity_type = 'Student' AND is_primary = 1;
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_user_entity_links_employee_primary
+      ON user_entity_links(entity_type, entity_id)
+      WHERE deleted_at IS NULL AND entity_type = 'Employee' AND is_primary = 1;
+    CREATE INDEX IF NOT EXISTS idx_families_active
+      ON families(deleted_at, status, family_code, family_name);
+    CREATE INDEX IF NOT EXISTS idx_families_contact
+      ON families(primary_mobile, email, deleted_at);
+    CREATE INDEX IF NOT EXISTS idx_guardians_family
+      ON guardians(family_id, deleted_at, status, full_name);
+    CREATE INDEX IF NOT EXISTS idx_guardians_contact
+      ON guardians(mobile, email, deleted_at);
+    CREATE INDEX IF NOT EXISTS idx_student_guardian_links_student
+      ON student_guardian_links(student_id, deleted_at, is_primary);
+    CREATE INDEX IF NOT EXISTS idx_student_guardian_links_family
+      ON student_guardian_links(family_id, deleted_at, student_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_student_guardian_links_active_unique
+      ON student_guardian_links(student_id, guardian_id)
+      WHERE deleted_at IS NULL;
+    CREATE INDEX IF NOT EXISTS idx_school_rules_filter
+      ON school_rules(deleted_at, status, category, display_order);
+    CREATE INDEX IF NOT EXISTS idx_school_rules_session
+      ON school_rules(academic_session_id, deleted_at, display_order);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_app_preferences_application
+      ON app_preferences(preference_scope)
+      WHERE preference_scope = 'Application';
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_app_preferences_user
+      ON app_preferences(user_id)
+      WHERE preference_scope = 'User' AND user_id IS NOT NULL;
+    CREATE INDEX IF NOT EXISTS idx_login_history_user
+      ON login_history(user_id, login_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_login_history_login
+      ON login_history(login_at DESC, success);
+  `);
+  if (
+    Number(
+      db
+        .prepare(`
+          SELECT COUNT(*) AS count
+          FROM app_preferences
+          WHERE preference_scope = 'Application'
+        `)
+        .get()?.count ?? 0,
+    ) === 0
+  ) {
+    const timestamp = now();
+    db.prepare(`
+      INSERT INTO app_preferences (
+        id, preference_scope, user_id, theme_mode, accent_color, language,
+        compact_sidebar, font_scale, date_format, time_format, created_at,
+        updated_at
+      ) VALUES (
+        'application-defaults', 'Application', NULL, 'Light', 'Blue',
+        'English', 0, 'Normal', 'DD/MM/YYYY', '12 Hour', @timestamp,
+        @timestamp
+      )
+    `).run({ timestamp });
+  }
+  if (
+    Number(
+      db
+        .prepare(`
+          SELECT COUNT(*) AS count
+          FROM grading_schemes
+          WHERE deleted_at IS NULL
+        `)
+        .get()?.count ?? 0,
+    ) === 0
+  ) {
+    const timestamp = now();
+    const schemeId = crypto.randomUUID();
+    db.prepare(`
+      INSERT INTO grading_schemes (
+        id, name, calculation_mode, status, is_default, description,
+        created_by, created_at, updated_at, deleted_at, sync_status
+      ) VALUES (
+        @id, 'Default Percentage Scheme', 'Percentage', 'Active', 1,
+        'Default school grading scheme', 'System', @timestamp, @timestamp,
+        NULL, 'pending'
+      )
+    `).run({ id: schemeId, timestamp });
+    DEFAULT_GRADING_RANGES.forEach((range, index) => {
+      db.prepare(`
+        INSERT INTO grading_ranges (
+          id, grading_scheme_id, min_value, max_value, grade, grade_point,
+          result_status, description, display_order, created_at, updated_at,
+          deleted_at, sync_status
+        ) VALUES (
+          @id, @schemeId, @minValue, @maxValue, @grade, @gradePoint,
+          @resultStatus, '', @displayOrder, @timestamp, @timestamp, NULL,
+          'pending'
+        )
+      `).run({
+        id: crypto.randomUUID(),
+        schemeId,
+        minValue: range.minValue,
+        maxValue: range.maxValue,
+        grade: range.grade,
+        gradePoint: range.gradePoint,
+        resultStatus: range.resultStatus,
+        displayOrder: index,
+        timestamp,
+      });
+    });
+  }
+  if (
+    Number(
+      db
+        .prepare(`
+          SELECT COUNT(*) AS count
+          FROM report_card_templates
+          WHERE deleted_at IS NULL
+        `)
+        .get()?.count ?? 0,
+    ) === 0
+  ) {
+    const timestamp = now();
+    db.prepare(`
+      INSERT INTO report_card_templates (
+        id, name, template_type, show_attendance, show_class_tests,
+        show_behaviour, show_skills, show_teacher_remarks,
+        show_principal_signature, header_text, footer_text, status,
+        created_at, updated_at, deleted_at, sync_status
+      ) VALUES (
+        @id, 'Standard Report Card', 'Standard', 1, 0, 1, 1, 1, 1,
+        'Academic Report Card', 'This is a system generated report card.',
+        'Active', @timestamp, @timestamp, NULL, 'pending'
+      )
+    `).run({ id: crypto.randomUUID(), timestamp });
+  }
   addColumnIfMissing(db, "students", "father_name", "TEXT");
   addColumnIfMissing(db, "students", "mother_name", "TEXT");
   addColumnIfMissing(db, "students", "email", "TEXT");
@@ -1924,6 +3588,9 @@ function createDatabase(databasePath) {
       ON account_categories(type, status, deleted_at, name);
     CREATE INDEX IF NOT EXISTS idx_account_transactions_date
       ON account_transactions(transaction_date, type, deleted_at);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_fee_invoice_account_mapping_active
+      ON fee_invoice_account_mappings(fee_head_id)
+      WHERE deleted_at IS NULL;
     CREATE UNIQUE INDEX IF NOT EXISTS idx_account_linked_record_active
       ON account_transactions(linked_module, linked_record_id, type)
       WHERE deleted_at IS NULL
@@ -2505,6 +4172,288 @@ function createDatabase(databasePath) {
     return `${paperStem}${String(nextSequence).padStart(4, "0")}`;
   }
 
+  function generateFamilyCode() {
+    const year = new Date().getFullYear();
+    const familyStem = `FAM-${year}-`;
+    const sequence = db
+      .prepare(`
+        SELECT MAX(
+          CAST(substr(family_code, length(?) + 1) AS INTEGER)
+        ) AS last_sequence
+        FROM families
+        WHERE substr(family_code, 1, length(?)) = ?
+      `)
+      .get(familyStem, familyStem, familyStem);
+    const nextSequence = Number(sequence?.last_sequence ?? 0) + 1;
+    return `${familyStem}${String(nextSequence).padStart(4, "0")}`;
+  }
+
+  function normalizeGuardianRelation(value, fallback = "Guardian") {
+    const relation = optionalText(value) || fallback;
+    if (!GUARDIAN_RELATIONS.has(relation)) {
+      throw new Error("Guardian relation is invalid.");
+    }
+    return relation;
+  }
+
+  function normalizeGuardianStatus(value, fallback = "Active") {
+    return masterStatus(value, fallback);
+  }
+
+  function normalizeContact(value) {
+    return optionalText(value).replace(/\D/g, "");
+  }
+
+  function normalizeEmail(value) {
+    return optionalText(value).toLowerCase();
+  }
+
+  function getStudentRowRequired(studentId) {
+    const student = getStudentStatement.get(
+      requiredText(studentId, "Student id"),
+    );
+    if (!student) throw new Error("Student record was not found.");
+    return student;
+  }
+
+  function getFamilyRowRequired(familyId) {
+    const family = db
+      .prepare(`
+        SELECT *
+        FROM families
+        WHERE id = ? AND deleted_at IS NULL
+      `)
+      .get(requiredText(familyId, "Family id"));
+    if (!family) throw new Error("Family record was not found.");
+    return family;
+  }
+
+  function getGuardianRowRequired(guardianId) {
+    const guardian = db
+      .prepare(`
+        SELECT *
+        FROM guardians
+        WHERE id = ? AND deleted_at IS NULL
+      `)
+      .get(requiredText(guardianId, "Guardian id"));
+    if (!guardian) throw new Error("Guardian record was not found.");
+    return guardian;
+  }
+
+  function findDuplicateGuardian(input = {}, excludingId = "") {
+    const fullName = optionalText(input.fullName);
+    const normalizedMobile = normalizeContact(input.mobile);
+    const email = normalizeEmail(input.email);
+    if (!fullName || (!normalizedMobile && !email)) return null;
+    return db
+      .prepare(`
+        SELECT *
+        FROM guardians
+        WHERE deleted_at IS NULL
+          AND id <> @excludingId
+          AND full_name = @fullName COLLATE NOCASE
+          AND (
+            (@mobile <> '' AND replace(replace(replace(replace(coalesce(mobile, ''), ' ', ''), '-', ''), '(', ''), ')', '') = @mobile)
+            OR (@email <> '' AND lower(coalesce(email, '')) = @email)
+          )
+        LIMIT 1
+      `)
+      .get({
+        excludingId: optionalText(excludingId),
+        fullName,
+        mobile: normalizedMobile,
+        email,
+      });
+  }
+
+  function familySelect(whereClause = "families.deleted_at IS NULL") {
+    return `
+      SELECT
+        families.*,
+        COUNT(DISTINCT CASE
+          WHEN student_guardian_links.deleted_at IS NULL
+            AND students.deleted_at IS NULL
+          THEN students.id
+        END) AS student_count,
+        COUNT(DISTINCT CASE
+          WHEN guardians.deleted_at IS NULL
+          THEN guardians.id
+        END) AS guardian_count
+      FROM families
+      LEFT JOIN guardians
+        ON guardians.family_id = families.id
+        AND guardians.deleted_at IS NULL
+      LEFT JOIN student_guardian_links
+        ON student_guardian_links.family_id = families.id
+        AND student_guardian_links.deleted_at IS NULL
+      LEFT JOIN students
+        ON students.id = student_guardian_links.student_id
+        AND students.deleted_at IS NULL
+      WHERE ${whereClause}
+      GROUP BY families.id
+    `;
+  }
+
+  function buildFamilyWhere(filter = {}) {
+    const clauses = ["families.deleted_at IS NULL"];
+    const params = {};
+    const status = optionalText(filter.status);
+    if (status && status !== "All") {
+      if (!MASTER_STATUSES.has(status)) throw new Error("Family status is invalid.");
+      clauses.push("families.status = @status");
+      params.status = status;
+    }
+    const search = optionalText(filter.search).toLowerCase();
+    if (search) {
+      clauses.push(`
+        (
+          lower(families.family_code) LIKE @search OR
+          lower(coalesce(families.family_name, '')) LIKE @search OR
+          lower(coalesce(families.primary_contact_name, '')) LIKE @search OR
+          lower(coalesce(families.primary_mobile, '')) LIKE @search OR
+          lower(coalesce(families.email, '')) LIKE @search
+        )
+      `);
+      params.search = `%${search}%`;
+    }
+    return { where: clauses.join(" AND "), params };
+  }
+
+  function buildGuardianWhere(filter = {}) {
+    const clauses = ["guardians.deleted_at IS NULL"];
+    const params = {};
+    const familyId = optionalText(filter.familyId);
+    if (familyId) {
+      clauses.push("guardians.family_id = @familyId");
+      params.familyId = familyId;
+    }
+    const relation = optionalText(filter.relation);
+    if (relation && relation !== "All") {
+      clauses.push("guardians.relation = @relation");
+      params.relation = normalizeGuardianRelation(relation);
+    }
+    const status = optionalText(filter.status);
+    if (status && status !== "All") {
+      clauses.push("guardians.status = @status");
+      params.status = normalizeGuardianStatus(status);
+    }
+    const search = optionalText(filter.search).toLowerCase();
+    if (search) {
+      clauses.push(`
+        (
+          lower(guardians.full_name) LIKE @search OR
+          lower(coalesce(guardians.mobile, '')) LIKE @search OR
+          lower(coalesce(guardians.email, '')) LIKE @search OR
+          lower(coalesce(families.family_code, '')) LIKE @search
+        )
+      `);
+      params.search = `%${search}%`;
+    }
+    return { where: clauses.join(" AND "), params };
+  }
+
+  function guardianSelect(whereClause = "guardians.deleted_at IS NULL") {
+    return `
+      SELECT
+        guardians.*,
+        families.family_code,
+        families.family_name,
+        COUNT(DISTINCT CASE
+          WHEN student_guardian_links.deleted_at IS NULL
+            AND students.deleted_at IS NULL
+          THEN students.id
+        END) AS linked_student_count
+      FROM guardians
+      LEFT JOIN families
+        ON families.id = guardians.family_id
+        AND families.deleted_at IS NULL
+      LEFT JOIN student_guardian_links
+        ON student_guardian_links.guardian_id = guardians.id
+        AND student_guardian_links.deleted_at IS NULL
+      LEFT JOIN students
+        ON students.id = student_guardian_links.student_id
+        AND students.deleted_at IS NULL
+      WHERE ${whereClause}
+      GROUP BY guardians.id
+    `;
+  }
+
+  function studentGuardianLinkSelect(whereClause = "links.deleted_at IS NULL") {
+    return `
+      SELECT
+        links.*,
+        students.name AS student_name,
+        students.admission_no,
+        students.class_name,
+        students.section,
+        guardians.full_name,
+        guardians.full_name AS guardian_name,
+        guardians.relation,
+        guardians.mobile,
+        guardians.alternate_mobile,
+        guardians.email,
+        guardians.occupation,
+        guardians.address,
+        guardians.can_pickup_student AS guardian_can_pickup_student,
+        guardians.emergency_contact AS guardian_emergency_contact,
+        families.family_code,
+        families.family_name,
+        families.emergency_contact_name,
+        families.emergency_contact_mobile
+      FROM student_guardian_links AS links
+      JOIN students
+        ON students.id = links.student_id
+        AND students.deleted_at IS NULL
+      JOIN guardians
+        ON guardians.id = links.guardian_id
+        AND guardians.deleted_at IS NULL
+      LEFT JOIN families
+        ON families.id = links.family_id
+        AND families.deleted_at IS NULL
+      WHERE ${whereClause}
+    `;
+  }
+
+  function makeLegacyParentInfoRows(student) {
+    const guardianName =
+      optionalText(student.guardianName) ||
+      optionalText(student.fatherName) ||
+      optionalText(student.motherName);
+    if (!guardianName && !student.mobile && !student.email) {
+      return [];
+    }
+    return [
+      {
+        studentId: student.id,
+        admissionNo: student.admissionNo,
+        studentName: student.name,
+        className: student.className,
+        section: student.section,
+        familyId: "",
+        familyCode: "",
+        familyName: "",
+        guardianId: "",
+        primaryGuardian: guardianName,
+        relation: student.fatherName
+          ? "Father"
+          : student.motherName
+            ? "Mother"
+            : "Guardian",
+        mobile: student.mobile,
+        alternateMobile: "",
+        email: student.email,
+        occupation: "",
+        address: student.address,
+        emergencyContact: true,
+        emergencyContactName: guardianName,
+        emergencyContactMobile: student.mobile,
+        pickupAuthorized: true,
+        hasLinkedGuardian: false,
+        source: "Legacy",
+      },
+    ];
+  }
+
   function getActiveAccountCategory(type, names) {
     for (const name of names) {
       const category = db
@@ -2524,6 +4473,29 @@ function createDatabase(databasePath) {
 
   function resolveFeeIncomeCategory(feeType) {
     const normalizedFeeType = requiredText(feeType, "Fee type");
+    const mappedCategory = db
+      .prepare(`
+        SELECT account_categories.*
+        FROM fee_invoice_account_mappings
+        JOIN account_categories
+          ON account_categories.id = fee_invoice_account_mappings.account_category_id
+        LEFT JOIN fee_heads
+          ON fee_heads.id = fee_invoice_account_mappings.fee_head_id
+        WHERE fee_invoice_account_mappings.status = 'Active'
+          AND fee_invoice_account_mappings.deleted_at IS NULL
+          AND account_categories.type = 'Income'
+          AND account_categories.status = 'Active'
+          AND account_categories.deleted_at IS NULL
+          AND (
+            fee_invoice_account_mappings.fee_head_name = ? COLLATE NOCASE
+            OR fee_heads.name = ? COLLATE NOCASE
+          )
+        ORDER BY fee_invoice_account_mappings.updated_at DESC
+        LIMIT 1
+      `)
+      .get(normalizedFeeType, normalizedFeeType);
+    if (mappedCategory) return mappedCategory;
+
     const candidates = [`${normalizedFeeType} Income`];
     if (/admission/i.test(normalizedFeeType)) {
       candidates.push("Admission Fee Income");
@@ -2602,6 +4574,2272 @@ function createDatabase(databasePath) {
     return accountTransactionFromRow(
       db.prepare("SELECT * FROM account_transactions WHERE id = ?").get(id),
     );
+  }
+
+  function insertAuditLog(user, action, module, details = "") {
+    const id = crypto.randomUUID();
+    db.prepare(`
+      INSERT INTO audit_logs (
+        id, user_id, user_name, action, module, details, created_at
+      ) VALUES (
+        @id, @userId, @userName, @action, @module, @details, @createdAt
+      )
+    `).run({
+      id,
+      userId: user?.id ?? null,
+      userName: optionalText(user?.name) || "System",
+      action: requiredText(action, "Audit action"),
+      module: optionalText(module),
+      details: optionalText(details),
+      createdAt: now(),
+    });
+    return auditLogFromRow(
+      db.prepare("SELECT * FROM audit_logs WHERE id = ?").get(id),
+    );
+  }
+
+  function normalizeDiscountMode(value, fieldName = "Discount mode") {
+    const mode = requiredText(value, fieldName);
+    if (!DISCOUNT_MODES.has(mode)) {
+      throw new Error(`${fieldName} must be Fixed or Percentage.`);
+    }
+    return mode;
+  }
+
+  function normalizeBillingPeriod(value) {
+    const billingPeriod = requiredText(value, "Billing period");
+    if (!BILLING_PERIODS.has(billingPeriod)) {
+      throw new Error("Billing period is invalid.");
+    }
+    return billingPeriod;
+  }
+
+  function normalizeInvoiceStatus(value, fallback = "Unpaid") {
+    const status = optionalText(value) || fallback;
+    if (!FEE_INVOICE_STATUSES.has(status)) {
+      throw new Error("Fee invoice status is invalid.");
+    }
+    return status;
+  }
+
+  function normalizeFeePaymentStatus(value, fallback = "Active") {
+    const status = optionalText(value) || fallback;
+    if (!FEE_PAYMENT_STATUSES.has(status)) {
+      throw new Error("Fee payment status is invalid.");
+    }
+    return status;
+  }
+
+  function normalizeOptionalDate(value, fieldName) {
+    const text = optionalText(value);
+    return text ? normalizeDate(text, fieldName) : "";
+  }
+
+  function validateDiscountValue(mode, value, fieldName = "Discount value") {
+    const discountValue = wholeNumber(value, fieldName, 0);
+    if (mode === "Percentage" && discountValue > 100) {
+      throw new Error("Percentage discount must be between 0 and 100.");
+    }
+    return discountValue;
+  }
+
+  function getCurrentAcademicSessionRow() {
+    return db
+      .prepare(`
+        SELECT *
+        FROM academic_sessions
+        WHERE is_current = 1
+          AND deleted_at IS NULL
+        LIMIT 1
+      `)
+      .get();
+  }
+
+  function resolveAcademicSession(inputSessionId) {
+    const academicSessionId = optionalText(inputSessionId);
+    const session = academicSessionId
+      ? db
+          .prepare(`
+            SELECT *
+            FROM academic_sessions
+            WHERE id = ?
+              AND deleted_at IS NULL
+          `)
+          .get(academicSessionId)
+      : getCurrentAcademicSessionRow();
+    if (!session) {
+      throw new Error("Select an academic session before generating an invoice.");
+    }
+    return session;
+  }
+
+  function generateInvoiceNumber(invoiceDate) {
+    const year = normalizeDate(invoiceDate, "Invoice date").slice(0, 4);
+    const invoiceStem = `INV-${year}-`;
+    const sequence = db
+      .prepare(`
+        SELECT MAX(
+          CAST(substr(invoice_no, length(?) + 1) AS INTEGER)
+        ) AS last_sequence
+        FROM fee_invoices
+        WHERE substr(invoice_no, 1, length(?)) = ?
+      `)
+      .get(invoiceStem, invoiceStem, invoiceStem);
+    const nextSequence = Number(sequence?.last_sequence ?? 0) + 1;
+    return `${invoiceStem}${String(nextSequence).padStart(4, "0")}`;
+  }
+
+  function generateReportCardNumber(generatedDate) {
+    const year = normalizeDate(generatedDate, "Generated date").slice(0, 4);
+    const stem = `RC-${year}-`;
+    const sequence = db
+      .prepare(`
+        SELECT MAX(
+          CAST(substr(report_card_no, length(?) + 1) AS INTEGER)
+        ) AS last_sequence
+        FROM student_report_cards
+        WHERE substr(report_card_no, 1, length(?)) = ?
+      `)
+      .get(stem, stem, stem);
+    const nextSequence = Number(sequence?.last_sequence ?? 0) + 1;
+    return `${stem}${String(nextSequence).padStart(4, "0")}`;
+  }
+
+  function getFeeInvoiceItems(invoiceId) {
+    return db
+      .prepare(`
+        SELECT *
+        FROM fee_invoice_items
+        WHERE invoice_id = ?
+        ORDER BY display_order, created_at
+      `)
+      .all(invoiceId)
+      .map(feeInvoiceItemFromRow);
+  }
+
+  function getFeeInvoiceAllocations(invoiceId) {
+    return db
+      .prepare(`
+        SELECT *
+        FROM fee_invoice_allocations
+        WHERE invoice_id = ?
+        ORDER BY created_at
+      `)
+      .all(invoiceId)
+      .map(feeInvoiceAllocationFromRow);
+  }
+
+  function getFeeInvoiceByIdInternal(invoiceId) {
+    const id = requiredText(invoiceId, "Invoice id");
+    const row = db.prepare("SELECT * FROM fee_invoices WHERE id = ?").get(id);
+    if (!row) return null;
+    return feeInvoiceFromRow(
+      row,
+      getFeeInvoiceItems(id),
+      getFeeInvoiceAllocations(id),
+    );
+  }
+
+  function findPossibleDuplicateInvoices(studentId, academicSessionId, billingPeriod) {
+    return db
+      .prepare(`
+        SELECT *
+        FROM fee_invoices
+        WHERE student_id = ?
+          AND COALESCE(academic_session_id, '') = ?
+          AND billing_period = ?
+          AND status <> 'Cancelled'
+        ORDER BY created_at DESC
+      `)
+      .all(studentId, academicSessionId ?? "", billingPeriod)
+      .map((row) => feeInvoiceFromRow(row));
+  }
+
+  function getFeeStructuresForInvoice(student, academicSessionName) {
+    const settings = db
+      .prepare("SELECT * FROM school_settings WHERE id = ?")
+      .get(DEFAULT_SETTINGS_ID);
+    const academicYear = optionalText(settings?.academic_year);
+    const sessionName = optionalText(academicSessionName);
+    const exactRows = db
+      .prepare(`
+        SELECT fee_structures.*
+        FROM fee_structures
+        LEFT JOIN fee_heads
+          ON fee_heads.id = fee_structures.fee_head_id
+        WHERE fee_structures.class_name = ?
+          AND fee_structures.status = 'Active'
+          AND fee_structures.deleted_at IS NULL
+          AND (fee_heads.id IS NULL OR fee_heads.deleted_at IS NULL)
+          AND (fee_heads.id IS NULL OR fee_heads.status = 'Active')
+          AND (
+            COALESCE(fee_structures.academic_year, '') = ''
+            OR fee_structures.academic_year = ?
+            OR fee_structures.academic_year = ?
+          )
+        ORDER BY fee_structures.fee_head_name
+      `)
+      .all(student.class_name, sessionName, academicYear);
+    if (exactRows.length > 0) return exactRows;
+
+    return db
+      .prepare(`
+        SELECT fee_structures.*
+        FROM fee_structures
+        LEFT JOIN fee_heads
+          ON fee_heads.id = fee_structures.fee_head_id
+        WHERE fee_structures.class_name = ?
+          AND fee_structures.status = 'Active'
+          AND fee_structures.deleted_at IS NULL
+          AND (fee_heads.id IS NULL OR fee_heads.deleted_at IS NULL)
+          AND (fee_heads.id IS NULL OR fee_heads.status = 'Active')
+        ORDER BY fee_structures.fee_head_name
+      `)
+      .all(student.class_name);
+  }
+
+  function getPreviousDueForInvoice(studentId, academicSessionId) {
+    const academicSession = optionalText(academicSessionId);
+    if (academicSession) {
+      return Number(
+        db
+          .prepare(`
+            SELECT COALESCE(SUM(carried_amount), 0) AS amount
+            FROM fee_due_carry_forward
+            WHERE student_id = ?
+              AND to_session_id = ?
+              AND status = 'Pending'
+          `)
+          .get(studentId, academicSession)?.amount ?? 0,
+      );
+    }
+    return Number(
+      db
+        .prepare(`
+          SELECT COALESCE(SUM(carried_amount), 0) AS amount
+          FROM fee_due_carry_forward
+          WHERE student_id = ?
+            AND status = 'Pending'
+        `)
+        .get(studentId)?.amount ?? 0,
+    );
+  }
+
+  function getEligibleStudentDiscountRows(studentId, academicSessionId, invoiceDate) {
+    const date = normalizeDate(invoiceDate, "Invoice date");
+    return db
+      .prepare(`
+        SELECT *
+        FROM student_discounts
+        WHERE student_id = ?
+          AND status = 'Active'
+          AND deleted_at IS NULL
+          AND (
+            COALESCE(academic_session_id, '') = ''
+            OR academic_session_id = ?
+          )
+          AND (
+            COALESCE(start_date, '') = ''
+            OR date(start_date) <= date(?)
+          )
+          AND (
+            COALESCE(end_date, '') = ''
+            OR date(end_date) >= date(?)
+          )
+        ORDER BY created_at
+      `)
+      .all(studentId, academicSessionId ?? "", date, date);
+  }
+
+  function calculateDiscountedInvoiceItems(baseItems, discountRows) {
+    const items = baseItems.map((item) => ({
+      ...item,
+      discountAmount: 0,
+      netAmount: item.grossAmount,
+    }));
+
+    for (const discount of discountRows) {
+      const mode = normalizeDiscountMode(discount.discount_mode);
+      const value = validateDiscountValue(mode, discount.discount_value);
+      if (value === 0) continue;
+
+      const restrictedFeeHeadId = optionalText(discount.fee_head_id);
+      const restrictedFeeHeadName = optionalText(discount.fee_head_name).toLowerCase();
+      const eligibleItems = items.filter((item) => {
+        if (restrictedFeeHeadId) return item.feeHeadId === restrictedFeeHeadId;
+        if (restrictedFeeHeadName) {
+          return item.feeHeadName.toLowerCase() === restrictedFeeHeadName;
+        }
+        return true;
+      });
+      if (eligibleItems.length === 0) continue;
+
+      if (mode === "Percentage") {
+        for (const item of eligibleItems) {
+          const remaining = Math.max(item.grossAmount - item.discountAmount, 0);
+          const calculated = Math.floor((item.grossAmount * value) / 100);
+          item.discountAmount += Math.min(remaining, calculated);
+        }
+        continue;
+      }
+
+      let remainingDiscount = Math.min(
+        value,
+        eligibleItems.reduce(
+          (total, item) =>
+            total + Math.max(item.grossAmount - item.discountAmount, 0),
+          0,
+        ),
+      );
+      for (const item of eligibleItems) {
+        if (remainingDiscount <= 0) break;
+        const remaining = Math.max(item.grossAmount - item.discountAmount, 0);
+        const applied = Math.min(remaining, remainingDiscount);
+        item.discountAmount += applied;
+        remainingDiscount -= applied;
+      }
+    }
+
+    return items.map((item) => ({
+      ...item,
+      netAmount: Math.max(item.grossAmount - item.discountAmount, 0),
+    }));
+  }
+
+  function buildFeeInvoicePreview(input) {
+    const studentId = requiredText(input?.studentId, "Student");
+    const student = getStudentStatement.get(studentId);
+    if (!student) {
+      throw new Error("The selected student was not found.");
+    }
+
+    const academicSession = resolveAcademicSession(input?.academicSessionId);
+    const billingPeriod = normalizeBillingPeriod(input?.billingPeriod);
+    const invoiceDate = normalizeDate(
+      optionalText(input?.invoiceDate) || now().slice(0, 10),
+      "Invoice date",
+    );
+    const dueDate = normalizeOptionalDate(input?.dueDate, "Due date");
+    if (dueDate && dueDate < invoiceDate) {
+      throw new Error("Due date cannot be before invoice date.");
+    }
+
+    const structures = getFeeStructuresForInvoice(student, academicSession.session_name);
+    if (structures.length === 0) {
+      throw new Error("Create an active fee structure for this student's class first.");
+    }
+
+    const baseItems = structures.map((structure, index) => {
+      const grossAmount = wholeNumber(structure.amount, "Fee structure amount", 0);
+      return {
+        feeHeadId: structure.fee_head_id ?? "",
+        feeHeadName: structure.fee_head_name,
+        description: `${structure.fee_head_name} - ${billingPeriod}`,
+        quantity: 1,
+        unitAmount: grossAmount,
+        grossAmount,
+        discountAmount: 0,
+        netAmount: grossAmount,
+        displayOrder: index + 1,
+      };
+    });
+    const discountRows = getEligibleStudentDiscountRows(
+      student.id,
+      academicSession.id,
+      invoiceDate,
+    );
+    const items = calculateDiscountedInvoiceItems(baseItems, discountRows);
+    const subtotal = items.reduce((total, item) => total + item.grossAmount, 0);
+    const discountAmount = items.reduce(
+      (total, item) => total + item.discountAmount,
+      0,
+    );
+    const previousDue = input?.includePreviousDue
+      ? getPreviousDueForInvoice(student.id, academicSession.id)
+      : 0;
+    const lateFee = wholeNumber(input?.lateFee ?? 0, "Late fee", 0);
+    const adjustmentAmount = integerAmount(
+      input?.adjustmentAmount ?? 0,
+      "Adjustment amount",
+    );
+    const adjustmentReason = optionalText(input?.adjustmentReason);
+    if (adjustmentAmount !== 0 && !adjustmentReason) {
+      throw new Error("Adjustment reason is required when an adjustment is applied.");
+    }
+
+    const grandTotal =
+      subtotal - discountAmount + previousDue + lateFee + adjustmentAmount;
+    if (grandTotal < 0) {
+      throw new Error("Invoice total cannot be negative.");
+    }
+
+    const possibleDuplicates = findPossibleDuplicateInvoices(
+      student.id,
+      academicSession.id,
+      billingPeriod,
+    );
+
+    return {
+      studentId: student.id,
+      admissionNo: student.admission_no ?? "",
+      studentName: student.name,
+      className: student.class_name ?? "",
+      section: student.section ?? "",
+      academicSessionId: academicSession.id,
+      academicSessionName: academicSession.session_name,
+      billingPeriod,
+      invoiceDate,
+      dueDate,
+      subtotal,
+      discountAmount,
+      previousDue,
+      lateFee,
+      adjustmentAmount,
+      adjustmentReason,
+      grandTotal,
+      balanceAmount: grandTotal,
+      items,
+      discounts: discountRows.map(studentDiscountFromRow),
+      possibleDuplicates,
+    };
+  }
+
+  function refreshFeeInvoiceStatusInternal(invoiceId) {
+    const id = requiredText(invoiceId, "Invoice id");
+    const invoice = db.prepare("SELECT * FROM fee_invoices WHERE id = ?").get(id);
+    if (!invoice) {
+      throw new Error("Fee invoice was not found.");
+    }
+    if (invoice.status === "Cancelled") {
+      return getFeeInvoiceByIdInternal(id);
+    }
+
+    const paidAmount = Number(
+      db
+        .prepare(`
+          SELECT COALESCE(SUM(fee_invoice_allocations.allocated_amount), 0) AS amount
+          FROM fee_invoice_allocations
+          JOIN fee_payments
+            ON fee_payments.id = fee_invoice_allocations.fee_payment_id
+          WHERE fee_invoice_allocations.invoice_id = ?
+            AND fee_invoice_allocations.reversed_at IS NULL
+            AND COALESCE(fee_payments.status, 'Active') <> 'Reversed'
+        `)
+        .get(id)?.amount ?? 0,
+    );
+    const balanceAmount = Math.max(Number(invoice.grand_total ?? 0) - paidAmount, 0);
+    const today = now().slice(0, 10);
+    const status =
+      balanceAmount === 0
+        ? "Paid"
+        : paidAmount > 0
+          ? "Partially Paid"
+          : invoice.due_date && invoice.due_date < today
+            ? "Overdue"
+            : "Unpaid";
+
+    db.prepare(`
+      UPDATE fee_invoices
+      SET paid_amount = ?,
+          balance_amount = ?,
+          status = ?,
+          updated_at = ?,
+          sync_status = 'pending'
+      WHERE id = ?
+    `).run(paidAmount, balanceAmount, status, now(), id);
+    return getFeeInvoiceByIdInternal(id);
+  }
+
+  function applyFeeInvoiceAllocations(payment, requestedAllocations, auditUser) {
+    const allocations = Array.isArray(requestedAllocations)
+      ? requestedAllocations
+      : [];
+    const byInvoice = new Map();
+    for (const allocation of allocations) {
+      const invoiceId = optionalText(allocation?.invoiceId);
+      const allocatedAmount = wholeNumber(
+        allocation?.allocatedAmount ?? allocation?.amount ?? 0,
+        "Allocated amount",
+        0,
+      );
+      if (!invoiceId || allocatedAmount === 0) continue;
+      byInvoice.set(invoiceId, (byInvoice.get(invoiceId) ?? 0) + allocatedAmount);
+    }
+
+    if (byInvoice.size === 0) return [];
+
+    if (normalizeFeePaymentStatus(payment.status) === "Reversed") {
+      throw new Error("A reversed payment cannot be allocated.");
+    }
+
+    const existingAllocated = Number(
+      db
+        .prepare(`
+          SELECT COALESCE(SUM(allocated_amount), 0) AS amount
+          FROM fee_invoice_allocations
+          WHERE fee_payment_id = ?
+            AND reversed_at IS NULL
+        `)
+        .get(payment.id)?.amount ?? 0,
+    );
+    const requestedTotal = [...byInvoice.values()].reduce(
+      (total, allocatedAmount) => total + allocatedAmount,
+      0,
+    );
+    if (requestedTotal > Number(payment.amount ?? 0) - existingAllocated) {
+      throw new Error("Invoice allocations exceed the unallocated payment amount.");
+    }
+
+    const timestamp = now();
+    const createdAllocations = [];
+    for (const [invoiceId, allocatedAmount] of byInvoice.entries()) {
+      const invoice = refreshFeeInvoiceStatusInternal(invoiceId);
+      if (!invoice) {
+        throw new Error("Fee invoice was not found.");
+      }
+      if (invoice.status === "Cancelled") {
+        throw new Error(`Cancelled invoice ${invoice.invoiceNo} cannot accept payment.`);
+      }
+      if (invoice.studentId !== payment.student_id) {
+        throw new Error("Payment and invoice must belong to the same student.");
+      }
+      if (allocatedAmount > invoice.balanceAmount) {
+        throw new Error(
+          `Allocation exceeds outstanding balance for invoice ${invoice.invoiceNo}.`,
+        );
+      }
+
+      const id = crypto.randomUUID();
+      db.prepare(`
+        INSERT INTO fee_invoice_allocations (
+          id, invoice_id, fee_payment_id, receipt_no, allocated_amount,
+          created_at, reversed_at, reversal_id, sync_status
+        ) VALUES (
+          @id, @invoiceId, @feePaymentId, @receiptNo, @allocatedAmount,
+          @createdAt, NULL, NULL, 'pending'
+        )
+      `).run({
+        id,
+        invoiceId,
+        feePaymentId: payment.id,
+        receiptNo: payment.receipt_no,
+        allocatedAmount,
+        createdAt: timestamp,
+      });
+      createdAllocations.push(
+        feeInvoiceAllocationFromRow(
+          db
+            .prepare("SELECT * FROM fee_invoice_allocations WHERE id = ?")
+            .get(id),
+        ),
+      );
+      refreshFeeInvoiceStatusInternal(invoiceId);
+    }
+
+    insertAuditLog(
+      auditUser,
+      "Payment allocated",
+      "Fees",
+      `Allocated ${payment.receipt_no} to ${createdAllocations.length} invoice(s).`,
+    );
+    return createdAllocations;
+  }
+
+  function reverseFeePaymentInternal(paymentId, reason, actorName, auditUser) {
+    const id = requiredText(paymentId, "Fee payment id");
+    const reversalReason = requiredText(reason, "Reversal reason");
+    const payment = db
+      .prepare("SELECT * FROM fee_payments WHERE id = ?")
+      .get(id);
+    if (!payment) {
+      throw new Error("Fee payment was not found.");
+    }
+    if (normalizeFeePaymentStatus(payment.status) === "Reversed") {
+      throw new Error("This payment is already reversed.");
+    }
+
+    const timestamp = now();
+    const reversalId = crypto.randomUUID();
+    const activeAllocations = db
+      .prepare(`
+        SELECT DISTINCT invoice_id
+        FROM fee_invoice_allocations
+        WHERE fee_payment_id = ?
+          AND reversed_at IS NULL
+      `)
+      .all(id);
+
+    db.prepare(`
+      INSERT INTO fee_payment_reversals (
+        id, fee_payment_id, receipt_no, amount, reason, reversed_by,
+        created_at, sync_status
+      ) VALUES (
+        @id, @feePaymentId, @receiptNo, @amount, @reason, @reversedBy,
+        @createdAt, 'pending'
+      )
+    `).run({
+      id: reversalId,
+      feePaymentId: payment.id,
+      receiptNo: payment.receipt_no,
+      amount: Number(payment.amount ?? 0),
+      reason: reversalReason,
+      reversedBy: optionalText(actorName),
+      createdAt: timestamp,
+    });
+
+    db.prepare(`
+      UPDATE fee_payments
+      SET status = 'Reversed',
+          reversed_at = ?,
+          reversed_by = ?,
+          reversal_reason = ?,
+          updated_at = ?,
+          sync_status = 'pending'
+      WHERE id = ?
+    `).run(timestamp, optionalText(actorName), reversalReason, timestamp, id);
+
+    db.prepare(`
+      UPDATE fee_invoice_allocations
+      SET reversed_at = ?,
+          reversal_id = ?,
+          sync_status = 'pending'
+      WHERE fee_payment_id = ?
+        AND reversed_at IS NULL
+    `).run(timestamp, reversalId, id);
+
+    db.prepare(`
+      UPDATE account_transactions
+      SET deleted_at = ?,
+          notes = CASE
+            WHEN COALESCE(notes, '') = ''
+              THEN ?
+            ELSE notes || char(10) || ?
+          END,
+          updated_at = ?,
+          sync_status = 'pending'
+      WHERE linked_module = 'Fees'
+        AND linked_record_id = ?
+        AND deleted_at IS NULL
+    `).run(
+      timestamp,
+      `Reversed: ${reversalReason}`,
+      `Reversed: ${reversalReason}`,
+      timestamp,
+      id,
+    );
+
+    const affectedInvoices = activeAllocations.map((allocation) =>
+      refreshFeeInvoiceStatusInternal(allocation.invoice_id),
+    );
+    insertAuditLog(
+      auditUser,
+      "Payment reversed",
+      "Fees",
+      `Reversed receipt ${payment.receipt_no}. Reason: ${reversalReason}.`,
+    );
+
+    return {
+      payment: paymentFromRow(
+        db
+          .prepare(`${paymentSelect} WHERE fee_payments.id = ?`)
+          .get(id),
+      ),
+      reversal: feePaymentReversalFromRow(
+        db
+          .prepare("SELECT * FROM fee_payment_reversals WHERE id = ?")
+          .get(reversalId),
+      ),
+      affectedInvoices,
+    };
+  }
+
+  function queryFeeInvoiceRows(filter = {}) {
+    db.prepare(`
+      UPDATE fee_invoices
+      SET status = 'Overdue',
+          updated_at = ?,
+          sync_status = 'pending'
+      WHERE status = 'Unpaid'
+        AND COALESCE(due_date, '') <> ''
+        AND date(due_date) < date(?)
+    `).run(now(), now().slice(0, 10));
+
+    const clauses = [];
+    const params = {};
+
+    const academicSessionId = optionalText(filter?.academicSessionId);
+    if (academicSessionId) {
+      clauses.push("academic_session_id = @academicSessionId");
+      params.academicSessionId = academicSessionId;
+    }
+
+    const className = optionalText(filter?.className);
+    if (className && className !== "All") {
+      clauses.push("class_name = @className");
+      params.className = className;
+    }
+
+    const section = optionalText(filter?.section);
+    if (section && section !== "All") {
+      clauses.push("section = @section");
+      params.section = section;
+    }
+
+    const studentId = optionalText(filter?.studentId);
+    if (studentId) {
+      clauses.push("student_id = @studentId");
+      params.studentId = studentId;
+    }
+
+    const statusText = optionalText(filter?.status);
+    if (statusText && statusText !== "All") {
+      clauses.push("status = @status");
+      params.status = normalizeInvoiceStatus(statusText);
+    }
+
+    const startDate = optionalText(filter?.startDate);
+    if (startDate) {
+      clauses.push("date(invoice_date) >= date(@startDate)");
+      params.startDate = normalizeDate(startDate, "Start date");
+    }
+
+    const endDate = optionalText(filter?.endDate);
+    if (endDate) {
+      clauses.push("date(invoice_date) <= date(@endDate)");
+      params.endDate = normalizeDate(endDate, "End date");
+    }
+
+    return db
+      .prepare(`
+        SELECT *
+        FROM fee_invoices
+        ${clauses.length ? `WHERE ${clauses.join(" AND ")}` : ""}
+        ORDER BY invoice_date DESC, created_at DESC
+      `)
+        .all(params);
+  }
+
+  function normalizeEmployeeAttendanceStatus(value) {
+    const status = requiredText(value, "Employee attendance status");
+    if (!EMPLOYEE_ATTENDANCE_STATUSES.has(status)) {
+      throw new Error("Employee attendance status is invalid.");
+    }
+    return status;
+  }
+
+  function normalizeOptionalTimeValue(value, fieldName) {
+    const text = optionalText(value);
+    return text ? normalizeTime(text, fieldName) : "";
+  }
+
+  function normalizeEmployeeAttendanceFilter(filter = {}) {
+    const month = optionalText(filter?.month);
+    let startDate = optionalText(filter?.startDate);
+    let endDate = optionalText(filter?.endDate);
+    const date = optionalText(filter?.date);
+
+    if (month) {
+      if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) {
+        throw new Error("Attendance month must use YYYY-MM format.");
+      }
+      const [yearText, monthText] = month.split("-");
+      const lastDay = new Date(Number(yearText), Number(monthText), 0).getDate();
+      startDate = `${month}-01`;
+      endDate = `${month}-${String(lastDay).padStart(2, "0")}`;
+    }
+
+    if (date) {
+      startDate = date;
+      endDate = date;
+    }
+
+    if (startDate) {
+      startDate = normalizeDate(startDate, "Start date");
+    }
+    if (endDate) {
+      endDate = normalizeDate(endDate, "End date");
+    }
+    if (startDate && endDate && startDate > endDate) {
+      throw new Error("Start date must be before or equal to end date.");
+    }
+
+    const status = optionalText(filter?.status);
+    return {
+      date: date ? normalizeDate(date, "Attendance date") : "",
+      startDate,
+      endDate,
+      month,
+      employeeId: optionalText(filter?.employeeId),
+      department: optionalText(filter?.department),
+      designation: optionalText(filter?.designation),
+      status:
+        status && status !== "All"
+          ? normalizeEmployeeAttendanceStatus(status)
+          : "",
+    };
+  }
+
+  function buildEmployeeAttendanceWhere(filter = {}) {
+    const normalized = normalizeEmployeeAttendanceFilter(filter);
+    const clauses = ["deleted_at IS NULL"];
+    const params = {};
+
+    if (normalized.startDate) {
+      clauses.push("date(attendance_date) >= date(@startDate)");
+      params.startDate = normalized.startDate;
+    }
+    if (normalized.endDate) {
+      clauses.push("date(attendance_date) <= date(@endDate)");
+      params.endDate = normalized.endDate;
+    }
+    if (normalized.employeeId) {
+      clauses.push("employee_id = @employeeId");
+      params.employeeId = normalized.employeeId;
+    }
+    if (normalized.department && normalized.department !== "All") {
+      clauses.push("department = @department");
+      params.department = normalized.department;
+    }
+    if (normalized.designation && normalized.designation !== "All") {
+      clauses.push("designation = @designation");
+      params.designation = normalized.designation;
+    }
+    if (normalized.status) {
+      clauses.push("status = @status");
+      params.status = normalized.status;
+    }
+
+    return {
+      normalized,
+      params,
+      where: `WHERE ${clauses.join(" AND ")}`,
+    };
+  }
+
+  function queryEmployeeAttendanceRows(filter = {}) {
+    const { params, where } = buildEmployeeAttendanceWhere(filter);
+    return db
+      .prepare(`
+        SELECT *
+        FROM employee_attendance
+        ${where}
+        ORDER BY attendance_date DESC, employee_name COLLATE NOCASE
+      `)
+      .all(params)
+      .map(employeeAttendanceFromRow);
+  }
+
+  function countActiveEmployeesForAttendance(filter = {}) {
+    const normalized = normalizeEmployeeAttendanceFilter(filter);
+    const clauses = ["deleted_at IS NULL", "status = 'Active'"];
+    const params = {};
+    if (normalized.employeeId) {
+      clauses.push("id = @employeeId");
+      params.employeeId = normalized.employeeId;
+    }
+    if (normalized.department && normalized.department !== "All") {
+      clauses.push("department = @department");
+      params.department = normalized.department;
+    }
+    if (normalized.designation && normalized.designation !== "All") {
+      clauses.push("designation = @designation");
+      params.designation = normalized.designation;
+    }
+    return Number(
+      db
+        .prepare(`
+          SELECT COUNT(*) AS count
+          FROM employees
+          WHERE ${clauses.join(" AND ")}
+        `)
+        .get(params)?.count ?? 0,
+    );
+  }
+
+  function summarizeEmployeeAttendanceRows(rows, filter = {}) {
+    const present = rows.filter((row) => row.status === "Present").length;
+    const absent = rows.filter((row) => row.status === "Absent").length;
+    const leave = rows.filter((row) => row.status === "Leave").length;
+    const halfDay = rows.filter((row) => row.status === "Half Day").length;
+    const late = rows.filter((row) => row.status === "Late").length;
+    const holiday = rows.filter((row) => row.status === "Holiday").length;
+    const effectivePresent = present + late + halfDay * 0.5;
+    const workingMarked = present + absent + leave + halfDay + late;
+    return {
+      totalEmployees: countActiveEmployeesForAttendance(filter),
+      totalMarked: rows.length,
+      present,
+      absent,
+      leave,
+      halfDay,
+      late,
+      holiday,
+      overtimeMinutes: rows.reduce(
+        (total, row) => total + Number(row.overtimeMinutes ?? 0),
+        0,
+      ),
+      attendancePercentage:
+        workingMarked > 0
+          ? Math.round((effectivePresent / workingMarked) * 10000) / 100
+          : null,
+    };
+  }
+
+  function getEmployeesForMonthlyAttendance(filter = {}) {
+    const normalized = normalizeEmployeeAttendanceFilter(filter);
+    const clauses = ["deleted_at IS NULL", "status = 'Active'"];
+    const params = {};
+    if (normalized.employeeId) {
+      clauses.push("id = @employeeId");
+      params.employeeId = normalized.employeeId;
+    }
+    if (normalized.department && normalized.department !== "All") {
+      clauses.push("department = @department");
+      params.department = normalized.department;
+    }
+    if (normalized.designation && normalized.designation !== "All") {
+      clauses.push("designation = @designation");
+      params.designation = normalized.designation;
+    }
+    return db
+      .prepare(`
+        SELECT *
+        FROM employees
+        WHERE ${clauses.join(" AND ")}
+        ORDER BY department COLLATE NOCASE,
+                 designation COLLATE NOCASE,
+                 name COLLATE NOCASE
+      `)
+      .all(params)
+      .map(employeeFromRow);
+  }
+
+  function buildEmployeeMonthlyAttendanceRows(filter = {}) {
+    const normalized = normalizeEmployeeAttendanceFilter(filter);
+    if (!normalized.month) {
+      throw new Error("Attendance month is required.");
+    }
+    const employees = getEmployeesForMonthlyAttendance(filter);
+    const rows = queryEmployeeAttendanceRows({
+      ...filter,
+      startDate: normalized.startDate,
+      endDate: normalized.endDate,
+      month: "",
+    });
+    const byEmployee = new Map();
+    rows.forEach((row) => {
+      byEmployee.set(row.employeeId, [...(byEmployee.get(row.employeeId) ?? []), row]);
+    });
+
+    return employees.map((employee) => {
+      const records = byEmployee.get(employee.id) ?? [];
+      const present = records.filter((row) => row.status === "Present").length;
+      const absent = records.filter((row) => row.status === "Absent").length;
+      const leave = records.filter((row) => row.status === "Leave").length;
+      const halfDays = records.filter((row) => row.status === "Half Day").length;
+      const lateDays = records.filter((row) => row.status === "Late").length;
+      const holidays = records.filter((row) => row.status === "Holiday").length;
+      const workingDays = present + absent + leave + halfDays + lateDays;
+      const effectivePresent = present + lateDays + halfDays * 0.5;
+      return {
+        employeeId: employee.id,
+        employeeCode: employee.employeeNo,
+        employeeName: employee.name,
+        department: employee.department,
+        designation: employee.designation,
+        month: normalized.month,
+        workingDays,
+        present,
+        absent,
+        leave,
+        halfDays,
+        lateDays,
+        holidays,
+        overtimeMinutes: records.reduce(
+          (total, row) => total + Number(row.overtimeMinutes ?? 0),
+          0,
+        ),
+        attendancePercentage:
+          workingDays > 0
+            ? Math.round((effectivePresent / workingDays) * 10000) / 100
+            : null,
+      };
+    });
+  }
+
+  function normalizeGradingCalculationMode(value, fallback = "Percentage") {
+    const mode = optionalText(value) || fallback;
+    if (!GRADING_CALCULATION_MODES.has(mode)) {
+      throw new Error("Grading calculation mode is invalid.");
+    }
+    return mode;
+  }
+
+  function normalizeGradingResultStatus(value, fallback = "Pass") {
+    const status = optionalText(value) || fallback;
+    if (!GRADING_RESULT_STATUSES.has(status)) {
+      throw new Error("Grading range result status is invalid.");
+    }
+    return status;
+  }
+
+  function normalizeReportCardResultStatus(value, fallback = "Pending") {
+    const status = optionalText(value) || fallback;
+    if (!REPORT_CARD_RESULT_STATUSES.has(status)) {
+      throw new Error("Report card result status is invalid.");
+    }
+    return status;
+  }
+
+  function normalizeReportCardTemplateType(value, fallback = "Standard") {
+    const type = optionalText(value) || fallback;
+    if (!REPORT_CARD_TEMPLATE_TYPES.has(type)) {
+      throw new Error("Report card template type is invalid.");
+    }
+    return type;
+  }
+
+  function booleanFlag(value, fallback = true) {
+    if (value === undefined || value === null || value === "") {
+      return fallback ? 1 : 0;
+    }
+    return value === true || value === 1 || value === "1" ? 1 : 0;
+  }
+
+  function getGradingRangesForScheme(schemeId, includeDeleted = false) {
+    return db
+      .prepare(`
+        SELECT *
+        FROM grading_ranges
+        WHERE grading_scheme_id = ?
+          ${includeDeleted ? "" : "AND deleted_at IS NULL"}
+        ORDER BY display_order, min_value DESC
+      `)
+      .all(requiredText(schemeId, "Grading scheme id"))
+      .map(gradingRangeFromRow);
+  }
+
+  function getGradingSchemeByIdInternal(id, includeDeleted = false) {
+    const row = db
+      .prepare(`
+        SELECT *
+        FROM grading_schemes
+        WHERE id = ?
+          ${includeDeleted ? "" : "AND deleted_at IS NULL"}
+      `)
+      .get(requiredText(id, "Grading scheme id"));
+    return row
+      ? gradingSchemeFromRow(row, getGradingRangesForScheme(row.id))
+      : null;
+  }
+
+  function validateGradingRanges(ranges, calculationMode) {
+    if (!Array.isArray(ranges) || ranges.length === 0) {
+      throw new Error("At least one grading range is required.");
+    }
+    const normalized = ranges.map((range, index) => {
+      const minValue = decimalNumber(range?.minValue, "Minimum value", 0);
+      const maxValue = decimalNumber(range?.maxValue, "Maximum value", 0);
+      if (minValue > maxValue) {
+        throw new Error("Grading range minimum cannot exceed maximum.");
+      }
+      if (calculationMode === "Percentage" && (minValue > 100 || maxValue > 100)) {
+        throw new Error("Percentage grading ranges must stay within 0 to 100.");
+      }
+      return {
+        id: optionalText(range?.id),
+        minValue,
+        maxValue,
+        grade: requiredText(range?.grade, "Grade"),
+        gradePoint:
+          range?.gradePoint === undefined ||
+          range?.gradePoint === null ||
+          range?.gradePoint === ""
+            ? null
+            : decimalNumber(range.gradePoint, "Grade point", 0),
+        resultStatus: normalizeGradingResultStatus(range?.resultStatus),
+        description: optionalText(range?.description),
+        displayOrder:
+          range?.displayOrder === undefined
+            ? index
+            : displayOrder(range.displayOrder, index),
+      };
+    });
+    const sorted = [...normalized].sort((left, right) =>
+      left.minValue === right.minValue
+        ? left.maxValue - right.maxValue
+        : left.minValue - right.minValue,
+    );
+    for (let index = 1; index < sorted.length; index += 1) {
+      if (sorted[index].minValue <= sorted[index - 1].maxValue) {
+        throw new Error("Grading ranges cannot overlap.");
+      }
+    }
+    return normalized;
+  }
+
+  function resolveSchemeSession(input = {}, existing = null) {
+    const sessionId =
+      input.academicSessionId === undefined
+        ? existing?.academic_session_id ?? ""
+        : optionalText(input.academicSessionId);
+    if (!sessionId) {
+      return { id: "", name: "" };
+    }
+    const session = getAcademicSessionRow(sessionId);
+    if (!session) {
+      throw new Error("Academic session was not found.");
+    }
+    return {
+      id: session.id,
+      name: session.session_name,
+    };
+  }
+
+  function unsetOtherDefaultGradingSchemes(scheme) {
+    db.prepare(`
+      UPDATE grading_schemes
+      SET is_default = 0,
+          updated_at = @updatedAt,
+          sync_status = 'pending'
+      WHERE id <> @id
+        AND deleted_at IS NULL
+        AND COALESCE(academic_session_id, '') = @academicSessionId
+        AND COALESCE(class_name, '') = @className
+    `).run({
+      id: scheme.id,
+      academicSessionId: scheme.academicSessionId ?? "",
+      className: scheme.className ?? "",
+      updatedAt: now(),
+    });
+  }
+
+  function insertOrReplaceGradingRanges(schemeId, ranges, timestamp) {
+    db.prepare(`
+      UPDATE grading_ranges
+      SET deleted_at = @deletedAt,
+          updated_at = @updatedAt,
+          sync_status = 'pending'
+      WHERE grading_scheme_id = @schemeId
+        AND deleted_at IS NULL
+    `).run({ schemeId, deletedAt: timestamp, updatedAt: timestamp });
+    ranges.forEach((range, index) => {
+      db.prepare(`
+        INSERT INTO grading_ranges (
+          id, grading_scheme_id, min_value, max_value, grade, grade_point,
+          result_status, description, display_order, created_at, updated_at,
+          deleted_at, sync_status
+        ) VALUES (
+          @id, @schemeId, @minValue, @maxValue, @grade, @gradePoint,
+          @resultStatus, @description, @displayOrder, @createdAt, @updatedAt,
+          NULL, 'pending'
+        )
+      `).run({
+        id: crypto.randomUUID(),
+        schemeId,
+        minValue: range.minValue,
+        maxValue: range.maxValue,
+        grade: range.grade,
+        gradePoint: range.gradePoint,
+        resultStatus: range.resultStatus,
+        description: range.description,
+        displayOrder: range.displayOrder ?? index,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+    });
+  }
+
+  function resolveApplicableGradingScheme(input = {}) {
+    const explicitId = optionalText(input?.gradingSchemeId);
+    if (explicitId) {
+      const scheme = getGradingSchemeByIdInternal(explicitId);
+      if (!scheme || scheme.status !== "Active") {
+        throw new Error("Select an active grading scheme.");
+      }
+      return scheme;
+    }
+    const academicSessionId = optionalText(input?.academicSessionId);
+    const className = optionalText(input?.className);
+    const row = db
+      .prepare(`
+        SELECT *,
+          CASE
+            WHEN COALESCE(academic_session_id, '') = @academicSessionId
+             AND COALESCE(class_name, '') = @className THEN 4
+            WHEN COALESCE(academic_session_id, '') = @academicSessionId
+             AND COALESCE(class_name, '') = '' THEN 3
+            WHEN COALESCE(academic_session_id, '') = ''
+             AND COALESCE(class_name, '') = @className THEN 2
+            WHEN COALESCE(academic_session_id, '') = ''
+             AND COALESCE(class_name, '') = '' THEN 1
+            ELSE 0
+          END AS scope_score
+        FROM grading_schemes
+        WHERE deleted_at IS NULL
+          AND status = 'Active'
+          AND is_default = 1
+          AND (
+            COALESCE(academic_session_id, '') IN ('', @academicSessionId)
+          )
+          AND (
+            COALESCE(class_name, '') IN ('', @className)
+          )
+        ORDER BY scope_score DESC, updated_at DESC
+        LIMIT 1
+      `)
+      .get({ academicSessionId, className });
+    if (row) return gradingSchemeFromRow(row, getGradingRangesForScheme(row.id));
+    const fallback = db
+      .prepare(`
+        SELECT *
+        FROM grading_schemes
+        WHERE deleted_at IS NULL
+          AND status = 'Active'
+        ORDER BY is_default DESC, updated_at DESC
+        LIMIT 1
+      `)
+      .get();
+    if (!fallback) {
+      throw new Error("Create an active grading scheme first.");
+    }
+    return gradingSchemeFromRow(
+      fallback,
+      getGradingRangesForScheme(fallback.id),
+    );
+  }
+
+  function calculateGradeFromScheme(scheme, value) {
+    const normalizedValue = decimalNumber(value, "Grade value", 0);
+    const range = [...scheme.ranges]
+      .sort((left, right) => right.minValue - left.minValue)
+      .find(
+        (item) =>
+          normalizedValue >= item.minValue &&
+          normalizedValue <= item.maxValue,
+      );
+    return {
+      value: normalizedValue,
+      grade: range?.grade ?? "",
+      gradePoint: range?.gradePoint ?? null,
+      resultStatus: range?.resultStatus ?? "Fail",
+      range: range ?? null,
+    };
+  }
+
+  function generateReportCardSubjects({ exam, marks, scheme }) {
+    const activeSubjects = db
+      .prepare(`
+        SELECT *
+        FROM subjects
+        WHERE class_name = ?
+          AND status = 'Active'
+          AND deleted_at IS NULL
+        ORDER BY name COLLATE NOCASE
+      `)
+      .all(exam.class_name)
+      .map(subjectFromRow);
+    const subjectMap = new Map(activeSubjects.map((subject) => [subject.id, subject]));
+    marks.forEach((mark) => {
+      if (!subjectMap.has(mark.subjectId)) {
+        subjectMap.set(mark.subjectId, {
+          id: mark.subjectId,
+          name: mark.subjectName,
+          code: "",
+          className: mark.className,
+          maxMarks: mark.maxMarks,
+          passingMarks: mark.passingMarks,
+          status: "Active",
+          createdAt: mark.createdAt,
+          updatedAt: mark.updatedAt,
+          deletedAt: null,
+          syncStatus: "pending",
+        });
+      }
+    });
+    const marksBySubject = new Map(marks.map((mark) => [mark.subjectId, mark]));
+    return [...subjectMap.values()].map((subject, index) => {
+      const mark = marksBySubject.get(subject.id);
+      const maxMarks = Number(mark?.maxMarks ?? subject.maxMarks ?? 0);
+      const passingMarks = Number(mark?.passingMarks ?? subject.passingMarks ?? 0);
+      const obtainedMarks = Number(mark?.obtainedMarks ?? 0);
+      const percentage =
+        maxMarks > 0 ? Math.round((obtainedMarks / maxMarks) * 10000) / 100 : 0;
+      const isAbsent = /absent/i.test(mark?.remarks ?? "");
+      const resultStatus = !mark
+        ? "Pending"
+        : isAbsent
+          ? "Absent"
+          : obtainedMarks >= passingMarks
+            ? "Pass"
+            : "Fail";
+      const gradeBase =
+        scheme.calculationMode === "Marks" ? obtainedMarks : percentage;
+      const gradeResult =
+        resultStatus === "Pending" || resultStatus === "Absent"
+          ? { grade: "", gradePoint: null }
+          : calculateGradeFromScheme(scheme, gradeBase);
+      return {
+        id: mark?.id ?? "",
+        reportCardId: "",
+        subjectId: subject.id,
+        subjectName: subject.name,
+        maxMarks,
+        passingMarks,
+        obtainedMarks,
+        percentage,
+        grade: gradeResult.grade,
+        gradePoint: gradeResult.gradePoint,
+        resultStatus,
+        remarks: mark?.remarks ?? (!mark ? "Marks not entered" : ""),
+        displayOrder: index,
+        createdAt: mark?.createdAt ?? "",
+        updatedAt: mark?.updatedAt ?? "",
+        syncStatus: "pending",
+      };
+    });
+  }
+
+  function getStudentAttendanceSnapshot(studentId, session, exam) {
+    const examDate = normalizeDate(exam.exam_date, "Exam date");
+    const startDate = session?.start_date
+      ? normalizeDate(session.start_date, "Session start date")
+      : `${examDate.slice(0, 4)}-01-01`;
+    const endDate = session?.end_date
+      ? normalizeDate(session.end_date, "Session end date")
+      : examDate;
+    const rows = db
+      .prepare(`
+        SELECT *
+        FROM attendance
+        WHERE student_id = ?
+          AND attendance_date BETWEEN ? AND ?
+      `)
+      .all(studentId, startDate, endDate)
+      .map(attendanceFromRow);
+    const workingDays = rows.length;
+    const presentDays = rows.filter((row) => row.status === "Present").length;
+    return {
+      startDate,
+      endDate,
+      workingDays,
+      presentDays,
+      percentage:
+        workingDays > 0
+          ? Math.round((presentDays / workingDays) * 10000) / 100
+          : 0,
+      rows,
+    };
+  }
+
+  function getReportCardTemplateByIdInternal(id) {
+    const row = db
+      .prepare(`
+        SELECT *
+        FROM report_card_templates
+        WHERE id = ?
+          AND deleted_at IS NULL
+      `)
+      .get(requiredText(id, "Report card template id"));
+    return row ? reportCardTemplateFromRow(row) : null;
+  }
+
+  function resolveReportCardTemplate(input = {}) {
+    const explicitId = optionalText(input?.templateId);
+    if (explicitId) {
+      const template = getReportCardTemplateByIdInternal(explicitId);
+      if (!template || template.status !== "Active") {
+        throw new Error("Select an active report card template.");
+      }
+      return template;
+    }
+    const academicSessionId = optionalText(input?.academicSessionId);
+    const className = optionalText(input?.className);
+    const row = db
+      .prepare(`
+        SELECT *,
+          CASE
+            WHEN COALESCE(academic_session_id, '') = @academicSessionId
+             AND COALESCE(class_name, '') = @className THEN 4
+            WHEN COALESCE(academic_session_id, '') = @academicSessionId
+             AND COALESCE(class_name, '') = '' THEN 3
+            WHEN COALESCE(academic_session_id, '') = ''
+             AND COALESCE(class_name, '') = @className THEN 2
+            WHEN COALESCE(academic_session_id, '') = ''
+             AND COALESCE(class_name, '') = '' THEN 1
+            ELSE 0
+          END AS scope_score
+        FROM report_card_templates
+        WHERE deleted_at IS NULL
+          AND status = 'Active'
+          AND COALESCE(academic_session_id, '') IN ('', @academicSessionId)
+          AND COALESCE(class_name, '') IN ('', @className)
+        ORDER BY scope_score DESC, updated_at DESC
+        LIMIT 1
+      `)
+      .get({ academicSessionId, className });
+    if (!row) {
+      throw new Error("Create an active report card template first.");
+    }
+    return reportCardTemplateFromRow(row);
+  }
+
+  function getReportCardSkillSnapshots(student, session, template) {
+    if (!template.showBehaviour && !template.showSkills) {
+      return { behaviourRatings: [], affectiveSkills: [], psychomotorSkills: [] };
+    }
+    const dateFilter = session
+      ? {
+          startDate: session.start_date ?? "",
+          endDate: session.end_date ?? "",
+        }
+      : {};
+    return {
+      behaviourRatings: template.showBehaviour
+        ? db
+            .prepare(`
+              SELECT *
+              FROM student_behaviour_ratings
+              WHERE student_id = @studentId
+                AND deleted_at IS NULL
+                AND (@startDate = '' OR rating_date >= @startDate)
+                AND (@endDate = '' OR rating_date <= @endDate)
+              ORDER BY rating_date DESC, trait_name COLLATE NOCASE
+            `)
+            .all({
+              studentId: student.id,
+              startDate: dateFilter.startDate ?? "",
+              endDate: dateFilter.endDate ?? "",
+            })
+            .map(behaviourRatingFromRow)
+        : [],
+      affectiveSkills: template.showSkills
+        ? db
+            .prepare(`
+              SELECT *
+              FROM student_skill_ratings
+              WHERE student_id = @studentId
+                AND domain = 'Affective'
+                AND deleted_at IS NULL
+                AND (@startDate = '' OR rating_date >= @startDate)
+                AND (@endDate = '' OR rating_date <= @endDate)
+              ORDER BY rating_date DESC, skill_name COLLATE NOCASE
+            `)
+            .all({
+              studentId: student.id,
+              startDate: dateFilter.startDate ?? "",
+              endDate: dateFilter.endDate ?? "",
+            })
+            .map(skillRatingFromRow)
+        : [],
+      psychomotorSkills: template.showSkills
+        ? db
+            .prepare(`
+              SELECT *
+              FROM student_skill_ratings
+              WHERE student_id = @studentId
+                AND domain = 'Psychomotor'
+                AND deleted_at IS NULL
+                AND (@startDate = '' OR rating_date >= @startDate)
+                AND (@endDate = '' OR rating_date <= @endDate)
+              ORDER BY rating_date DESC, skill_name COLLATE NOCASE
+            `)
+            .all({
+              studentId: student.id,
+              startDate: dateFilter.startDate ?? "",
+              endDate: dateFilter.endDate ?? "",
+            })
+            .map(skillRatingFromRow)
+        : [],
+    };
+  }
+
+  function getReportCardClassTests(student, template) {
+    if (!template.showClassTests) return [];
+    return db
+      .prepare(`
+        SELECT
+          class_tests.test_name,
+          class_tests.subject_name,
+          class_tests.test_date,
+          class_tests.max_marks,
+          class_tests.passing_marks,
+          class_test_marks.marks_obtained,
+          class_test_marks.result_status,
+          class_test_marks.remarks
+        FROM class_test_marks
+        JOIN class_tests ON class_tests.id = class_test_marks.test_id
+        WHERE class_test_marks.student_id = ?
+          AND class_tests.deleted_at IS NULL
+        ORDER BY class_tests.test_date DESC, class_tests.test_name COLLATE NOCASE
+      `)
+      .all(student.id)
+      .map((row) => ({
+        testName: row.test_name,
+        subjectName: row.subject_name ?? "",
+        testDate: row.test_date,
+        maxMarks: Number(row.max_marks ?? 0),
+        passingMarks: Number(row.passing_marks ?? 0),
+        obtainedMarks: Number(row.marks_obtained ?? 0),
+        resultStatus: row.result_status,
+        remarks: row.remarks ?? "",
+      }));
+  }
+
+  function buildReportCardPreview(input = {}) {
+    const examId = requiredText(input?.examId, "Exam");
+    const studentId = requiredText(input?.studentId, "Student");
+    const exam = getActiveExamById.get(examId);
+    if (!exam) throw new Error("Exam was not found.");
+    const student = getStudentStatement.get(studentId);
+    if (!student) throw new Error("Student record was not found.");
+    if (student.class_name !== exam.class_name) {
+      throw new Error("Student and exam must belong to the same class.");
+    }
+    if (exam.section && student.section !== exam.section) {
+      throw new Error("Student does not belong to the selected exam section.");
+    }
+    const sessionId = optionalText(input?.academicSessionId);
+    const session = sessionId
+      ? getAcademicSessionRow(sessionId)
+      : getCurrentAcademicSessionRow();
+    if (sessionId && !session) {
+      throw new Error("Academic session was not found.");
+    }
+    const className = optionalText(input?.className) || exam.class_name;
+    const scheme = resolveApplicableGradingScheme({
+      gradingSchemeId: input?.gradingSchemeId,
+      academicSessionId: session?.id ?? "",
+      className,
+    });
+    const template = resolveReportCardTemplate({
+      templateId: input?.templateId,
+      academicSessionId: session?.id ?? "",
+      className,
+    });
+    const marks = db
+      .prepare(`
+        SELECT *
+        FROM marks
+        WHERE exam_id = ?
+          AND student_id = ?
+        ORDER BY subject_name COLLATE NOCASE
+      `)
+      .all(exam.id, student.id)
+      .map(markFromRow);
+    const subjects = generateReportCardSubjects({ exam, marks, scheme });
+    const totalMaxMarks =
+      Math.round(subjects.reduce((total, item) => total + item.maxMarks, 0) * 100) /
+      100;
+    const totalObtainedMarks =
+      Math.round(subjects.reduce((total, item) => total + item.obtainedMarks, 0) * 100) /
+      100;
+    const percentage =
+      totalMaxMarks > 0
+        ? Math.round((totalObtainedMarks / totalMaxMarks) * 10000) / 100
+        : 0;
+    const anyPending = subjects.some((item) =>
+      ["Pending", "Absent"].includes(item.resultStatus),
+    );
+    const anyFail = subjects.some((item) => item.resultStatus === "Fail");
+    const resultStatus = anyPending ? "Pending" : anyFail ? "Fail" : "Pass";
+    const overallGradeResult =
+      resultStatus === "Pending"
+        ? { grade: "", gradePoint: null }
+        : calculateGradeFromScheme(
+            scheme,
+            scheme.calculationMode === "Marks" ? totalObtainedMarks : percentage,
+          );
+    const attendance = getStudentAttendanceSnapshot(student.id, session, exam);
+    const sessionHistory = session
+      ? db
+          .prepare(`
+            SELECT *
+            FROM student_session_history
+            WHERE student_id = ?
+              AND academic_session_id = ?
+          `)
+          .get(student.id, session.id)
+      : null;
+    const snapshots = getReportCardSkillSnapshots(
+      studentFromRow(student),
+      session,
+      template,
+    );
+    return {
+      student: {
+        id: student.id,
+        admissionNo: student.admission_no ?? "",
+        name: student.name,
+        className: student.class_name ?? "",
+        section: student.section ?? "",
+        guardianName: student.guardian_name ?? "",
+        rollNo: sessionHistory?.roll_no ?? "",
+      },
+      exam: examFromRow(exam),
+      academicSession: session ? academicSessionFromRow(session) : null,
+      gradingScheme: scheme,
+      template,
+      subjects,
+      totalMaxMarks,
+      totalObtainedMarks,
+      percentage,
+      overallGrade: overallGradeResult.grade,
+      overallGradePoint: overallGradeResult.gradePoint,
+      resultStatus,
+      attendance: {
+        workingDays: attendance.workingDays,
+        presentDays: attendance.presentDays,
+        percentage: attendance.percentage,
+        startDate: attendance.startDate,
+        endDate: attendance.endDate,
+      },
+      behaviourRatings: snapshots.behaviourRatings,
+      affectiveSkills: snapshots.affectiveSkills,
+      psychomotorSkills: snapshots.psychomotorSkills,
+      classTests: getReportCardClassTests(studentFromRow(student), template),
+      teacherRemarks: optionalText(input?.teacherRemarks),
+      principalRemarks: optionalText(input?.principalRemarks),
+      rankingMethod: "Dense ranking by percentage, then total marks.",
+    };
+  }
+
+  function getReportCardSubjects(reportCardId) {
+    return db
+      .prepare(`
+        SELECT *
+        FROM student_report_card_subjects
+        WHERE report_card_id = ?
+        ORDER BY display_order, subject_name COLLATE NOCASE
+      `)
+      .all(requiredText(reportCardId, "Report card id"))
+      .map(reportCardSubjectFromRow);
+  }
+
+  function getReportCardByIdInternal(id) {
+    const row = db
+      .prepare(`
+        SELECT *
+        FROM student_report_cards
+        WHERE id = ?
+          AND deleted_at IS NULL
+      `)
+      .get(requiredText(id, "Report card id"));
+    return row ? reportCardFromRow(row, getReportCardSubjects(row.id)) : null;
+  }
+
+  function buildReportCardFilterWhere(filter = {}) {
+    const clauses = ["deleted_at IS NULL"];
+    const params = {};
+    const academicSessionId = optionalText(filter?.academicSessionId);
+    if (academicSessionId) {
+      clauses.push("academic_session_id = @academicSessionId");
+      params.academicSessionId = academicSessionId;
+    }
+    const className = optionalText(filter?.className);
+    if (className) {
+      clauses.push("class_name = @className");
+      params.className = className;
+    }
+    const section = optionalText(filter?.section);
+    if (section) {
+      clauses.push("COALESCE(section, '') = @section");
+      params.section = section;
+    }
+    const examId = optionalText(filter?.examId);
+    if (examId) {
+      clauses.push("exam_id = @examId");
+      params.examId = examId;
+    }
+    const studentId = optionalText(filter?.studentId);
+    if (studentId) {
+      clauses.push("student_id = @studentId");
+      params.studentId = studentId;
+    }
+    const resultStatus = optionalText(filter?.resultStatus);
+    if (resultStatus && resultStatus !== "All") {
+      clauses.push("result_status = @resultStatus");
+      params.resultStatus = normalizeReportCardResultStatus(resultStatus);
+    }
+    return {
+      where: `WHERE ${clauses.join(" AND ")}`,
+      params,
+    };
+  }
+
+  function queryReportCards(filter = {}) {
+    const { where, params } = buildReportCardFilterWhere(filter);
+    return db
+      .prepare(`
+        SELECT *
+        FROM student_report_cards
+        ${where}
+        ORDER BY generated_at DESC, report_card_no DESC
+      `)
+      .all(params)
+      .map((row) => reportCardFromRow(row));
+  }
+
+  function updateReportCardPositions(filter = {}) {
+    const className = requiredText(filter?.className, "Class");
+    const examId = requiredText(filter?.examId, "Exam");
+    const academicSessionId = optionalText(filter?.academicSessionId);
+    const cards = queryReportCards({
+      academicSessionId,
+      className,
+      examId,
+    }).filter((card) => card.resultStatus !== "Pending");
+    const updatePosition = db.prepare(`
+      UPDATE student_report_cards
+      SET class_position = @classPosition,
+          section_position = @sectionPosition,
+          updated_at = @updatedAt,
+          sync_status = 'pending'
+      WHERE id = @id
+    `);
+    const denseRank = (rows) => {
+      const sorted = [...rows].sort((left, right) => {
+        if (right.percentage !== left.percentage) {
+          return right.percentage - left.percentage;
+        }
+        if (right.totalObtainedMarks !== left.totalObtainedMarks) {
+          return right.totalObtainedMarks - left.totalObtainedMarks;
+        }
+        return left.studentName.localeCompare(right.studentName);
+      });
+      let rank = 0;
+      let previousKey = "";
+      return new Map(
+        sorted.map((card) => {
+          const key = `${card.percentage}:${card.totalObtainedMarks}`;
+          if (key !== previousKey) {
+            rank += 1;
+            previousKey = key;
+          }
+          return [card.id, rank];
+        }),
+      );
+    };
+    const classRanks = denseRank(cards);
+    const sectionRanks = new Map();
+    [...new Set(cards.map((card) => card.section ?? ""))].forEach((section) => {
+      denseRank(cards.filter((card) => (card.section ?? "") === section)).forEach(
+        (rank, id) => sectionRanks.set(id, rank),
+      );
+    });
+    const timestamp = now();
+    cards.forEach((card) => {
+      updatePosition.run({
+        id: card.id,
+        classPosition: classRanks.get(card.id) ?? null,
+        sectionPosition: sectionRanks.get(card.id) ?? null,
+        updatedAt: timestamp,
+      });
+    });
+  }
+
+  function insertReportCardFromPreview(preview, input, actor) {
+    const generatedDate = normalizeDate(
+      input?.generatedDate ?? now().slice(0, 10),
+      "Generated date",
+    );
+    const existing = db
+      .prepare(`
+        SELECT *
+        FROM student_report_cards
+        WHERE student_id = @studentId
+          AND COALESCE(academic_session_id, '') = @academicSessionId
+          AND COALESCE(exam_id, '') = @examId
+          AND deleted_at IS NULL
+      `)
+      .get({
+        studentId: preview.student.id,
+        academicSessionId: preview.academicSession?.id ?? "",
+        examId: preview.exam.id,
+      });
+    const regenerateId = optionalText(input?.regenerateReportCardId);
+    if (existing && !input?.regenerate && existing.id !== regenerateId) {
+      throw new Error(
+        "A report card already exists for this student, session and exam. Regenerate it explicitly to replace the snapshot.",
+      );
+    }
+    const timestamp = now();
+    const id = regenerateId || existing?.id || crypto.randomUUID();
+    const isRegenerate = Boolean(existing || regenerateId);
+    const reportCardNo =
+      existing?.report_card_no ?? generateReportCardNumber(generatedDate);
+    if (isRegenerate) {
+      db.prepare(`
+        UPDATE student_report_cards
+        SET admission_no = @admissionNo,
+            student_name = @studentName,
+            class_name = @className,
+            section = @section,
+            academic_session_id = @academicSessionId,
+            academic_session_name = @academicSessionName,
+            exam_id = @examId,
+            exam_name = @examName,
+            grading_scheme_id = @gradingSchemeId,
+            grading_scheme_name = @gradingSchemeName,
+            total_max_marks = @totalMaxMarks,
+            total_obtained_marks = @totalObtainedMarks,
+            percentage = @percentage,
+            overall_grade = @overallGrade,
+            result_status = @resultStatus,
+            attendance_working_days = @attendanceWorkingDays,
+            attendance_present_days = @attendancePresentDays,
+            attendance_percentage = @attendancePercentage,
+            teacher_remarks = @teacherRemarks,
+            principal_remarks = @principalRemarks,
+            generated_by = @generatedBy,
+            generated_at = @generatedAt,
+            updated_at = @updatedAt,
+            sync_status = 'pending'
+        WHERE id = @id AND deleted_at IS NULL
+      `).run({
+        id,
+        admissionNo: preview.student.admissionNo,
+        studentName: preview.student.name,
+        className: preview.student.className,
+        section: preview.student.section,
+        academicSessionId: preview.academicSession?.id ?? "",
+        academicSessionName: preview.academicSession?.sessionName ?? "",
+        examId: preview.exam.id,
+        examName: preview.exam.name,
+        gradingSchemeId: preview.gradingScheme.id,
+        gradingSchemeName: preview.gradingScheme.name,
+        totalMaxMarks: preview.totalMaxMarks,
+        totalObtainedMarks: preview.totalObtainedMarks,
+        percentage: preview.percentage,
+        overallGrade: preview.overallGrade,
+        resultStatus: preview.resultStatus,
+        attendanceWorkingDays: preview.attendance.workingDays,
+        attendancePresentDays: preview.attendance.presentDays,
+        attendancePercentage: preview.attendance.percentage,
+        teacherRemarks: optionalText(input?.teacherRemarks),
+        principalRemarks: optionalText(input?.principalRemarks),
+        generatedBy: actor?.name ?? optionalText(input?.generatedBy),
+        generatedAt: `${generatedDate}T00:00:00.000Z`,
+        updatedAt: timestamp,
+      });
+      db.prepare("DELETE FROM student_report_card_subjects WHERE report_card_id = ?")
+        .run(id);
+    } else {
+      db.prepare(`
+        INSERT INTO student_report_cards (
+          id, report_card_no, student_id, admission_no, student_name,
+          class_name, section, academic_session_id, academic_session_name,
+          exam_id, exam_name, grading_scheme_id, grading_scheme_name,
+          total_max_marks, total_obtained_marks, percentage, overall_grade,
+          result_status, attendance_working_days, attendance_present_days,
+          attendance_percentage, teacher_remarks, principal_remarks,
+          generated_by, generated_at, updated_at, deleted_at, sync_status
+        ) VALUES (
+          @id, @reportCardNo, @studentId, @admissionNo, @studentName,
+          @className, @section, @academicSessionId, @academicSessionName,
+          @examId, @examName, @gradingSchemeId, @gradingSchemeName,
+          @totalMaxMarks, @totalObtainedMarks, @percentage, @overallGrade,
+          @resultStatus, @attendanceWorkingDays, @attendancePresentDays,
+          @attendancePercentage, @teacherRemarks, @principalRemarks,
+          @generatedBy, @generatedAt, @updatedAt, NULL, 'pending'
+        )
+      `).run({
+        id,
+        reportCardNo,
+        studentId: preview.student.id,
+        admissionNo: preview.student.admissionNo,
+        studentName: preview.student.name,
+        className: preview.student.className,
+        section: preview.student.section,
+        academicSessionId: preview.academicSession?.id ?? "",
+        academicSessionName: preview.academicSession?.sessionName ?? "",
+        examId: preview.exam.id,
+        examName: preview.exam.name,
+        gradingSchemeId: preview.gradingScheme.id,
+        gradingSchemeName: preview.gradingScheme.name,
+        totalMaxMarks: preview.totalMaxMarks,
+        totalObtainedMarks: preview.totalObtainedMarks,
+        percentage: preview.percentage,
+        overallGrade: preview.overallGrade,
+        resultStatus: preview.resultStatus,
+        attendanceWorkingDays: preview.attendance.workingDays,
+        attendancePresentDays: preview.attendance.presentDays,
+        attendancePercentage: preview.attendance.percentage,
+        teacherRemarks: optionalText(input?.teacherRemarks),
+        principalRemarks: optionalText(input?.principalRemarks),
+        generatedBy: actor?.name ?? optionalText(input?.generatedBy),
+        generatedAt: `${generatedDate}T00:00:00.000Z`,
+        updatedAt: timestamp,
+      });
+    }
+    preview.subjects.forEach((subject) => {
+      db.prepare(`
+        INSERT INTO student_report_card_subjects (
+          id, report_card_id, subject_id, subject_name, max_marks,
+          passing_marks, obtained_marks, percentage, grade, grade_point,
+          result_status, remarks, display_order, created_at, updated_at,
+          sync_status
+        ) VALUES (
+          @id, @reportCardId, @subjectId, @subjectName, @maxMarks,
+          @passingMarks, @obtainedMarks, @percentage, @grade, @gradePoint,
+          @resultStatus, @remarks, @displayOrder, @createdAt, @updatedAt,
+          'pending'
+        )
+      `).run({
+        id: crypto.randomUUID(),
+        reportCardId: id,
+        subjectId: subject.subjectId,
+        subjectName: subject.subjectName,
+        maxMarks: subject.maxMarks,
+        passingMarks: subject.passingMarks,
+        obtainedMarks: subject.obtainedMarks,
+        percentage: subject.percentage,
+        grade: subject.grade,
+        gradePoint: subject.gradePoint,
+        resultStatus: subject.resultStatus,
+        remarks: subject.remarks,
+        displayOrder: subject.displayOrder,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+    });
+    updateReportCardPositions({
+      academicSessionId: preview.academicSession?.id ?? "",
+      className: preview.student.className,
+      examId: preview.exam.id,
+    });
+    return getReportCardByIdInternal(id);
+  }
+
+  function buildClassReportCardStudents(input = {}) {
+    const exam = getActiveExamById.get(requiredText(input?.examId, "Exam"));
+    if (!exam) throw new Error("Exam was not found.");
+    const className = optionalText(input?.className) || exam.class_name;
+    if (className !== exam.class_name) {
+      throw new Error("Selected class must match the exam class.");
+    }
+    const section = optionalText(input?.section) || (exam.section ?? "");
+    return db
+      .prepare(`
+        SELECT *
+        FROM students
+        WHERE status = 'Active'
+          AND deleted_at IS NULL
+          AND class_name = @className
+          AND (@section = '' OR COALESCE(section, '') = @section)
+        ORDER BY admission_no COLLATE NOCASE, name COLLATE NOCASE
+      `)
+      .all({ className, section })
+      .map(studentFromRow);
+  }
+
+  function buildClassResultSummary(filter = {}) {
+    const cards = queryReportCards(filter);
+    const completeCards = cards.filter((card) => card.resultStatus !== "Pending");
+    const passed = cards.filter((card) => card.resultStatus === "Pass").length;
+    const failed = cards.filter((card) => card.resultStatus === "Fail").length;
+    const percentages = completeCards.map((card) => card.percentage);
+    const subjects = cards.flatMap((card) =>
+      getReportCardSubjects(card.id).map((subject) => ({ ...subject, card })),
+    );
+    const subjectsByName = new Map();
+    subjects.forEach((subject) => {
+      subjectsByName.set(subject.subjectName, [
+        ...(subjectsByName.get(subject.subjectName) ?? []),
+        subject,
+      ]);
+    });
+    const subjectSummaries = [...subjectsByName.entries()].map(([subjectName, rows]) => {
+      const appeared = rows.filter((row) => row.resultStatus !== "Pending").length;
+      const passedRows = rows.filter((row) => row.resultStatus === "Pass");
+      const failedRows = rows.filter((row) =>
+        ["Fail", "Absent"].includes(row.resultStatus),
+      );
+      const obtained = rows.map((row) => row.obtainedMarks);
+      return {
+        subjectName,
+        appeared,
+        passed: passedRows.length,
+        failed: failedRows.length,
+        highest: obtained.length ? Math.max(...obtained) : 0,
+        lowest: obtained.length ? Math.min(...obtained) : 0,
+        average:
+          obtained.length > 0
+            ? Math.round((obtained.reduce((total, value) => total + value, 0) / obtained.length) * 100) /
+              100
+            : 0,
+        passPercentage:
+          appeared > 0
+            ? Math.round((passedRows.length / appeared) * 10000) / 100
+            : 0,
+      };
+    });
+    const ranked = [...completeCards].sort((left, right) => {
+      if (right.percentage !== left.percentage) return right.percentage - left.percentage;
+      if (right.totalObtainedMarks !== left.totalObtainedMarks) {
+        return right.totalObtainedMarks - left.totalObtainedMarks;
+      }
+      return left.studentName.localeCompare(right.studentName);
+    });
+    let rank = 0;
+    let previousKey = "";
+    const rankings = ranked.map((card) => {
+      const key = `${card.percentage}:${card.totalObtainedMarks}`;
+      if (key !== previousKey) {
+        rank += 1;
+        previousKey = key;
+      }
+      return {
+        position: rank,
+        reportCardId: card.id,
+        studentId: card.studentId,
+        studentName: card.studentName,
+        admissionNo: card.admissionNo,
+        total: card.totalObtainedMarks,
+        percentage: card.percentage,
+        grade: card.overallGrade,
+        resultStatus: card.resultStatus,
+      };
+    });
+    return {
+      summary: {
+        totalStudents: cards.length,
+        resultComplete: completeCards.length,
+        passed,
+        failed,
+        absentOrIncomplete: cards.length - completeCards.length,
+        passPercentage:
+          completeCards.length > 0
+            ? Math.round((passed / completeCards.length) * 10000) / 100
+            : 0,
+        highestPercentage: percentages.length ? Math.max(...percentages) : 0,
+        lowestPercentage: percentages.length ? Math.min(...percentages) : 0,
+        classAverage:
+          percentages.length > 0
+            ? Math.round((percentages.reduce((total, value) => total + value, 0) / percentages.length) * 100) /
+              100
+            : 0,
+      },
+      subjectSummaries,
+      rankings,
+      cards,
+      rankingMethod: "Dense ranking by percentage, then total marks.",
+    };
+  }
+
+  function normalizeSchoolRuleCategory(value) {
+    const category = optionalText(value) || "General";
+    if (!SCHOOL_RULE_CATEGORIES.has(category)) {
+      throw new Error("Rule category is invalid.");
+    }
+    return category;
+  }
+
+  function resolveSchoolRuleValues(input = {}, existing = null) {
+    const academicSessionId =
+      input.academicSessionId === undefined && existing
+        ? existing.academic_session_id ?? ""
+        : optionalText(input.academicSessionId);
+    let academicSessionName =
+      input.academicSessionName === undefined && existing
+        ? existing.academic_session_name ?? ""
+        : optionalText(input.academicSessionName);
+    if (academicSessionId) {
+      const session = getAcademicSessionRow(academicSessionId);
+      if (!session) throw new Error("Academic session was not found.");
+      academicSessionName = session.session_name;
+    }
+    const effectiveFromText =
+      input.effectiveFrom === undefined && existing
+        ? existing.effective_from ?? ""
+        : optionalText(input.effectiveFrom);
+    return {
+      title:
+        input.title === undefined && existing
+          ? existing.title
+          : requiredText(input.title, "Rule title"),
+      category:
+        input.category === undefined && existing
+          ? existing.category
+          : normalizeSchoolRuleCategory(input.category),
+      ruleText:
+        input.ruleText === undefined && existing
+          ? existing.rule_text
+          : requiredText(input.ruleText, "Rule text"),
+      displayOrder:
+        input.displayOrder === undefined && existing
+          ? Number(existing.display_order ?? 0)
+          : wholeNumber(input.displayOrder ?? 0, "Display order", 0),
+      status:
+        input.status === undefined && existing
+          ? existing.status
+          : masterStatus(input.status),
+      academicSessionId,
+      academicSessionName,
+      effectiveFrom: effectiveFromText
+        ? normalizeDate(effectiveFromText, "Effective date")
+        : "",
+    };
+  }
+
+  function buildSchoolRulesWhere(filter = {}) {
+    const clauses = ["deleted_at IS NULL"];
+    const params = {};
+    const category = optionalText(filter.category);
+    if (category && category !== "All") {
+      if (!SCHOOL_RULE_CATEGORIES.has(category)) {
+        throw new Error("Rule category is invalid.");
+      }
+      clauses.push("category = @category");
+      params.category = category;
+    }
+    const status = optionalText(filter.status);
+    if (status && status !== "All") {
+      if (!MASTER_STATUSES.has(status)) {
+        throw new Error("Rule status is invalid.");
+      }
+      clauses.push("status = @status");
+      params.status = status;
+    }
+    const academicSessionId = optionalText(filter.academicSessionId);
+    if (academicSessionId) {
+      clauses.push("academic_session_id = @academicSessionId");
+      params.academicSessionId = academicSessionId;
+    }
+    const search = optionalText(filter.search).toLowerCase();
+    if (search) {
+      clauses.push(`
+        (
+          lower(title) LIKE @search OR
+          lower(category) LIKE @search OR
+          lower(rule_text) LIKE @search
+        )
+      `);
+      params.search = `%${search}%`;
+    }
+    return { where: clauses.join(" AND "), params };
+  }
+
+  function normalizePreferenceScope(value) {
+    const scope = requiredText(value, "Preference scope");
+    if (!PREFERENCE_SCOPES.has(scope)) {
+      throw new Error("Preference scope is invalid.");
+    }
+    return scope;
+  }
+
+  function normalizeThemeMode(value, fallback = "Light") {
+    const mode = optionalText(value) || fallback;
+    if (!THEME_MODES.has(mode)) throw new Error("Theme mode is invalid.");
+    return mode;
+  }
+
+  function normalizeAccentColor(value, fallback = "Blue") {
+    const color = optionalText(value) || fallback;
+    if (!ACCENT_COLORS.has(color)) throw new Error("Accent color is invalid.");
+    return color;
+  }
+
+  function normalizePreferenceLanguage(value, fallback = "English") {
+    const language = optionalText(value) || fallback;
+    if (!PREFERENCE_LANGUAGES.has(language)) {
+      throw new Error("Language is invalid.");
+    }
+    return language;
+  }
+
+  function normalizeFontScale(value, fallback = "Normal") {
+    const scale = optionalText(value) || fallback;
+    if (!FONT_SCALES.has(scale)) throw new Error("Font scale is invalid.");
+    return scale;
+  }
+
+  function normalizeDateFormat(value, fallback = "DD/MM/YYYY") {
+    const format = optionalText(value) || fallback;
+    if (!DATE_FORMATS.has(format)) throw new Error("Date format is invalid.");
+    return format;
+  }
+
+  function normalizeTimeFormat(value, fallback = "12 Hour") {
+    const format = optionalText(value) || fallback;
+    if (!TIME_FORMATS.has(format)) throw new Error("Time format is invalid.");
+    return format;
+  }
+
+  function getApplicationPreferenceRow() {
+    let row = db
+      .prepare(`
+        SELECT *
+        FROM app_preferences
+        WHERE preference_scope = 'Application'
+        ORDER BY created_at ASC
+        LIMIT 1
+      `)
+      .get();
+    if (!row) {
+      const timestamp = now();
+      db.prepare(`
+        INSERT INTO app_preferences (
+          id, preference_scope, user_id, theme_mode, accent_color, language,
+          compact_sidebar, font_scale, date_format, time_format, created_at,
+          updated_at
+        ) VALUES (
+          'application-defaults', 'Application', NULL, 'Light', 'Blue',
+          'English', 0, 'Normal', 'DD/MM/YYYY', '12 Hour', @timestamp,
+          @timestamp
+        )
+      `).run({ timestamp });
+      row = db
+        .prepare("SELECT * FROM app_preferences WHERE id = ?")
+        .get("application-defaults");
+    }
+    return row;
+  }
+
+  function resolvePreferenceValues(input = {}, existing = null) {
+    return {
+      themeMode: normalizeThemeMode(input.themeMode, existing?.theme_mode),
+      accentColor: normalizeAccentColor(
+        input.accentColor,
+        existing?.accent_color,
+      ),
+      language: normalizePreferenceLanguage(input.language, existing?.language),
+      compactSidebar: booleanFlag(
+        input.compactSidebar,
+        Number(existing?.compact_sidebar ?? 0) === 1,
+      ),
+      fontScale: normalizeFontScale(input.fontScale, existing?.font_scale),
+      dateFormat: normalizeDateFormat(input.dateFormat, existing?.date_format),
+      timeFormat: normalizeTimeFormat(input.timeFormat, existing?.time_format),
+    };
+  }
+
+  function buildLoginHistoryWhere(filter = {}, userId = "") {
+    const clauses = [];
+    const params = {};
+    if (userId) {
+      clauses.push("user_id = @userId");
+      params.userId = userId;
+    }
+    const startDate = optionalText(filter.startDate);
+    if (startDate) {
+      clauses.push("date(login_at) >= @startDate");
+      params.startDate = normalizeDate(startDate, "Start date");
+    }
+    const endDate = optionalText(filter.endDate);
+    if (endDate) {
+      clauses.push("date(login_at) <= @endDate");
+      params.endDate = normalizeDate(endDate, "End date");
+    }
+    const success = filter.success;
+    if (success === true || success === false) {
+      clauses.push("success = @success");
+      params.success = success ? 1 : 0;
+    }
+    return {
+      where: clauses.length ? `WHERE ${clauses.join(" AND ")}` : "",
+      params,
+    };
   }
 
   function syncSalaryAccountTransaction(salaryPayment) {
@@ -3555,11 +7793,22 @@ function createDatabase(databasePath) {
         overrides.section === undefined
           ? student.section ?? ""
           : optionalText(overrides.section),
-      rollNo: optionalText(overrides.rollNo),
-      status: optionalText(overrides.status) || "Active",
+      rollNo:
+        overrides.rollNo === undefined && existing
+          ? existing.roll_no ?? ""
+          : optionalText(overrides.rollNo),
+      status:
+        overrides.status === undefined && existing
+          ? existing.status
+          : optionalText(overrides.status) || "Active",
       resultStatus:
-        optionalText(overrides.resultStatus) || "Not Applicable",
-      remarks: optionalText(overrides.remarks),
+        overrides.resultStatus === undefined && existing
+          ? existing.result_status ?? "Not Applicable"
+          : optionalText(overrides.resultStatus) || "Not Applicable",
+      remarks:
+        overrides.remarks === undefined && existing
+          ? existing.remarks ?? ""
+          : optionalText(overrides.remarks),
     };
     if (!STUDENT_SESSION_STATUSES.has(values.status)) {
       throw new Error("Student session status is invalid.");
@@ -3690,6 +7939,11 @@ function createDatabase(databasePath) {
   return {
     getStudents() {
       return getStudentsStatement.all().map(studentFromRow);
+    },
+
+    getStudentById(id) {
+      const row = getStudentStatement.get(requiredText(id, "Student id"));
+      return row ? studentFromRow(row) : null;
     },
 
     createStudent(input) {
@@ -4362,20 +8616,21 @@ function createDatabase(databasePath) {
         "Payment date",
       );
       const id = crypto.randomUUID();
+      let receiptNo = "";
       db.transaction(() => {
-        const receiptNo = generateReceiptNumber(paymentDate);
+        receiptNo = generateReceiptNumber(paymentDate);
         const cashierName = optionalText(input?.cashierName);
         db.prepare(`
           INSERT INTO fee_payments (
             id, receipt_no, student_id, student_name, admission_no, class_name,
             section, guardian_name, mobile, fee_type, amount, payment_mode,
             payment_date, notes, cashier_name, created_at, updated_at,
-            sync_status
+            status, reversed_at, reversed_by, reversal_reason, sync_status
           ) VALUES (
             @id, @receiptNo, @studentId, @studentName, @admissionNo, @className,
             @section, @guardianName, @mobile, @feeType, @amount, @paymentMode,
             @paymentDate, @notes, @cashierName, @createdAt, @updatedAt,
-            'pending'
+            'Active', NULL, NULL, NULL, 'pending'
           )
         `).run({
           id,
@@ -4409,6 +8664,11 @@ function createDatabase(databasePath) {
           notes: optionalText(input?.notes),
           createdBy: cashierName,
         });
+        applyFeeInvoiceAllocations(
+          db.prepare("SELECT * FROM fee_payments WHERE id = ?").get(id),
+          input?.invoiceAllocations,
+          input?.auditUser,
+        );
       })();
 
       return paymentFromRow(
@@ -4417,6 +8677,968 @@ function createDatabase(databasePath) {
           WHERE fee_payments.id = ?
         `).get(id),
       );
+    },
+
+    getDiscountTypes() {
+      return db
+        .prepare(`
+          SELECT *
+          FROM discount_types
+          WHERE deleted_at IS NULL
+          ORDER BY name
+        `)
+        .all()
+        .map(discountTypeFromRow);
+    },
+
+    createDiscountType(input) {
+      const mode = normalizeDiscountMode(input?.discountMode);
+      const defaultValue = validateDiscountValue(
+        mode,
+        input?.defaultValue ?? 0,
+        "Default value",
+      );
+      const status = masterStatus(input?.status);
+      const id = crypto.randomUUID();
+      const timestamp = now();
+      db.prepare(`
+        INSERT INTO discount_types (
+          id, name, discount_mode, default_value, description, status,
+          created_at, updated_at, deleted_at, sync_status
+        ) VALUES (
+          @id, @name, @discountMode, @defaultValue, @description, @status,
+          @createdAt, @updatedAt, NULL, 'pending'
+        )
+      `).run({
+        id,
+        name: requiredText(input?.name, "Discount type name"),
+        discountMode: mode,
+        defaultValue,
+        description: optionalText(input?.description),
+        status,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+      insertAuditLog(
+        input?.auditUser,
+        "Discount type created",
+        "Fees",
+        `Created discount type ${requiredText(input?.name, "Discount type name")}.`,
+      );
+      return discountTypeFromRow(
+        db.prepare("SELECT * FROM discount_types WHERE id = ?").get(id),
+      );
+    },
+
+    updateDiscountType(id, input) {
+      const discountTypeId = requiredText(id, "Discount type id");
+      const existing = db
+        .prepare("SELECT * FROM discount_types WHERE id = ? AND deleted_at IS NULL")
+        .get(discountTypeId);
+      if (!existing) {
+        throw new Error("Discount type was not found.");
+      }
+      const mode = input?.discountMode
+        ? normalizeDiscountMode(input.discountMode)
+        : existing.discount_mode;
+      const defaultValue =
+        input?.defaultValue === undefined
+          ? Number(existing.default_value ?? 0)
+          : validateDiscountValue(mode, input.defaultValue, "Default value");
+      const timestamp = now();
+      db.prepare(`
+        UPDATE discount_types
+        SET name = @name,
+            discount_mode = @discountMode,
+            default_value = @defaultValue,
+            description = @description,
+            status = @status,
+            updated_at = @updatedAt,
+            sync_status = 'pending'
+        WHERE id = @id AND deleted_at IS NULL
+      `).run({
+        id: discountTypeId,
+        name:
+          input?.name === undefined
+            ? existing.name
+            : requiredText(input.name, "Discount type name"),
+        discountMode: mode,
+        defaultValue,
+        description:
+          input?.description === undefined
+            ? existing.description ?? ""
+            : optionalText(input.description),
+        status:
+          input?.status === undefined
+            ? existing.status
+            : masterStatus(input.status),
+        updatedAt: timestamp,
+      });
+      insertAuditLog(
+        input?.auditUser,
+        "Discount type updated",
+        "Fees",
+        `Updated discount type ${discountTypeId}.`,
+      );
+      return discountTypeFromRow(
+        db.prepare("SELECT * FROM discount_types WHERE id = ?").get(discountTypeId),
+      );
+    },
+
+    deleteDiscountType(id, auditUser) {
+      const discountTypeId = requiredText(id, "Discount type id");
+      const existing = db
+        .prepare("SELECT * FROM discount_types WHERE id = ? AND deleted_at IS NULL")
+        .get(discountTypeId);
+      if (!existing) return { success: false };
+      const timestamp = now();
+      db.prepare(`
+        UPDATE discount_types
+        SET deleted_at = ?,
+            updated_at = ?,
+            sync_status = 'pending'
+        WHERE id = ? AND deleted_at IS NULL
+      `).run(timestamp, timestamp, discountTypeId);
+      insertAuditLog(
+        auditUser,
+        "Discount type deleted",
+        "Fees",
+        `Soft-deleted discount type ${existing.name}.`,
+      );
+      return { success: true };
+    },
+
+    getStudentDiscounts(filter = {}) {
+      const clauses = ["deleted_at IS NULL"];
+      const params = {};
+      const studentId = optionalText(filter?.studentId);
+      if (studentId) {
+        clauses.push("student_id = @studentId");
+        params.studentId = studentId;
+      }
+      const academicSessionId = optionalText(filter?.academicSessionId);
+      if (academicSessionId) {
+        clauses.push("COALESCE(academic_session_id, '') = @academicSessionId");
+        params.academicSessionId = academicSessionId;
+      }
+      const status = optionalText(filter?.status);
+      if (status && status !== "All") {
+        clauses.push("status = @status");
+        params.status = masterStatus(status);
+      }
+      return db
+        .prepare(`
+          SELECT *
+          FROM student_discounts
+          WHERE ${clauses.join(" AND ")}
+          ORDER BY created_at DESC
+        `)
+        .all(params)
+        .map(studentDiscountFromRow);
+    },
+
+    createStudentDiscount(input) {
+      const studentId = requiredText(input?.studentId, "Student");
+      const student = getStudentStatement.get(studentId);
+      if (!student) {
+        throw new Error("The selected student was not found.");
+      }
+      const discountTypeId = requiredText(input?.discountTypeId, "Discount type");
+      const discountType = db
+        .prepare("SELECT * FROM discount_types WHERE id = ? AND deleted_at IS NULL")
+        .get(discountTypeId);
+      if (!discountType) {
+        throw new Error("Discount type was not found.");
+      }
+      const mode = input?.discountMode
+        ? normalizeDiscountMode(input.discountMode)
+        : discountType.discount_mode;
+      const discountValue =
+        input?.discountValue === undefined
+          ? validateDiscountValue(mode, discountType.default_value, "Discount value")
+          : validateDiscountValue(mode, input.discountValue, "Discount value");
+
+      let feeHeadId = "";
+      let feeHeadName = "";
+      const requestedFeeHeadId = optionalText(input?.feeHeadId);
+      if (requestedFeeHeadId) {
+        const feeHead = getActiveFeeHeadById.get(requestedFeeHeadId);
+        if (!feeHead) {
+          throw new Error("Select an active fee head for the discount restriction.");
+        }
+        feeHeadId = feeHead.id;
+        feeHeadName = feeHead.name;
+      }
+
+      let academicSessionId = "";
+      let academicSessionName = "";
+      const requestedSessionId = optionalText(input?.academicSessionId);
+      if (requestedSessionId) {
+        const session = db
+          .prepare("SELECT * FROM academic_sessions WHERE id = ? AND deleted_at IS NULL")
+          .get(requestedSessionId);
+        if (!session) {
+          throw new Error("Academic session was not found.");
+        }
+        academicSessionId = session.id;
+        academicSessionName = session.session_name;
+      }
+
+      const startDate = normalizeOptionalDate(input?.startDate, "Start date");
+      const endDate = normalizeOptionalDate(input?.endDate, "End date");
+      if (startDate && endDate && startDate > endDate) {
+        throw new Error("Discount start date cannot be after end date.");
+      }
+
+      const id = crypto.randomUUID();
+      const timestamp = now();
+      db.prepare(`
+        INSERT INTO student_discounts (
+          id, student_id, admission_no, student_name, discount_type_id,
+          discount_type_name, discount_mode, discount_value, fee_head_id,
+          fee_head_name, academic_session_id, academic_session_name,
+          start_date, end_date, reason, status, approved_by, created_at,
+          updated_at, deleted_at, sync_status
+        ) VALUES (
+          @id, @studentId, @admissionNo, @studentName, @discountTypeId,
+          @discountTypeName, @discountMode, @discountValue, @feeHeadId,
+          @feeHeadName, @academicSessionId, @academicSessionName,
+          @startDate, @endDate, @reason, @status, @approvedBy, @createdAt,
+          @updatedAt, NULL, 'pending'
+        )
+      `).run({
+        id,
+        studentId: student.id,
+        admissionNo: student.admission_no ?? "",
+        studentName: student.name,
+        discountTypeId: discountType.id,
+        discountTypeName: discountType.name,
+        discountMode: mode,
+        discountValue,
+        feeHeadId: feeHeadId || null,
+        feeHeadName,
+        academicSessionId: academicSessionId || null,
+        academicSessionName,
+        startDate,
+        endDate,
+        reason: optionalText(input?.reason),
+        status: masterStatus(input?.status),
+        approvedBy: optionalText(input?.approvedBy),
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+      insertAuditLog(
+        input?.auditUser,
+        "Student discount assigned",
+        "Fees",
+        `Assigned ${discountType.name} to ${student.name}.`,
+      );
+      return studentDiscountFromRow(
+        db.prepare("SELECT * FROM student_discounts WHERE id = ?").get(id),
+      );
+    },
+
+    updateStudentDiscount(id, input) {
+      const studentDiscountId = requiredText(id, "Student discount id");
+      const existing = db
+        .prepare("SELECT * FROM student_discounts WHERE id = ? AND deleted_at IS NULL")
+        .get(studentDiscountId);
+      if (!existing) {
+        throw new Error("Student discount was not found.");
+      }
+
+      const hasOwn = (key) =>
+        Object.prototype.hasOwnProperty.call(input ?? {}, key);
+      const studentId = hasOwn("studentId")
+        ? requiredText(input.studentId, "Student")
+        : existing.student_id;
+      const student = getStudentStatement.get(studentId);
+      if (!student) {
+        throw new Error("The selected student was not found.");
+      }
+      const discountTypeId = hasOwn("discountTypeId")
+        ? requiredText(input.discountTypeId, "Discount type")
+        : existing.discount_type_id;
+      const discountType = db
+        .prepare("SELECT * FROM discount_types WHERE id = ? AND deleted_at IS NULL")
+        .get(discountTypeId);
+      if (!discountType) {
+        throw new Error("Discount type was not found.");
+      }
+      const mode = hasOwn("discountMode")
+        ? normalizeDiscountMode(input.discountMode)
+        : hasOwn("discountTypeId")
+          ? discountType.discount_mode
+          : existing.discount_mode;
+      const discountValue = hasOwn("discountValue")
+        ? validateDiscountValue(mode, input.discountValue, "Discount value")
+        : hasOwn("discountTypeId")
+          ? validateDiscountValue(mode, discountType.default_value, "Discount value")
+          : Number(existing.discount_value ?? 0);
+
+      let feeHeadId = existing.fee_head_id ?? "";
+      let feeHeadName = existing.fee_head_name ?? "";
+      if (hasOwn("feeHeadId")) {
+        const requestedFeeHeadId = optionalText(input.feeHeadId);
+        if (requestedFeeHeadId) {
+          const feeHead = getActiveFeeHeadById.get(requestedFeeHeadId);
+          if (!feeHead) {
+            throw new Error("Select an active fee head for the discount restriction.");
+          }
+          feeHeadId = feeHead.id;
+          feeHeadName = feeHead.name;
+        } else {
+          feeHeadId = "";
+          feeHeadName = "";
+        }
+      }
+
+      let academicSessionId = existing.academic_session_id ?? "";
+      let academicSessionName = existing.academic_session_name ?? "";
+      if (hasOwn("academicSessionId")) {
+        const requestedSessionId = optionalText(input.academicSessionId);
+        if (requestedSessionId) {
+          const session = db
+            .prepare("SELECT * FROM academic_sessions WHERE id = ? AND deleted_at IS NULL")
+            .get(requestedSessionId);
+          if (!session) {
+            throw new Error("Academic session was not found.");
+          }
+          academicSessionId = session.id;
+          academicSessionName = session.session_name;
+        } else {
+          academicSessionId = "";
+          academicSessionName = "";
+        }
+      }
+
+      const startDate = hasOwn("startDate")
+        ? normalizeOptionalDate(input.startDate, "Start date")
+        : existing.start_date ?? "";
+      const endDate = hasOwn("endDate")
+        ? normalizeOptionalDate(input.endDate, "End date")
+        : existing.end_date ?? "";
+      if (startDate && endDate && startDate > endDate) {
+        throw new Error("Discount start date cannot be after end date.");
+      }
+
+      const timestamp = now();
+      db.prepare(`
+        UPDATE student_discounts
+        SET student_id = @studentId,
+            admission_no = @admissionNo,
+            student_name = @studentName,
+            discount_type_id = @discountTypeId,
+            discount_type_name = @discountTypeName,
+            discount_mode = @discountMode,
+            discount_value = @discountValue,
+            fee_head_id = @feeHeadId,
+            fee_head_name = @feeHeadName,
+            academic_session_id = @academicSessionId,
+            academic_session_name = @academicSessionName,
+            start_date = @startDate,
+            end_date = @endDate,
+            reason = @reason,
+            status = @status,
+            approved_by = @approvedBy,
+            updated_at = @updatedAt,
+            sync_status = 'pending'
+        WHERE id = @id AND deleted_at IS NULL
+      `).run({
+        id: studentDiscountId,
+        studentId: student.id,
+        admissionNo: student.admission_no ?? "",
+        studentName: student.name,
+        discountTypeId: discountType.id,
+        discountTypeName: discountType.name,
+        discountMode: mode,
+        discountValue,
+        feeHeadId: feeHeadId || null,
+        feeHeadName,
+        academicSessionId: academicSessionId || null,
+        academicSessionName,
+        startDate,
+        endDate,
+        reason: hasOwn("reason") ? optionalText(input.reason) : existing.reason ?? "",
+        status: hasOwn("status") ? masterStatus(input.status) : existing.status,
+        approvedBy: hasOwn("approvedBy")
+          ? optionalText(input.approvedBy)
+          : existing.approved_by ?? "",
+        updatedAt: timestamp,
+      });
+      insertAuditLog(
+        input?.auditUser,
+        "Student discount updated",
+        "Fees",
+        `Updated discount assignment for ${student.name}.`,
+      );
+      return studentDiscountFromRow(
+        db.prepare("SELECT * FROM student_discounts WHERE id = ?").get(studentDiscountId),
+      );
+    },
+
+    deleteStudentDiscount(id, auditUser) {
+      const studentDiscountId = requiredText(id, "Student discount id");
+      const existing = db
+        .prepare("SELECT * FROM student_discounts WHERE id = ? AND deleted_at IS NULL")
+        .get(studentDiscountId);
+      if (!existing) return { success: false };
+      const timestamp = now();
+      db.prepare(`
+        UPDATE student_discounts
+        SET deleted_at = ?,
+            updated_at = ?,
+            sync_status = 'pending'
+        WHERE id = ? AND deleted_at IS NULL
+      `).run(timestamp, timestamp, studentDiscountId);
+      insertAuditLog(
+        auditUser,
+        "Student discount deleted",
+        "Fees",
+        `Soft-deleted discount assignment for ${existing.student_name}.`,
+      );
+      return { success: true };
+    },
+
+    getFeeInvoicePreview(input) {
+      return buildFeeInvoicePreview(input);
+    },
+
+    createFeeInvoice(input) {
+      const preview = buildFeeInvoicePreview(input);
+      if (preview.possibleDuplicates.length > 0 && !input?.allowDuplicate) {
+        throw new Error(
+          "A non-cancelled invoice already exists for this student, session and billing period. Confirm duplicate generation to continue.",
+        );
+      }
+
+      const id = crypto.randomUUID();
+      const timestamp = now();
+      db.transaction(() => {
+        const duplicates = findPossibleDuplicateInvoices(
+          preview.studentId,
+          preview.academicSessionId,
+          preview.billingPeriod,
+        );
+        if (duplicates.length > 0 && !input?.allowDuplicate) {
+          throw new Error(
+            "A non-cancelled invoice already exists for this student, session and billing period.",
+          );
+        }
+        const invoiceNo = generateInvoiceNumber(preview.invoiceDate);
+        const notes = [
+          optionalText(input?.notes),
+          preview.adjustmentAmount !== 0
+            ? `Adjustment reason: ${preview.adjustmentReason}`
+            : "",
+        ]
+          .filter(Boolean)
+          .join("\n");
+        db.prepare(`
+          INSERT INTO fee_invoices (
+            id, invoice_no, student_id, admission_no, student_name,
+            class_name, section, academic_session_id, academic_session_name,
+            billing_period, invoice_date, due_date, subtotal, discount_amount,
+            previous_due, late_fee, adjustment_amount, grand_total,
+            paid_amount, balance_amount, status, notes, generated_by,
+            created_at, updated_at, cancelled_at, cancelled_by,
+            cancellation_reason, sync_status
+          ) VALUES (
+            @id, @invoiceNo, @studentId, @admissionNo, @studentName,
+            @className, @section, @academicSessionId, @academicSessionName,
+            @billingPeriod, @invoiceDate, @dueDate, @subtotal, @discountAmount,
+            @previousDue, @lateFee, @adjustmentAmount, @grandTotal,
+            0, @balanceAmount, @status, @notes, @generatedBy,
+            @createdAt, @updatedAt, NULL, NULL, NULL, 'pending'
+          )
+        `).run({
+          id,
+          invoiceNo,
+          studentId: preview.studentId,
+          admissionNo: preview.admissionNo,
+          studentName: preview.studentName,
+          className: preview.className,
+          section: preview.section,
+          academicSessionId: preview.academicSessionId,
+          academicSessionName: preview.academicSessionName,
+          billingPeriod: preview.billingPeriod,
+          invoiceDate: preview.invoiceDate,
+          dueDate: preview.dueDate,
+          subtotal: preview.subtotal,
+          discountAmount: preview.discountAmount,
+          previousDue: preview.previousDue,
+          lateFee: preview.lateFee,
+          adjustmentAmount: preview.adjustmentAmount,
+          grandTotal: preview.grandTotal,
+          balanceAmount: preview.grandTotal,
+          status: preview.grandTotal === 0 ? "Paid" : "Unpaid",
+          notes,
+          generatedBy: optionalText(input?.generatedBy),
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        });
+
+        for (const item of preview.items) {
+          db.prepare(`
+            INSERT INTO fee_invoice_items (
+              id, invoice_id, fee_head_id, fee_head_name, description,
+              quantity, unit_amount, gross_amount, discount_amount,
+              net_amount, display_order, created_at, updated_at, sync_status
+            ) VALUES (
+              @id, @invoiceId, @feeHeadId, @feeHeadName, @description,
+              @quantity, @unitAmount, @grossAmount, @discountAmount,
+              @netAmount, @displayOrder, @createdAt, @updatedAt, 'pending'
+            )
+          `).run({
+            id: crypto.randomUUID(),
+            invoiceId: id,
+            feeHeadId: item.feeHeadId,
+            feeHeadName: item.feeHeadName,
+            description: item.description,
+            quantity: item.quantity,
+            unitAmount: item.unitAmount,
+            grossAmount: item.grossAmount,
+            discountAmount: item.discountAmount,
+            netAmount: item.netAmount,
+            displayOrder: item.displayOrder,
+            createdAt: timestamp,
+            updatedAt: timestamp,
+          });
+        }
+
+        insertAuditLog(
+          input?.auditUser,
+          "Invoice generated",
+          "Fees",
+          `Generated ${invoiceNo} for ${preview.studentName}. No cash income transaction was created.`,
+        );
+        if (preview.adjustmentAmount !== 0) {
+          insertAuditLog(
+            input?.auditUser,
+            "Manual adjustment applied",
+            "Fees",
+            `Applied ${preview.adjustmentAmount} adjustment to ${invoiceNo}. Reason: ${preview.adjustmentReason}.`,
+          );
+        }
+      })();
+
+      return getFeeInvoiceByIdInternal(id);
+    },
+
+    getFeeInvoices(filter = {}) {
+      return queryFeeInvoiceRows(filter).map((row) => feeInvoiceFromRow(row));
+    },
+
+    getFeeInvoiceById(id) {
+      return getFeeInvoiceByIdInternal(id);
+    },
+
+    cancelFeeInvoice(id, reason, actorName, auditUser) {
+      const invoiceId = requiredText(id, "Invoice id");
+      const cancellationReason = requiredText(reason, "Cancellation reason");
+      db.transaction(() => {
+        const invoice = db
+          .prepare("SELECT * FROM fee_invoices WHERE id = ?")
+          .get(invoiceId);
+        if (!invoice) {
+          throw new Error("Fee invoice was not found.");
+        }
+        if (invoice.status === "Cancelled") {
+          throw new Error("This invoice is already cancelled.");
+        }
+        const activeAllocated = Number(
+          db
+            .prepare(`
+              SELECT COALESCE(SUM(fee_invoice_allocations.allocated_amount), 0) AS amount
+              FROM fee_invoice_allocations
+              JOIN fee_payments
+                ON fee_payments.id = fee_invoice_allocations.fee_payment_id
+              WHERE fee_invoice_allocations.invoice_id = ?
+                AND fee_invoice_allocations.reversed_at IS NULL
+                AND COALESCE(fee_payments.status, 'Active') <> 'Reversed'
+            `)
+            .get(invoiceId)?.amount ?? 0,
+        );
+        if (activeAllocated > 0) {
+          throw new Error(
+            "Invoices with allocated payments cannot be cancelled until the payment is safely reversed.",
+          );
+        }
+        const timestamp = now();
+        db.prepare(`
+          UPDATE fee_invoices
+          SET status = 'Cancelled',
+              balance_amount = 0,
+              cancelled_at = ?,
+              cancelled_by = ?,
+              cancellation_reason = ?,
+              updated_at = ?,
+              sync_status = 'pending'
+          WHERE id = ?
+        `).run(
+          timestamp,
+          optionalText(actorName),
+          cancellationReason,
+          timestamp,
+          invoiceId,
+        );
+        insertAuditLog(
+          auditUser,
+          "Invoice cancelled",
+          "Fees",
+          `Cancelled ${invoice.invoice_no}. Reason: ${cancellationReason}.`,
+        );
+      })();
+      return getFeeInvoiceByIdInternal(invoiceId);
+    },
+
+    refreshFeeInvoiceStatus(id) {
+      return refreshFeeInvoiceStatusInternal(id);
+    },
+
+    allocateFeePaymentToInvoices(input) {
+      const feePaymentId = requiredText(input?.feePaymentId, "Fee payment id");
+      let result = null;
+      db.transaction(() => {
+        const payment = db
+          .prepare("SELECT * FROM fee_payments WHERE id = ?")
+          .get(feePaymentId);
+        if (!payment) {
+          throw new Error("Fee payment was not found.");
+        }
+        const allocations = applyFeeInvoiceAllocations(
+          payment,
+          input?.allocations,
+          input?.auditUser,
+        );
+        result = {
+          allocations,
+          invoices: [
+            ...new Set(allocations.map((allocation) => allocation.invoiceId)),
+          ].map((invoiceId) => getFeeInvoiceByIdInternal(invoiceId)),
+        };
+      })();
+      return result;
+    },
+
+    getStudentOutstandingInvoices(studentId) {
+      const id = requiredText(studentId, "Student id");
+      const invoiceIds = db
+        .prepare(`
+          SELECT id
+          FROM fee_invoices
+          WHERE student_id = ?
+            AND status <> 'Cancelled'
+        `)
+        .all(id)
+        .map((row) => row.id);
+      for (const invoiceId of invoiceIds) {
+        refreshFeeInvoiceStatusInternal(invoiceId);
+      }
+      return db
+        .prepare(`
+          SELECT *
+          FROM fee_invoices
+          WHERE student_id = ?
+            AND status IN ('Unpaid', 'Partially Paid', 'Overdue')
+            AND balance_amount > 0
+          ORDER BY due_date, invoice_date, created_at
+        `)
+        .all(id)
+        .map((row) => feeInvoiceFromRow(row));
+    },
+
+    getFeeInvoiceSummary(filter = {}) {
+      const invoices = queryFeeInvoiceRows(filter).map((row) =>
+        feeInvoiceFromRow(row),
+      );
+      const activeInvoices = invoices.filter(
+        (invoice) => invoice.status !== "Cancelled",
+      );
+      const total = (field) =>
+        activeInvoices.reduce((sum, invoice) => sum + invoice[field], 0);
+      return {
+        invoiceCount: invoices.length,
+        activeInvoiceCount: activeInvoices.length,
+        cancelledInvoiceCount: invoices.length - activeInvoices.length,
+        unpaidInvoiceCount: activeInvoices.filter(
+          (invoice) => invoice.status === "Unpaid",
+        ).length,
+        partiallyPaidInvoiceCount: activeInvoices.filter(
+          (invoice) => invoice.status === "Partially Paid",
+        ).length,
+        paidInvoiceCount: activeInvoices.filter(
+          (invoice) => invoice.status === "Paid",
+        ).length,
+        overdueInvoiceCount: activeInvoices.filter(
+          (invoice) => invoice.status === "Overdue",
+        ).length,
+        subtotal: total("subtotal"),
+        discountAmount: total("discountAmount"),
+        previousDue: total("previousDue"),
+        lateFee: total("lateFee"),
+        adjustmentAmount: total("adjustmentAmount"),
+        grandTotal: total("grandTotal"),
+        paidAmount: total("paidAmount"),
+        balanceAmount: total("balanceAmount"),
+      };
+    },
+
+    getFeeInvoiceAccountsReport(filter = {}) {
+      const invoices = queryFeeInvoiceRows(filter)
+        .map((row) => getFeeInvoiceByIdInternal(row.id))
+        .filter(Boolean)
+        .filter((invoice) => invoice.status !== "Cancelled");
+      const feeHeadBreakdown = new Map();
+      for (const invoice of invoices) {
+        const itemNetTotal = invoice.items.reduce(
+          (sum, item) => sum + item.netAmount,
+          0,
+        );
+        let remainingCollectedForItems = Math.min(
+          invoice.paidAmount,
+          itemNetTotal,
+        );
+        for (const item of invoice.items) {
+          const key = item.feeHeadId || item.feeHeadName;
+          if (!feeHeadBreakdown.has(key)) {
+            feeHeadBreakdown.set(key, {
+              feeHeadId: item.feeHeadId,
+              feeHeadName: item.feeHeadName,
+              invoicedAmount: 0,
+              collectedAmount: 0,
+              outstandingAmount: 0,
+              discountAmount: 0,
+            });
+          }
+          const row = feeHeadBreakdown.get(key);
+          const collectedAmount = Math.min(
+            item.netAmount,
+            remainingCollectedForItems,
+          );
+          remainingCollectedForItems -= collectedAmount;
+          row.invoicedAmount += item.netAmount;
+          row.collectedAmount += collectedAmount;
+          row.outstandingAmount += Math.max(item.netAmount - collectedAmount, 0);
+          row.discountAmount += item.discountAmount;
+        }
+      }
+
+      const summary = {
+        invoicedAmount: invoices.reduce(
+          (sum, invoice) => sum + invoice.grandTotal,
+          0,
+        ),
+        collectedAmount: invoices.reduce(
+          (sum, invoice) => sum + invoice.paidAmount,
+          0,
+        ),
+        outstandingAmount: invoices.reduce(
+          (sum, invoice) => sum + invoice.balanceAmount,
+          0,
+        ),
+        discountAmount: invoices.reduce(
+          (sum, invoice) => sum + invoice.discountAmount,
+          0,
+        ),
+        previousDue: invoices.reduce(
+          (sum, invoice) => sum + invoice.previousDue,
+          0,
+        ),
+      };
+
+      return {
+        summary,
+        feeHeads: [...feeHeadBreakdown.values()].sort((left, right) =>
+          left.feeHeadName.localeCompare(right.feeHeadName),
+        ),
+      };
+    },
+
+    getStudentFeeLedger(studentId) {
+      const id = requiredText(studentId, "Student id");
+      const invoices = this.getFeeInvoices({ studentId: id }).map((invoice) =>
+        getFeeInvoiceByIdInternal(invoice.id),
+      );
+      const payments = db
+        .prepare(`
+          ${paymentSelect}
+          WHERE fee_payments.student_id = ?
+          ORDER BY fee_payments.payment_date, fee_payments.created_at
+        `)
+        .all(id)
+        .map(paymentFromRow);
+      const entries = [
+        ...invoices.map((invoice) => ({
+          id: invoice.id,
+          date: invoice.invoiceDate,
+          type: "Invoice",
+          referenceNo: invoice.invoiceNo,
+          description: `${invoice.billingPeriod} invoice`,
+          debit: invoice.status === "Cancelled" ? 0 : invoice.grandTotal,
+          credit: 0,
+          status: invoice.status,
+        })),
+        ...payments.map((payment) => ({
+          id: payment.id,
+          date: payment.paymentDate,
+          type: payment.status === "Reversed" ? "Payment Reversed" : "Payment",
+          referenceNo: payment.receiptNo,
+          description: payment.feeType,
+          debit: payment.status === "Reversed" ? payment.amount : 0,
+          credit: payment.status === "Reversed" ? 0 : payment.amount,
+          status: payment.status,
+        })),
+      ].sort((left, right) =>
+        `${left.date}-${left.referenceNo}`.localeCompare(
+          `${right.date}-${right.referenceNo}`,
+        ),
+      );
+      let balance = 0;
+      return entries.map((entry) => {
+        balance += entry.debit - entry.credit;
+        return { ...entry, balance };
+      });
+    },
+
+    getFeeInvoiceAccountMappings() {
+      return db
+        .prepare(`
+          SELECT *
+          FROM fee_invoice_account_mappings
+          WHERE deleted_at IS NULL
+          ORDER BY fee_head_name
+        `)
+        .all()
+        .map(feeInvoiceAccountMappingFromRow);
+    },
+
+    saveFeeInvoiceAccountMapping(input) {
+      const feeHeadId = requiredText(input?.feeHeadId, "Fee head");
+      const accountCategoryId = requiredText(
+        input?.accountCategoryId,
+        "Income account category",
+      );
+      const feeHead = getActiveFeeHeadById.get(feeHeadId);
+      if (!feeHead) {
+        throw new Error("Select an active fee head.");
+      }
+      const accountCategory = db
+        .prepare(`
+          SELECT *
+          FROM account_categories
+          WHERE id = ?
+            AND type = 'Income'
+            AND status = 'Active'
+            AND deleted_at IS NULL
+        `)
+        .get(accountCategoryId);
+      if (!accountCategory) {
+        throw new Error("Select an active income account category.");
+      }
+      const timestamp = now();
+      const existing = db
+        .prepare(`
+          SELECT *
+          FROM fee_invoice_account_mappings
+          WHERE fee_head_id = ?
+            AND deleted_at IS NULL
+        `)
+        .get(feeHead.id);
+      if (existing) {
+        db.prepare(`
+          UPDATE fee_invoice_account_mappings
+          SET fee_head_name = @feeHeadName,
+              account_category_id = @accountCategoryId,
+              account_category_name = @accountCategoryName,
+              status = @status,
+              updated_at = @updatedAt,
+              sync_status = 'pending'
+          WHERE id = @id AND deleted_at IS NULL
+        `).run({
+          id: existing.id,
+          feeHeadName: feeHead.name,
+          accountCategoryId: accountCategory.id,
+          accountCategoryName: accountCategory.name,
+          status: masterStatus(input?.status),
+          updatedAt: timestamp,
+        });
+        insertAuditLog(
+          input?.auditUser,
+          "Fee invoice account mapping updated",
+          "Accounts",
+          `Mapped ${feeHead.name} to ${accountCategory.name}.`,
+        );
+        return feeInvoiceAccountMappingFromRow(
+          db
+            .prepare("SELECT * FROM fee_invoice_account_mappings WHERE id = ?")
+            .get(existing.id),
+        );
+      }
+
+      const id = crypto.randomUUID();
+      db.prepare(`
+        INSERT INTO fee_invoice_account_mappings (
+          id, fee_head_id, fee_head_name, account_category_id,
+          account_category_name, status, created_at, updated_at, deleted_at,
+          sync_status
+        ) VALUES (
+          @id, @feeHeadId, @feeHeadName, @accountCategoryId,
+          @accountCategoryName, @status, @createdAt, @updatedAt, NULL,
+          'pending'
+        )
+      `).run({
+        id,
+        feeHeadId: feeHead.id,
+        feeHeadName: feeHead.name,
+        accountCategoryId: accountCategory.id,
+        accountCategoryName: accountCategory.name,
+        status: masterStatus(input?.status),
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+      insertAuditLog(
+        input?.auditUser,
+        "Fee invoice account mapping created",
+        "Accounts",
+        `Mapped ${feeHead.name} to ${accountCategory.name}.`,
+      );
+      return feeInvoiceAccountMappingFromRow(
+        db.prepare("SELECT * FROM fee_invoice_account_mappings WHERE id = ?").get(id),
+      );
+    },
+
+    deleteFeeInvoiceAccountMapping(id, auditUser) {
+      const mappingId = requiredText(id, "Account mapping id");
+      const existing = db
+        .prepare(`
+          SELECT *
+          FROM fee_invoice_account_mappings
+          WHERE id = ? AND deleted_at IS NULL
+        `)
+        .get(mappingId);
+      if (!existing) return { success: false };
+      const timestamp = now();
+      db.prepare(`
+        UPDATE fee_invoice_account_mappings
+        SET deleted_at = ?,
+            updated_at = ?,
+            sync_status = 'pending'
+        WHERE id = ? AND deleted_at IS NULL
+      `).run(timestamp, timestamp, mappingId);
+      insertAuditLog(
+        auditUser,
+        "Fee invoice account mapping deleted",
+        "Accounts",
+        `Removed mapping for ${existing.fee_head_name}.`,
+      );
+      return { success: true };
+    },
+
+    reverseFeePayment(id, reason, actorName, auditUser) {
+      return db.transaction(() =>
+        reverseFeePaymentInternal(id, reason, actorName, auditUser),
+      )();
     },
 
     getAttendance() {
@@ -4645,6 +9867,272 @@ function createDatabase(databasePath) {
           `)
           .get(attendanceId),
       );
+    },
+
+    getEmployeeAttendanceByDate(date, filters = {}) {
+      const attendanceDate = normalizeDate(date, "Attendance date");
+      return queryEmployeeAttendanceRows({
+        ...filters,
+        date: attendanceDate,
+      });
+    },
+
+    getEmployeeAttendanceByRange(filter = {}) {
+      return queryEmployeeAttendanceRows(filter);
+    },
+
+    saveEmployeeAttendanceBulk(records, markedBy = "", auditUser = null) {
+      if (!Array.isArray(records)) {
+        throw new Error("Employee attendance records must be an array.");
+      }
+      if (records.length === 0) {
+        return [];
+      }
+
+      const savedIds = db.transaction(() =>
+        records.map((input) => {
+          const employeeId = requiredText(input?.employeeId, "Employee");
+          const employee = db
+            .prepare(`
+              SELECT *
+              FROM employees
+              WHERE id = ?
+                AND status = 'Active'
+                AND deleted_at IS NULL
+            `)
+            .get(employeeId);
+          if (!employee) {
+            throw new Error("A selected active employee was not found.");
+          }
+          const attendanceDate = normalizeDate(
+            input?.attendanceDate,
+            "Attendance date",
+          );
+          const status = normalizeEmployeeAttendanceStatus(input?.status);
+          const existing = db
+            .prepare(`
+              SELECT *
+              FROM employee_attendance
+              WHERE employee_id = ?
+                AND attendance_date = ?
+                AND deleted_at IS NULL
+            `)
+            .get(employeeId, attendanceDate);
+          const timestamp = now();
+          const id = existing?.id ?? crypto.randomUUID();
+          const payload = {
+            id,
+            employeeId,
+            employeeCode: employee.employee_no ?? "",
+            employeeName: employee.name,
+            department: employee.department ?? "",
+            designation: employee.designation ?? "",
+            attendanceDate,
+            status,
+            checkInTime: normalizeOptionalTimeValue(
+              input?.checkInTime,
+              "Check-in time",
+            ),
+            checkOutTime: normalizeOptionalTimeValue(
+              input?.checkOutTime,
+              "Check-out time",
+            ),
+            lateMinutes: wholeNumber(
+              input?.lateMinutes ?? 0,
+              "Late minutes",
+              0,
+            ),
+            overtimeMinutes: wholeNumber(
+              input?.overtimeMinutes ?? 0,
+              "Overtime minutes",
+              0,
+            ),
+            leaveType: optionalText(input?.leaveType),
+            remarks: optionalText(input?.remarks),
+            markedBy: optionalText(input?.markedBy) || optionalText(markedBy),
+            createdAt: existing?.created_at ?? timestamp,
+            updatedAt: timestamp,
+          };
+
+          if (existing) {
+            db.prepare(`
+              UPDATE employee_attendance
+              SET employee_code = @employeeCode,
+                  employee_name = @employeeName,
+                  department = @department,
+                  designation = @designation,
+                  status = @status,
+                  check_in_time = @checkInTime,
+                  check_out_time = @checkOutTime,
+                  late_minutes = @lateMinutes,
+                  overtime_minutes = @overtimeMinutes,
+                  leave_type = @leaveType,
+                  remarks = @remarks,
+                  marked_by = @markedBy,
+                  updated_at = @updatedAt,
+                  sync_status = 'pending'
+              WHERE id = @id AND deleted_at IS NULL
+            `).run(payload);
+          } else {
+            db.prepare(`
+              INSERT INTO employee_attendance (
+                id, employee_id, employee_code, employee_name, department,
+                designation, attendance_date, status, check_in_time,
+                check_out_time, late_minutes, overtime_minutes, leave_type,
+                remarks, marked_by, created_at, updated_at, deleted_at,
+                sync_status
+              ) VALUES (
+                @id, @employeeId, @employeeCode, @employeeName, @department,
+                @designation, @attendanceDate, @status, @checkInTime,
+                @checkOutTime, @lateMinutes, @overtimeMinutes, @leaveType,
+                @remarks, @markedBy, @createdAt, @updatedAt, NULL,
+                'pending'
+              )
+            `).run(payload);
+          }
+          return id;
+        }),
+      )();
+
+      insertAuditLog(
+        auditUser,
+        "Employee attendance bulk saved",
+        "Employee Attendance",
+        `Saved ${savedIds.length} employee attendance record(s).`,
+      );
+
+      return savedIds.map((id) =>
+        employeeAttendanceFromRow(
+          db.prepare("SELECT * FROM employee_attendance WHERE id = ?").get(id),
+        ),
+      );
+    },
+
+    updateEmployeeAttendance(id, input, markedBy = "", auditUser = null) {
+      const attendanceId = requiredText(id, "Employee attendance id");
+      const existing = db
+        .prepare(`
+          SELECT *
+          FROM employee_attendance
+          WHERE id = ? AND deleted_at IS NULL
+        `)
+        .get(attendanceId);
+      if (!existing) {
+        throw new Error("Employee attendance record was not found.");
+      }
+
+      const status =
+        input?.status === undefined
+          ? existing.status
+          : normalizeEmployeeAttendanceStatus(input.status);
+      const timestamp = now();
+      db.prepare(`
+        UPDATE employee_attendance
+        SET status = @status,
+            check_in_time = @checkInTime,
+            check_out_time = @checkOutTime,
+            late_minutes = @lateMinutes,
+            overtime_minutes = @overtimeMinutes,
+            leave_type = @leaveType,
+            remarks = @remarks,
+            marked_by = @markedBy,
+            updated_at = @updatedAt,
+            sync_status = 'pending'
+        WHERE id = @id AND deleted_at IS NULL
+      `).run({
+        id: attendanceId,
+        status,
+        checkInTime:
+          input?.checkInTime === undefined
+            ? existing.check_in_time ?? ""
+            : normalizeOptionalTimeValue(input.checkInTime, "Check-in time"),
+        checkOutTime:
+          input?.checkOutTime === undefined
+            ? existing.check_out_time ?? ""
+            : normalizeOptionalTimeValue(input.checkOutTime, "Check-out time"),
+        lateMinutes:
+          input?.lateMinutes === undefined
+            ? Number(existing.late_minutes ?? 0)
+            : wholeNumber(input.lateMinutes, "Late minutes", 0),
+        overtimeMinutes:
+          input?.overtimeMinutes === undefined
+            ? Number(existing.overtime_minutes ?? 0)
+            : wholeNumber(input.overtimeMinutes, "Overtime minutes", 0),
+        leaveType:
+          input?.leaveType === undefined
+            ? existing.leave_type ?? ""
+            : optionalText(input.leaveType),
+        remarks:
+          input?.remarks === undefined
+            ? existing.remarks ?? ""
+            : optionalText(input.remarks),
+        markedBy: optionalText(input?.markedBy) || optionalText(markedBy),
+        updatedAt: timestamp,
+      });
+      insertAuditLog(
+        auditUser,
+        "Employee attendance updated",
+        "Employee Attendance",
+        `Updated employee attendance ${attendanceId}.`,
+      );
+      return employeeAttendanceFromRow(
+        db
+          .prepare("SELECT * FROM employee_attendance WHERE id = ?")
+          .get(attendanceId),
+      );
+    },
+
+    getEmployeeAttendanceSummary(filter = {}) {
+      const normalized = normalizeEmployeeAttendanceFilter(filter);
+      const rows = queryEmployeeAttendanceRows(filter);
+      return {
+        startDate: normalized.startDate,
+        endDate: normalized.endDate,
+        month: normalized.month,
+        ...summarizeEmployeeAttendanceRows(rows, filter),
+      };
+    },
+
+    getEmployeeMonthlyAttendance(employeeId, month) {
+      const rows = buildEmployeeMonthlyAttendanceRows({
+        employeeId: requiredText(employeeId, "Employee id"),
+        month: requiredText(month, "Attendance month"),
+      });
+      const monthly = rows[0];
+      if (!monthly) {
+        throw new Error("Employee attendance summary was not found.");
+      }
+      return {
+        ...monthly,
+        records: queryEmployeeAttendanceRows({ employeeId, month }),
+      };
+    },
+
+    getEmployeeAttendanceReport(filter = {}, auditUser = null) {
+      const rows = queryEmployeeAttendanceRows(filter);
+      const normalized = normalizeEmployeeAttendanceFilter(filter);
+      const summary = {
+        startDate: normalized.startDate,
+        endDate: normalized.endDate,
+        month: normalized.month,
+        ...summarizeEmployeeAttendanceRows(rows, filter),
+      };
+      const monthlyRows = normalized.month
+        ? buildEmployeeMonthlyAttendanceRows(filter)
+        : [];
+      insertAuditLog(
+        auditUser,
+        "Employee attendance report generated",
+        "Employee Attendance",
+        normalized.month
+          ? `Generated employee monthly attendance report for ${normalized.month}.`
+          : "Generated employee attendance register.",
+      );
+      return {
+        rows,
+        summary,
+        monthlyRows,
+      };
     },
 
     getClasses() {
@@ -6044,6 +11532,474 @@ function createDatabase(databasePath) {
       });
 
       return markFromRow(db.prepare("SELECT * FROM marks WHERE id = ?").get(markId));
+    },
+
+    getGradingSchemes() {
+      return db
+        .prepare(`
+          SELECT *
+          FROM grading_schemes
+          WHERE deleted_at IS NULL
+          ORDER BY is_default DESC, name COLLATE NOCASE
+        `)
+        .all()
+        .map((row) =>
+          gradingSchemeFromRow(row, getGradingRangesForScheme(row.id)),
+        );
+    },
+
+    getGradingSchemeById(id) {
+      return getGradingSchemeByIdInternal(id);
+    },
+
+    createGradingScheme(input = {}) {
+      const calculationMode = normalizeGradingCalculationMode(
+        input.calculationMode,
+      );
+      const ranges = validateGradingRanges(input.ranges, calculationMode);
+      const session = resolveSchemeSession(input);
+      const timestamp = now();
+      const id = crypto.randomUUID();
+      const schemePayload = {
+        id,
+        name: requiredText(input.name, "Grading scheme name"),
+        academicSessionId: session.id,
+        academicSessionName: session.name,
+        className: optionalText(input.className),
+        calculationMode,
+        status: masterStatus(input.status),
+        isDefault: input.isDefault ? 1 : 0,
+        description: optionalText(input.description),
+        createdBy: optionalText(input.createdBy) ||
+          optionalText(input.auditUser?.name),
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      };
+      db.transaction(() => {
+        db.prepare(`
+          INSERT INTO grading_schemes (
+            id, name, academic_session_id, academic_session_name, class_name,
+            calculation_mode, status, is_default, description, created_by,
+            created_at, updated_at, deleted_at, sync_status
+          ) VALUES (
+            @id, @name, @academicSessionId, @academicSessionName, @className,
+            @calculationMode, @status, @isDefault, @description, @createdBy,
+            @createdAt, @updatedAt, NULL, 'pending'
+          )
+        `).run(schemePayload);
+        insertOrReplaceGradingRanges(id, ranges, timestamp);
+        if (schemePayload.isDefault && schemePayload.status === "Active") {
+          unsetOtherDefaultGradingSchemes(schemePayload);
+        }
+      })();
+      insertAuditLog(
+        input.auditUser,
+        "Grading scheme created",
+        "Marks Grading",
+        `Created ${schemePayload.name}.`,
+      );
+      return getGradingSchemeByIdInternal(id);
+    },
+
+    updateGradingScheme(id, input = {}) {
+      const schemeId = requiredText(id, "Grading scheme id");
+      const existing = db
+        .prepare(`
+          SELECT *
+          FROM grading_schemes
+          WHERE id = ? AND deleted_at IS NULL
+        `)
+        .get(schemeId);
+      if (!existing) throw new Error("Grading scheme was not found.");
+      const calculationMode =
+        input.calculationMode === undefined
+          ? existing.calculation_mode
+          : normalizeGradingCalculationMode(input.calculationMode);
+      const ranges =
+        input.ranges === undefined
+          ? getGradingRangesForScheme(schemeId)
+          : validateGradingRanges(input.ranges, calculationMode);
+      const session = resolveSchemeSession(input, existing);
+      const status = masterStatus(input.status, existing.status);
+      const isDefault =
+        input.isDefault === undefined
+          ? Number(existing.is_default ?? 0)
+          : input.isDefault
+            ? 1
+            : 0;
+      const timestamp = now();
+      const payload = {
+        id: schemeId,
+        name:
+          input.name === undefined
+            ? existing.name
+            : requiredText(input.name, "Grading scheme name"),
+        academicSessionId: session.id,
+        academicSessionName: session.name,
+        className:
+          input.className === undefined
+            ? existing.class_name ?? ""
+            : optionalText(input.className),
+        calculationMode,
+        status,
+        isDefault,
+        description:
+          input.description === undefined
+            ? existing.description ?? ""
+            : optionalText(input.description),
+        updatedAt: timestamp,
+      };
+      db.transaction(() => {
+        db.prepare(`
+          UPDATE grading_schemes
+          SET name = @name,
+              academic_session_id = @academicSessionId,
+              academic_session_name = @academicSessionName,
+              class_name = @className,
+              calculation_mode = @calculationMode,
+              status = @status,
+              is_default = @isDefault,
+              description = @description,
+              updated_at = @updatedAt,
+              sync_status = 'pending'
+          WHERE id = @id AND deleted_at IS NULL
+        `).run(payload);
+        if (input.ranges !== undefined) {
+          insertOrReplaceGradingRanges(schemeId, ranges, timestamp);
+        }
+        if (payload.isDefault && payload.status === "Active") {
+          unsetOtherDefaultGradingSchemes(payload);
+        }
+      })();
+      insertAuditLog(
+        input.auditUser,
+        "Grading scheme updated",
+        "Marks Grading",
+        `Updated ${payload.name}.`,
+      );
+      return getGradingSchemeByIdInternal(schemeId);
+    },
+
+    deleteGradingScheme(id, auditUser = null) {
+      const schemeId = requiredText(id, "Grading scheme id");
+      const timestamp = now();
+      const result = db
+        .prepare(`
+          UPDATE grading_schemes
+          SET deleted_at = ?, updated_at = ?, is_default = 0, sync_status = 'pending'
+          WHERE id = ? AND deleted_at IS NULL
+        `)
+        .run(timestamp, timestamp, schemeId);
+      db.prepare(`
+        UPDATE grading_ranges
+        SET deleted_at = ?, updated_at = ?, sync_status = 'pending'
+        WHERE grading_scheme_id = ? AND deleted_at IS NULL
+      `).run(timestamp, timestamp, schemeId);
+      insertAuditLog(
+        auditUser,
+        "Grading scheme deleted",
+        "Marks Grading",
+        `Deleted grading scheme ${schemeId}.`,
+      );
+      return { success: result.changes === 1 };
+    },
+
+    setDefaultGradingScheme(id, auditUser = null) {
+      const scheme = getGradingSchemeByIdInternal(id);
+      if (!scheme || scheme.status !== "Active") {
+        throw new Error("Select an active grading scheme.");
+      }
+      db.transaction(() => {
+        db.prepare(`
+          UPDATE grading_schemes
+          SET is_default = 1,
+              updated_at = @updatedAt,
+              sync_status = 'pending'
+          WHERE id = @id AND deleted_at IS NULL
+        `).run({ id: scheme.id, updatedAt: now() });
+        unsetOtherDefaultGradingSchemes(scheme);
+      })();
+      insertAuditLog(
+        auditUser,
+        "Default grading scheme changed",
+        "Marks Grading",
+        `Set ${scheme.name} as default.`,
+      );
+      return getGradingSchemeByIdInternal(scheme.id);
+    },
+
+    calculateGrade(input = {}) {
+      const scheme = resolveApplicableGradingScheme(input);
+      return {
+        scheme,
+        ...calculateGradeFromScheme(
+          scheme,
+          decimalNumber(input.value, "Grade value", 0),
+        ),
+      };
+    },
+
+    getReportCardTemplates() {
+      return db
+        .prepare(`
+          SELECT *
+          FROM report_card_templates
+          WHERE deleted_at IS NULL
+          ORDER BY status, name COLLATE NOCASE
+        `)
+        .all()
+        .map(reportCardTemplateFromRow);
+    },
+
+    createReportCardTemplate(input = {}) {
+      const timestamp = now();
+      const id = crypto.randomUUID();
+      db.prepare(`
+        INSERT INTO report_card_templates (
+          id, name, template_type, academic_session_id, class_name,
+          show_attendance, show_class_tests, show_behaviour, show_skills,
+          show_teacher_remarks, show_principal_signature, header_text,
+          footer_text, status, created_at, updated_at, deleted_at, sync_status
+        ) VALUES (
+          @id, @name, @templateType, @academicSessionId, @className,
+          @showAttendance, @showClassTests, @showBehaviour, @showSkills,
+          @showTeacherRemarks, @showPrincipalSignature, @headerText,
+          @footerText, @status, @createdAt, @updatedAt, NULL, 'pending'
+        )
+      `).run({
+        id,
+        name: requiredText(input.name, "Template name"),
+        templateType: normalizeReportCardTemplateType(input.templateType),
+        academicSessionId: optionalText(input.academicSessionId),
+        className: optionalText(input.className),
+        showAttendance: booleanFlag(input.showAttendance, true),
+        showClassTests: booleanFlag(input.showClassTests, false),
+        showBehaviour: booleanFlag(input.showBehaviour, true),
+        showSkills: booleanFlag(input.showSkills, true),
+        showTeacherRemarks: booleanFlag(input.showTeacherRemarks, true),
+        showPrincipalSignature: booleanFlag(
+          input.showPrincipalSignature,
+          true,
+        ),
+        headerText: optionalText(input.headerText),
+        footerText: optionalText(input.footerText),
+        status: masterStatus(input.status),
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+      return reportCardTemplateFromRow(
+        db.prepare("SELECT * FROM report_card_templates WHERE id = ?").get(id),
+      );
+    },
+
+    updateReportCardTemplate(id, input = {}) {
+      const templateId = requiredText(id, "Report card template id");
+      const existing = db
+        .prepare(`
+          SELECT *
+          FROM report_card_templates
+          WHERE id = ? AND deleted_at IS NULL
+        `)
+        .get(templateId);
+      if (!existing) throw new Error("Report card template was not found.");
+      db.prepare(`
+        UPDATE report_card_templates
+        SET name = @name,
+            template_type = @templateType,
+            academic_session_id = @academicSessionId,
+            class_name = @className,
+            show_attendance = @showAttendance,
+            show_class_tests = @showClassTests,
+            show_behaviour = @showBehaviour,
+            show_skills = @showSkills,
+            show_teacher_remarks = @showTeacherRemarks,
+            show_principal_signature = @showPrincipalSignature,
+            header_text = @headerText,
+            footer_text = @footerText,
+            status = @status,
+            updated_at = @updatedAt,
+            sync_status = 'pending'
+        WHERE id = @id AND deleted_at IS NULL
+      `).run({
+        id: templateId,
+        name:
+          input.name === undefined
+            ? existing.name
+            : requiredText(input.name, "Template name"),
+        templateType:
+          input.templateType === undefined
+            ? existing.template_type
+            : normalizeReportCardTemplateType(input.templateType),
+        academicSessionId:
+          input.academicSessionId === undefined
+            ? existing.academic_session_id ?? ""
+            : optionalText(input.academicSessionId),
+        className:
+          input.className === undefined
+            ? existing.class_name ?? ""
+            : optionalText(input.className),
+        showAttendance:
+          input.showAttendance === undefined
+            ? Number(existing.show_attendance ?? 1)
+            : booleanFlag(input.showAttendance, true),
+        showClassTests:
+          input.showClassTests === undefined
+            ? Number(existing.show_class_tests ?? 0)
+            : booleanFlag(input.showClassTests, false),
+        showBehaviour:
+          input.showBehaviour === undefined
+            ? Number(existing.show_behaviour ?? 1)
+            : booleanFlag(input.showBehaviour, true),
+        showSkills:
+          input.showSkills === undefined
+            ? Number(existing.show_skills ?? 1)
+            : booleanFlag(input.showSkills, true),
+        showTeacherRemarks:
+          input.showTeacherRemarks === undefined
+            ? Number(existing.show_teacher_remarks ?? 1)
+            : booleanFlag(input.showTeacherRemarks, true),
+        showPrincipalSignature:
+          input.showPrincipalSignature === undefined
+            ? Number(existing.show_principal_signature ?? 1)
+            : booleanFlag(input.showPrincipalSignature, true),
+        headerText:
+          input.headerText === undefined
+            ? existing.header_text ?? ""
+            : optionalText(input.headerText),
+        footerText:
+          input.footerText === undefined
+            ? existing.footer_text ?? ""
+            : optionalText(input.footerText),
+        status: masterStatus(input.status, existing.status),
+        updatedAt: now(),
+      });
+      return reportCardTemplateFromRow(
+        db
+          .prepare("SELECT * FROM report_card_templates WHERE id = ?")
+          .get(templateId),
+      );
+    },
+
+    deleteReportCardTemplate(id) {
+      const timestamp = now();
+      const result = db
+        .prepare(`
+          UPDATE report_card_templates
+          SET deleted_at = ?, updated_at = ?, sync_status = 'pending'
+          WHERE id = ? AND deleted_at IS NULL
+        `)
+        .run(timestamp, timestamp, requiredText(id, "Report card template id"));
+      return { success: result.changes === 1 };
+    },
+
+    getReportCardPreview(input = {}) {
+      return buildReportCardPreview(input);
+    },
+
+    generateStudentReportCard(input = {}) {
+      const actor = input.auditUser ?? null;
+      const preview = buildReportCardPreview(input);
+      const card = db.transaction(() =>
+        insertReportCardFromPreview(preview, input, actor),
+      )();
+      insertAuditLog(
+        actor,
+        input.regenerate ? "Report card regenerated" : "Report card generated",
+        "Report Cards",
+        `${card.reportCardNo} for ${card.studentName}.`,
+      );
+      return card;
+    },
+
+    generateClassReportCards(input = {}) {
+      const actor = input.auditUser ?? null;
+      const students = buildClassReportCardStudents(input);
+      const cards = db.transaction(() =>
+        students.map((student) => {
+          const preview = buildReportCardPreview({
+            ...input,
+            studentId: student.id,
+          });
+          return insertReportCardFromPreview(preview, input, actor);
+        }),
+      )();
+      insertAuditLog(
+        actor,
+        "Class batch report cards generated",
+        "Report Cards",
+        `Generated ${cards.length} report card(s).`,
+      );
+      return {
+        count: cards.length,
+        reportCards: cards,
+      };
+    },
+
+    getStudentReportCards(filter = {}) {
+      return queryReportCards(filter);
+    },
+
+    getStudentReportCardById(id) {
+      return getReportCardByIdInternal(id);
+    },
+
+    updateReportCardRemarks(id, input = {}) {
+      const cardId = requiredText(id, "Report card id");
+      const existing = getReportCardByIdInternal(cardId);
+      if (!existing) throw new Error("Report card was not found.");
+      db.prepare(`
+        UPDATE student_report_cards
+        SET teacher_remarks = @teacherRemarks,
+            principal_remarks = @principalRemarks,
+            updated_at = @updatedAt,
+            sync_status = 'pending'
+        WHERE id = @id AND deleted_at IS NULL
+      `).run({
+        id: cardId,
+        teacherRemarks:
+          input.teacherRemarks === undefined
+            ? existing.teacherRemarks
+            : optionalText(input.teacherRemarks),
+        principalRemarks:
+          input.principalRemarks === undefined
+            ? existing.principalRemarks
+            : optionalText(input.principalRemarks),
+        updatedAt: now(),
+      });
+      insertAuditLog(
+        input.auditUser,
+        "Report card remarks updated",
+        "Report Cards",
+        `Updated remarks for ${existing.reportCardNo}.`,
+      );
+      return getReportCardByIdInternal(cardId);
+    },
+
+    deleteReportCard(id, auditUser = null) {
+      const cardId = requiredText(id, "Report card id");
+      const timestamp = now();
+      const result = db
+        .prepare(`
+          UPDATE student_report_cards
+          SET deleted_at = ?, updated_at = ?, sync_status = 'pending'
+          WHERE id = ? AND deleted_at IS NULL
+        `)
+        .run(timestamp, timestamp, cardId);
+      insertAuditLog(
+        auditUser,
+        "Report card deleted",
+        "Report Cards",
+        `Soft deleted report card ${cardId}.`,
+      );
+      return { success: result.changes === 1 };
+    },
+
+    getClassResultSummary(filter = {}) {
+      return buildClassResultSummary(filter);
+    },
+
+    getResultPositions(filter = {}) {
+      return buildClassResultSummary(filter).rankings;
     },
 
     createDemoData(cashierName = "Demo Administrator") {
@@ -9850,7 +15806,33 @@ function createDatabase(databasePath) {
             WHERE academic_session_id = ?
           `).run(sessionName, now(), sessionId);
           db.prepare(`
+            UPDATE student_session_history
+            SET promoted_to_session_name = ?, updated_at = ?,
+                sync_status = 'pending'
+            WHERE promoted_to_session_id = ?
+          `).run(sessionName, now(), sessionId);
+          db.prepare(`
             UPDATE student_promotions
+            SET from_session_name = CASE
+                  WHEN from_session_id = ? THEN ? ELSE from_session_name
+                END,
+                to_session_name = CASE
+                  WHEN to_session_id = ? THEN ? ELSE to_session_name
+                END,
+                updated_at = ?,
+                sync_status = 'pending'
+            WHERE from_session_id = ? OR to_session_id = ?
+          `).run(
+            sessionId,
+            sessionName,
+            sessionId,
+            sessionName,
+            now(),
+            sessionId,
+            sessionId,
+          );
+          db.prepare(`
+            UPDATE fee_due_carry_forward
             SET from_session_name = CASE
                   WHEN from_session_id = ? THEN ? ELSE from_session_name
                 END,
@@ -10201,10 +16183,18 @@ function createDatabase(databasePath) {
           `)
           .get(studentId, fromSession.id);
         if (!sourceHistory) {
-          sourceHistory = ensureStudentSessionHistory(
-            studentId,
-            fromSession,
-          );
+          sourceHistory = {
+            id: null,
+            student_id: student.id,
+            admission_no: student.admission_no,
+            student_name: student.name,
+            academic_session_id: fromSession.id,
+            academic_session_name: fromSession.session_name,
+            class_name: student.class_name,
+            section: student.section ?? "",
+            status: "Active",
+            result_status: "Not Applicable",
+          };
         }
         if (
           sourceHistory.class_name !== fromClass ||
@@ -10355,6 +16345,13 @@ function createDatabase(databasePath) {
 
         for (const item of preparedItems) {
           counts[item.action] += 1;
+          const sourceHistory =
+            item.sourceHistory.id === null
+              ? ensureStudentSessionHistory(
+                  item.student.id,
+                  fromSession,
+                )
+              : item.sourceHistory;
           const remainsActive =
             item.action === "Promote" || item.action === "Repeat";
           const sourceStatus =
@@ -10387,7 +16384,7 @@ function createDatabase(databasePath) {
                 sync_status = 'pending'
             WHERE id = @id
           `).run({
-            id: item.sourceHistory.id,
+            id: sourceHistory.id,
             status: sourceStatus,
             resultStatus,
             toSessionId: toSession.id,
@@ -10410,10 +16407,10 @@ function createDatabase(databasePath) {
             id: item.student.id,
             className: remainsActive
               ? item.newClass
-              : item.sourceHistory.class_name,
+              : sourceHistory.class_name,
             section: remainsActive
               ? item.newSection
-              : item.sourceHistory.section ?? "",
+              : sourceHistory.section ?? "",
             status: remainsActive ? "Active" : "Inactive",
             updatedAt: timestamp,
           });
@@ -10438,8 +16435,8 @@ function createDatabase(databasePath) {
             studentId: item.student.id,
             admissionNo: item.student.admission_no,
             studentName: item.student.name,
-            oldClass: item.sourceHistory.class_name,
-            oldSection: item.sourceHistory.section ?? "",
+            oldClass: sourceHistory.class_name,
+            oldSection: sourceHistory.section ?? "",
             newClass: remainsActive ? item.newClass : "",
             newSection: remainsActive ? item.newSection : "",
             action: item.action,
@@ -11014,13 +17011,1397 @@ function createDatabase(databasePath) {
       return this.getLicenseActivationRecord();
     },
 
+    getRemoteLicenseStatusRecord() {
+      return remoteLicenseStatusFromRow(
+        db
+          .prepare(
+            "SELECT * FROM remote_license_status WHERE id = 'active-remote-license'",
+          )
+          .get(),
+      );
+    },
+
+    saveRemoteLicenseStatus(input) {
+      const existing = db
+        .prepare(
+          "SELECT created_at FROM remote_license_status WHERE id = 'active-remote-license'",
+        )
+        .get();
+      const timestamp = now();
+      const remoteStatus = optionalText(input?.remoteStatus) || "Unknown";
+      if (!REMOTE_LICENSE_STATUSES.has(remoteStatus)) {
+        throw new Error("Remote license status is invalid.");
+      }
+      db.prepare(`
+        INSERT INTO remote_license_status (
+          id, license_id, device_id, remote_status, last_online_check_at,
+          next_required_check_at, grace_until, last_error, server_message,
+          created_at, updated_at
+        ) VALUES (
+          'active-remote-license', @licenseId, @deviceId, @remoteStatus,
+          @lastOnlineCheckAt, @nextRequiredCheckAt, @graceUntil, @lastError,
+          @serverMessage, @createdAt, @updatedAt
+        )
+        ON CONFLICT(id) DO UPDATE SET
+          license_id = excluded.license_id,
+          device_id = excluded.device_id,
+          remote_status = excluded.remote_status,
+          last_online_check_at = excluded.last_online_check_at,
+          next_required_check_at = excluded.next_required_check_at,
+          grace_until = excluded.grace_until,
+          last_error = excluded.last_error,
+          server_message = excluded.server_message,
+          updated_at = excluded.updated_at
+      `).run({
+        licenseId: optionalText(input?.licenseId),
+        deviceId: optionalText(input?.deviceId),
+        remoteStatus,
+        lastOnlineCheckAt: optionalText(input?.lastOnlineCheckAt),
+        nextRequiredCheckAt: optionalText(input?.nextRequiredCheckAt),
+        graceUntil: optionalText(input?.graceUntil),
+        lastError: optionalText(input?.lastError),
+        serverMessage: optionalText(input?.serverMessage),
+        createdAt: existing?.created_at ?? timestamp,
+        updatedAt: timestamp,
+      });
+      return this.getRemoteLicenseStatusRecord();
+    },
+
+    clearRemoteLicenseStatus() {
+      const result = db
+        .prepare(
+          "DELETE FROM remote_license_status WHERE id = 'active-remote-license'",
+        )
+        .run();
+      return { success: result.changes === 1 };
+    },
+
+    clearRemoteLicenseStatusForLicense(licenseId) {
+      const normalizedLicenseId = optionalText(licenseId);
+      if (!normalizedLicenseId) return { success: false };
+      const result = db
+        .prepare(
+          "DELETE FROM remote_license_status WHERE id = 'active-remote-license' AND license_id = ?",
+        )
+        .run(normalizedLicenseId);
+      return { success: result.changes === 1 };
+    },
+
     deactivateLicenseActivation() {
+      this.clearRemoteLicenseStatus();
       const result = db
         .prepare(
           "DELETE FROM license_activation WHERE id = 'active-license'",
         )
         .run();
       return { success: result.changes === 1 };
+    },
+
+    getFamilies(filter = {}) {
+      const { where, params } = buildFamilyWhere(filter);
+      return db
+        .prepare(`
+          ${familySelect(where)}
+          ORDER BY
+            CASE families.status WHEN 'Active' THEN 0 ELSE 1 END,
+            families.family_code DESC
+        `)
+        .all(params)
+        .map(familyFromRow);
+    },
+
+    getFamilyById(id) {
+      const familyId = requiredText(id, "Family id");
+      const row = db
+        .prepare(`
+          ${familySelect("families.id = @familyId AND families.deleted_at IS NULL")}
+        `)
+        .get({ familyId });
+      if (!row) return null;
+      return {
+        ...familyFromRow(row),
+        guardians: this.getGuardians({ familyId }),
+        students: this.getFamilyStudents(familyId),
+      };
+    },
+
+    createFamily(input = {}) {
+      const timestamp = now();
+      const familyCode = optionalText(input.familyCode) || generateFamilyCode();
+      const duplicate = db
+        .prepare(`
+          SELECT id
+          FROM families
+          WHERE family_code = ? COLLATE NOCASE
+            AND deleted_at IS NULL
+        `)
+        .get(familyCode);
+      if (duplicate) throw new Error("Family code is already in use.");
+      const id = crypto.randomUUID();
+      db.prepare(`
+        INSERT INTO families (
+          id, family_code, family_name, primary_contact_name,
+          primary_mobile, secondary_mobile, email, address, city, state,
+          postal_code, emergency_contact_name, emergency_contact_mobile,
+          notes, status, created_at, updated_at, deleted_at, sync_status
+        ) VALUES (
+          @id, @familyCode, @familyName, @primaryContactName,
+          @primaryMobile, @secondaryMobile, @email, @address, @city, @state,
+          @postalCode, @emergencyContactName, @emergencyContactMobile,
+          @notes, @status, @createdAt, @updatedAt, NULL, 'pending'
+        )
+      `).run({
+        id,
+        familyCode,
+        familyName: optionalText(input.familyName),
+        primaryContactName: optionalText(input.primaryContactName),
+        primaryMobile: optionalText(input.primaryMobile),
+        secondaryMobile: optionalText(input.secondaryMobile),
+        email: optionalText(input.email),
+        address: optionalText(input.address),
+        city: optionalText(input.city),
+        state: optionalText(input.state),
+        postalCode: optionalText(input.postalCode),
+        emergencyContactName: optionalText(input.emergencyContactName),
+        emergencyContactMobile: optionalText(input.emergencyContactMobile),
+        notes: optionalText(input.notes),
+        status: masterStatus(input.status),
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+      return this.getFamilyById(id);
+    },
+
+    updateFamily(id, input = {}) {
+      const familyId = requiredText(id, "Family id");
+      const existing = getFamilyRowRequired(familyId);
+      const familyCode =
+        input.familyCode === undefined
+          ? existing.family_code
+          : requiredText(input.familyCode, "Family code");
+      const duplicate = db
+        .prepare(`
+          SELECT id
+          FROM families
+          WHERE family_code = ? COLLATE NOCASE
+            AND id <> ?
+            AND deleted_at IS NULL
+        `)
+        .get(familyCode, familyId);
+      if (duplicate) throw new Error("Family code is already in use.");
+      db.prepare(`
+        UPDATE families
+        SET family_code = @familyCode,
+            family_name = @familyName,
+            primary_contact_name = @primaryContactName,
+            primary_mobile = @primaryMobile,
+            secondary_mobile = @secondaryMobile,
+            email = @email,
+            address = @address,
+            city = @city,
+            state = @state,
+            postal_code = @postalCode,
+            emergency_contact_name = @emergencyContactName,
+            emergency_contact_mobile = @emergencyContactMobile,
+            notes = @notes,
+            status = @status,
+            updated_at = @updatedAt,
+            sync_status = 'pending'
+        WHERE id = @id AND deleted_at IS NULL
+      `).run({
+        id: familyId,
+        familyCode,
+        familyName:
+          input.familyName === undefined
+            ? existing.family_name ?? ""
+            : optionalText(input.familyName),
+        primaryContactName:
+          input.primaryContactName === undefined
+            ? existing.primary_contact_name ?? ""
+            : optionalText(input.primaryContactName),
+        primaryMobile:
+          input.primaryMobile === undefined
+            ? existing.primary_mobile ?? ""
+            : optionalText(input.primaryMobile),
+        secondaryMobile:
+          input.secondaryMobile === undefined
+            ? existing.secondary_mobile ?? ""
+            : optionalText(input.secondaryMobile),
+        email:
+          input.email === undefined
+            ? existing.email ?? ""
+            : optionalText(input.email),
+        address:
+          input.address === undefined
+            ? existing.address ?? ""
+            : optionalText(input.address),
+        city:
+          input.city === undefined
+            ? existing.city ?? ""
+            : optionalText(input.city),
+        state:
+          input.state === undefined
+            ? existing.state ?? ""
+            : optionalText(input.state),
+        postalCode:
+          input.postalCode === undefined
+            ? existing.postal_code ?? ""
+            : optionalText(input.postalCode),
+        emergencyContactName:
+          input.emergencyContactName === undefined
+            ? existing.emergency_contact_name ?? ""
+            : optionalText(input.emergencyContactName),
+        emergencyContactMobile:
+          input.emergencyContactMobile === undefined
+            ? existing.emergency_contact_mobile ?? ""
+            : optionalText(input.emergencyContactMobile),
+        notes:
+          input.notes === undefined
+            ? existing.notes ?? ""
+            : optionalText(input.notes),
+        status:
+          input.status === undefined
+            ? existing.status ?? "Active"
+            : masterStatus(input.status),
+        updatedAt: now(),
+      });
+      return this.getFamilyById(familyId);
+    },
+
+    deleteFamily(id) {
+      const familyId = requiredText(id, "Family id");
+      const timestamp = now();
+      const result = db
+        .prepare(`
+          UPDATE families
+          SET deleted_at = @deletedAt,
+              updated_at = @updatedAt,
+              sync_status = 'pending'
+          WHERE id = @id AND deleted_at IS NULL
+        `)
+        .run({ id: familyId, deletedAt: timestamp, updatedAt: timestamp });
+      return { success: result.changes === 1 };
+    },
+
+    getFamilyStudents(familyId) {
+      const normalizedFamilyId = requiredText(familyId, "Family id");
+      return db
+        .prepare(`
+          SELECT DISTINCT students.*
+          FROM student_guardian_links AS links
+          JOIN students
+            ON students.id = links.student_id
+            AND students.deleted_at IS NULL
+          WHERE links.family_id = ?
+            AND links.deleted_at IS NULL
+          ORDER BY students.class_name COLLATE NOCASE,
+            students.section COLLATE NOCASE,
+            students.name COLLATE NOCASE
+        `)
+        .all(normalizedFamilyId)
+        .map(studentFromRow);
+    },
+
+    getGuardians(filter = {}) {
+      const { where, params } = buildGuardianWhere(filter);
+      return db
+        .prepare(`
+          ${guardianSelect(where)}
+          ORDER BY
+            CASE guardians.status WHEN 'Active' THEN 0 ELSE 1 END,
+            guardians.full_name COLLATE NOCASE
+        `)
+        .all(params)
+        .map(guardianFromRow);
+    },
+
+    createGuardian(input = {}) {
+      const duplicate = findDuplicateGuardian(input);
+      if (duplicate) {
+        throw new Error("A guardian with this name and contact already exists.");
+      }
+      const familyId = optionalText(input.familyId);
+      if (familyId) getFamilyRowRequired(familyId);
+      const timestamp = now();
+      const isPrimary = booleanFlag(input.isPrimary, false);
+      const id = crypto.randomUUID();
+      db.transaction(() => {
+        if (isPrimary && familyId) {
+          db.prepare(`
+            UPDATE guardians
+            SET is_primary = 0,
+                updated_at = @updatedAt,
+                sync_status = 'pending'
+            WHERE family_id = @familyId
+              AND deleted_at IS NULL
+          `).run({ familyId, updatedAt: timestamp });
+        }
+        db.prepare(`
+          INSERT INTO guardians (
+            id, family_id, full_name, relation, mobile, alternate_mobile,
+            email, occupation, qualification, annual_income, address,
+            is_primary, can_pickup_student, emergency_contact, status,
+            created_at, updated_at, deleted_at, sync_status
+          ) VALUES (
+            @id, @familyId, @fullName, @relation, @mobile, @alternateMobile,
+            @email, @occupation, @qualification, @annualIncome, @address,
+            @isPrimary, @canPickupStudent, @emergencyContact, @status,
+            @createdAt, @updatedAt, NULL, 'pending'
+          )
+        `).run({
+          id,
+          familyId: familyId || null,
+          fullName: requiredText(input.fullName, "Guardian name"),
+          relation: normalizeGuardianRelation(input.relation),
+          mobile: optionalText(input.mobile),
+          alternateMobile: optionalText(input.alternateMobile),
+          email: optionalText(input.email),
+          occupation: optionalText(input.occupation),
+          qualification: optionalText(input.qualification),
+          annualIncome:
+            input.annualIncome === undefined ||
+            input.annualIncome === null ||
+            input.annualIncome === ""
+              ? null
+              : wholeNumber(input.annualIncome, "Annual income", 0),
+          address: optionalText(input.address),
+          isPrimary: isPrimary ? 1 : 0,
+          canPickupStudent: booleanFlag(input.canPickupStudent, true) ? 1 : 0,
+          emergencyContact: booleanFlag(input.emergencyContact, false) ? 1 : 0,
+          status: normalizeGuardianStatus(input.status),
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        });
+      })();
+      return this.getGuardians({}).find((guardian) => guardian.id === id);
+    },
+
+    updateGuardian(id, input = {}) {
+      const guardianId = requiredText(id, "Guardian id");
+      const existing = getGuardianRowRequired(guardianId);
+      const nextFamilyId =
+        input.familyId === undefined
+          ? existing.family_id ?? ""
+          : optionalText(input.familyId);
+      if (nextFamilyId) getFamilyRowRequired(nextFamilyId);
+      const nextFullName =
+        input.fullName === undefined
+          ? existing.full_name
+          : requiredText(input.fullName, "Guardian name");
+      const nextMobile =
+        input.mobile === undefined
+          ? existing.mobile ?? ""
+          : optionalText(input.mobile);
+      const nextEmail =
+        input.email === undefined
+          ? existing.email ?? ""
+          : optionalText(input.email);
+      const duplicate = findDuplicateGuardian(
+        { fullName: nextFullName, mobile: nextMobile, email: nextEmail },
+        guardianId,
+      );
+      if (duplicate) {
+        throw new Error("A guardian with this name and contact already exists.");
+      }
+      const timestamp = now();
+      const isPrimary =
+        input.isPrimary === undefined
+          ? Number(existing.is_primary ?? 0) === 1
+          : booleanFlag(input.isPrimary, false);
+      db.transaction(() => {
+        if (isPrimary && nextFamilyId) {
+          db.prepare(`
+            UPDATE guardians
+            SET is_primary = 0,
+                updated_at = @updatedAt,
+                sync_status = 'pending'
+            WHERE family_id = @familyId
+              AND id <> @id
+              AND deleted_at IS NULL
+          `).run({ id: guardianId, familyId: nextFamilyId, updatedAt: timestamp });
+        }
+        db.prepare(`
+          UPDATE guardians
+          SET family_id = @familyId,
+              full_name = @fullName,
+              relation = @relation,
+              mobile = @mobile,
+              alternate_mobile = @alternateMobile,
+              email = @email,
+              occupation = @occupation,
+              qualification = @qualification,
+              annual_income = @annualIncome,
+              address = @address,
+              is_primary = @isPrimary,
+              can_pickup_student = @canPickupStudent,
+              emergency_contact = @emergencyContact,
+              status = @status,
+              updated_at = @updatedAt,
+              sync_status = 'pending'
+          WHERE id = @id AND deleted_at IS NULL
+        `).run({
+          id: guardianId,
+          familyId: nextFamilyId || null,
+          fullName: nextFullName,
+          relation:
+            input.relation === undefined
+              ? existing.relation
+              : normalizeGuardianRelation(input.relation),
+          mobile: nextMobile,
+          alternateMobile:
+            input.alternateMobile === undefined
+              ? existing.alternate_mobile ?? ""
+              : optionalText(input.alternateMobile),
+          email: nextEmail,
+          occupation:
+            input.occupation === undefined
+              ? existing.occupation ?? ""
+              : optionalText(input.occupation),
+          qualification:
+            input.qualification === undefined
+              ? existing.qualification ?? ""
+              : optionalText(input.qualification),
+          annualIncome:
+            input.annualIncome === undefined
+              ? existing.annual_income
+              : input.annualIncome === null || input.annualIncome === ""
+                ? null
+                : wholeNumber(input.annualIncome, "Annual income", 0),
+          address:
+            input.address === undefined
+              ? existing.address ?? ""
+              : optionalText(input.address),
+          isPrimary: isPrimary ? 1 : 0,
+          canPickupStudent:
+            input.canPickupStudent === undefined
+              ? Number(existing.can_pickup_student ?? 1)
+              : booleanFlag(input.canPickupStudent, true)
+                ? 1
+                : 0,
+          emergencyContact:
+            input.emergencyContact === undefined
+              ? Number(existing.emergency_contact ?? 0)
+              : booleanFlag(input.emergencyContact, false)
+                ? 1
+                : 0,
+          status:
+            input.status === undefined
+              ? existing.status ?? "Active"
+              : normalizeGuardianStatus(input.status),
+          updatedAt: timestamp,
+        });
+        db.prepare(`
+          UPDATE student_guardian_links
+          SET family_id = @familyId,
+              updated_at = @updatedAt,
+              sync_status = 'pending'
+          WHERE guardian_id = @id
+            AND deleted_at IS NULL
+        `).run({
+          id: guardianId,
+          familyId: nextFamilyId || null,
+          updatedAt: timestamp,
+        });
+      })();
+      return this.getGuardians({}).find((guardian) => guardian.id === guardianId);
+    },
+
+    deleteGuardian(id) {
+      const guardianId = requiredText(id, "Guardian id");
+      const timestamp = now();
+      let changed = 0;
+      db.transaction(() => {
+        const result = db
+          .prepare(`
+            UPDATE guardians
+            SET deleted_at = @deletedAt,
+                updated_at = @updatedAt,
+                sync_status = 'pending'
+            WHERE id = @id AND deleted_at IS NULL
+          `)
+          .run({ id: guardianId, deletedAt: timestamp, updatedAt: timestamp });
+        changed = result.changes;
+        db.prepare(`
+          UPDATE student_guardian_links
+          SET deleted_at = @deletedAt,
+              updated_at = @updatedAt,
+              sync_status = 'pending'
+          WHERE guardian_id = @id
+            AND deleted_at IS NULL
+        `).run({ id: guardianId, deletedAt: timestamp, updatedAt: timestamp });
+      })();
+      return { success: changed === 1 };
+    },
+
+    getStudentGuardians(studentId) {
+      const normalizedStudentId = requiredText(studentId, "Student id");
+      return db
+        .prepare(`
+          ${studentGuardianLinkSelect("links.student_id = @studentId AND links.deleted_at IS NULL")}
+          ORDER BY links.is_primary DESC,
+            guardians.relation COLLATE NOCASE,
+            guardians.full_name COLLATE NOCASE
+        `)
+        .all({ studentId: normalizedStudentId })
+        .map(studentGuardianLinkFromRow);
+    },
+
+    linkGuardianToStudent(input = {}) {
+      const student = getStudentRowRequired(input.studentId);
+      const guardian = getGuardianRowRequired(input.guardianId);
+      if (guardian.status !== "Active") {
+        throw new Error("Only active guardians can be linked to students.");
+      }
+      const inputFamilyId = optionalText(input.familyId);
+      const familyId = inputFamilyId || guardian.family_id || "";
+      if (familyId) getFamilyRowRequired(familyId);
+      const timestamp = now();
+      const existing = db
+        .prepare(`
+          SELECT *
+          FROM student_guardian_links
+          WHERE student_id = @studentId
+            AND guardian_id = @guardianId
+            AND deleted_at IS NULL
+        `)
+        .get({ studentId: student.id, guardianId: guardian.id });
+      const hasPrimary = db
+        .prepare(`
+          SELECT id
+          FROM student_guardian_links
+          WHERE student_id = ?
+            AND is_primary = 1
+            AND deleted_at IS NULL
+          LIMIT 1
+        `)
+        .get(student.id);
+      const shouldBePrimary =
+        input.isPrimary === undefined
+          ? !hasPrimary
+          : booleanFlag(input.isPrimary, false);
+      const linkId = existing?.id ?? crypto.randomUUID();
+      db.transaction(() => {
+        if (familyId && !guardian.family_id) {
+          db.prepare(`
+            UPDATE guardians
+            SET family_id = @familyId,
+                updated_at = @updatedAt,
+                sync_status = 'pending'
+            WHERE id = @guardianId
+              AND deleted_at IS NULL
+          `).run({ familyId, guardianId: guardian.id, updatedAt: timestamp });
+        }
+        if (shouldBePrimary) {
+          db.prepare(`
+            UPDATE student_guardian_links
+            SET is_primary = 0,
+                updated_at = @updatedAt,
+                sync_status = 'pending'
+            WHERE student_id = @studentId
+              AND deleted_at IS NULL
+          `).run({ studentId: student.id, updatedAt: timestamp });
+        }
+        const values = {
+          id: linkId,
+          studentId: student.id,
+          guardianId: guardian.id,
+          familyId: familyId || null,
+          relationToStudent:
+            optionalText(input.relationToStudent) || guardian.relation,
+          isPrimary: shouldBePrimary ? 1 : 0,
+          livesWithStudent: booleanFlag(input.livesWithStudent, true) ? 1 : 0,
+          financialResponsibility:
+            booleanFlag(input.financialResponsibility, false) ? 1 : 0,
+          pickupAuthorized:
+            booleanFlag(input.pickupAuthorized, true) ? 1 : 0,
+          createdAt: existing?.created_at ?? timestamp,
+          updatedAt: timestamp,
+        };
+        if (existing) {
+          db.prepare(`
+            UPDATE student_guardian_links
+            SET family_id = @familyId,
+                relation_to_student = @relationToStudent,
+                is_primary = @isPrimary,
+                lives_with_student = @livesWithStudent,
+                financial_responsibility = @financialResponsibility,
+                pickup_authorized = @pickupAuthorized,
+                updated_at = @updatedAt,
+                sync_status = 'pending'
+            WHERE id = @id AND deleted_at IS NULL
+          `).run(values);
+        } else {
+          db.prepare(`
+            INSERT INTO student_guardian_links (
+              id, student_id, guardian_id, family_id, relation_to_student,
+              is_primary, lives_with_student, financial_responsibility,
+              pickup_authorized, created_at, updated_at, deleted_at,
+              sync_status
+            ) VALUES (
+              @id, @studentId, @guardianId, @familyId, @relationToStudent,
+              @isPrimary, @livesWithStudent, @financialResponsibility,
+              @pickupAuthorized, @createdAt, @updatedAt, NULL, 'pending'
+            )
+          `).run(values);
+        }
+      })();
+      return db
+        .prepare(`
+          ${studentGuardianLinkSelect("links.id = @id AND links.deleted_at IS NULL")}
+        `)
+        .all({ id: linkId })
+        .map(studentGuardianLinkFromRow)[0];
+    },
+
+    updateStudentGuardianLink(id, input = {}) {
+      const linkId = requiredText(id, "Student guardian link id");
+      const existing = db
+        .prepare(`
+          SELECT *
+          FROM student_guardian_links
+          WHERE id = ? AND deleted_at IS NULL
+        `)
+        .get(linkId);
+      if (!existing) throw new Error("Student guardian link was not found.");
+      const familyId =
+        input.familyId === undefined
+          ? existing.family_id ?? ""
+          : optionalText(input.familyId);
+      if (familyId) getFamilyRowRequired(familyId);
+      const timestamp = now();
+      const isPrimary =
+        input.isPrimary === undefined
+          ? Number(existing.is_primary ?? 0) === 1
+          : booleanFlag(input.isPrimary, false);
+      db.transaction(() => {
+        if (isPrimary) {
+          db.prepare(`
+            UPDATE student_guardian_links
+            SET is_primary = 0,
+                updated_at = @updatedAt,
+                sync_status = 'pending'
+            WHERE student_id = @studentId
+              AND id <> @id
+              AND deleted_at IS NULL
+          `).run({
+            id: linkId,
+            studentId: existing.student_id,
+            updatedAt: timestamp,
+          });
+        }
+        db.prepare(`
+          UPDATE student_guardian_links
+          SET family_id = @familyId,
+              relation_to_student = @relationToStudent,
+              is_primary = @isPrimary,
+              lives_with_student = @livesWithStudent,
+              financial_responsibility = @financialResponsibility,
+              pickup_authorized = @pickupAuthorized,
+              updated_at = @updatedAt,
+              sync_status = 'pending'
+          WHERE id = @id AND deleted_at IS NULL
+        `).run({
+          id: linkId,
+          familyId: familyId || null,
+          relationToStudent:
+            input.relationToStudent === undefined
+              ? existing.relation_to_student ?? ""
+              : optionalText(input.relationToStudent),
+          isPrimary: isPrimary ? 1 : 0,
+          livesWithStudent:
+            input.livesWithStudent === undefined
+              ? Number(existing.lives_with_student ?? 1)
+              : booleanFlag(input.livesWithStudent, true)
+                ? 1
+                : 0,
+          financialResponsibility:
+            input.financialResponsibility === undefined
+              ? Number(existing.financial_responsibility ?? 0)
+              : booleanFlag(input.financialResponsibility, false)
+                ? 1
+                : 0,
+          pickupAuthorized:
+            input.pickupAuthorized === undefined
+              ? Number(existing.pickup_authorized ?? 1)
+              : booleanFlag(input.pickupAuthorized, true)
+                ? 1
+                : 0,
+          updatedAt: timestamp,
+        });
+      })();
+      return db
+        .prepare(`
+          ${studentGuardianLinkSelect("links.id = @id AND links.deleted_at IS NULL")}
+        `)
+        .all({ id: linkId })
+        .map(studentGuardianLinkFromRow)[0];
+    },
+
+    unlinkGuardianFromStudent(id) {
+      const linkId = requiredText(id, "Student guardian link id");
+      const timestamp = now();
+      const result = db
+        .prepare(`
+          UPDATE student_guardian_links
+          SET deleted_at = @deletedAt,
+              updated_at = @updatedAt,
+              sync_status = 'pending'
+          WHERE id = @id AND deleted_at IS NULL
+        `)
+        .run({ id: linkId, deletedAt: timestamp, updatedAt: timestamp });
+      return { success: result.changes === 1 };
+    },
+
+    createFamilyFromStudentDetails(studentId) {
+      const student = studentFromRow(getStudentRowRequired(studentId));
+      const existingFamilyId = db
+        .prepare(`
+          SELECT links.family_id
+          FROM student_guardian_links AS links
+          JOIN families
+            ON families.id = links.family_id
+            AND families.deleted_at IS NULL
+          WHERE links.student_id = ?
+            AND links.deleted_at IS NULL
+            AND links.family_id IS NOT NULL
+          LIMIT 1
+        `)
+        .get(student.id)?.family_id;
+      if (existingFamilyId) return this.getFamilyById(existingFamilyId);
+
+      const primaryName =
+        student.guardianName ||
+        student.fatherName ||
+        student.motherName ||
+        `${student.name} Guardian`;
+      const family = this.createFamily({
+        familyName: `${student.name} Family`,
+        primaryContactName: primaryName,
+        primaryMobile: student.mobile,
+        email: student.email,
+        address: student.address,
+        emergencyContactName: primaryName,
+        emergencyContactMobile: student.mobile,
+        notes: "Created from existing student guardian details.",
+      });
+      const guardianInputs = [];
+      if (student.fatherName) {
+        guardianInputs.push({
+          fullName: student.fatherName,
+          relation: "Father",
+          isPrimary: true,
+        });
+      }
+      if (student.motherName) {
+        guardianInputs.push({
+          fullName: student.motherName,
+          relation: "Mother",
+          isPrimary: guardianInputs.length === 0,
+        });
+      }
+      if (
+        student.guardianName &&
+        !guardianInputs.some(
+          (item) =>
+            item.fullName.toLowerCase() ===
+            student.guardianName.toLowerCase(),
+        )
+      ) {
+        guardianInputs.push({
+          fullName: student.guardianName,
+          relation: "Guardian",
+          isPrimary: guardianInputs.length === 0,
+        });
+      }
+      if (guardianInputs.length === 0) {
+        guardianInputs.push({
+          fullName: primaryName,
+          relation: "Guardian",
+          isPrimary: true,
+        });
+      }
+      guardianInputs.forEach((guardianInput, index) => {
+        const duplicate = findDuplicateGuardian({
+          fullName: guardianInput.fullName,
+          mobile: student.mobile,
+          email: student.email,
+        });
+        let guardian;
+        if (duplicate) {
+          guardian = guardianFromRow({
+            ...duplicate,
+            family_code: family.familyCode,
+            family_name: family.familyName,
+          });
+          if (!duplicate.family_id) {
+            guardian = this.updateGuardian(duplicate.id, {
+              familyId: family.id,
+              isPrimary: guardianInput.isPrimary,
+            });
+          }
+        } else {
+          guardian = this.createGuardian({
+            familyId: family.id,
+            fullName: guardianInput.fullName,
+            relation: guardianInput.relation,
+            mobile: student.mobile,
+            email: student.email,
+            address: student.address,
+            isPrimary: guardianInput.isPrimary,
+            canPickupStudent: true,
+            emergencyContact: index === 0,
+            status: "Active",
+          });
+        }
+        this.linkGuardianToStudent({
+          studentId: student.id,
+          guardianId: guardian.id,
+          familyId: family.id,
+          relationToStudent: guardianInput.relation,
+          isPrimary: guardianInput.isPrimary,
+          livesWithStudent: true,
+          financialResponsibility:
+            guardianInput.relation === "Father" ||
+            guardianInput.relation === "Guardian",
+          pickupAuthorized: true,
+        });
+      });
+      return this.getFamilyById(family.id);
+    },
+
+    linkSiblingStudents(input = {}) {
+      const studentIds = Array.from(
+        new Set(
+          Array.isArray(input.studentIds)
+            ? input.studentIds.map((id) => optionalText(id)).filter(Boolean)
+            : [],
+        ),
+      );
+      if (studentIds.length < 2) {
+        throw new Error("Select at least two students for a sibling group.");
+      }
+      const students = studentIds.map((id) => studentFromRow(getStudentRowRequired(id)));
+      let familyId = optionalText(input.familyId);
+      if (familyId) {
+        getFamilyRowRequired(familyId);
+      } else {
+        familyId = db
+          .prepare(`
+            SELECT family_id
+            FROM student_guardian_links
+            WHERE student_id IN (${studentIds.map(() => "?").join(",")})
+              AND family_id IS NOT NULL
+              AND deleted_at IS NULL
+            ORDER BY is_primary DESC, created_at ASC
+            LIMIT 1
+          `)
+          .get(...studentIds)?.family_id;
+      }
+      if (!familyId) {
+        familyId = this.createFamilyFromStudentDetails(students[0].id).id;
+      }
+      let familyGuardians = this.getGuardians({ familyId }).filter(
+        (guardian) => guardian.status === "Active",
+      );
+      if (familyGuardians.length === 0) {
+        this.createFamilyFromStudentDetails(students[0].id);
+        familyGuardians = this.getGuardians({ familyId }).filter(
+          (guardian) => guardian.status === "Active",
+        );
+      }
+      const primaryGuardian =
+        familyGuardians.find((guardian) => guardian.isPrimary) ||
+        familyGuardians[0];
+      if (!primaryGuardian) {
+        throw new Error("Create at least one active guardian for the family.");
+      }
+      students.forEach((student) => {
+        const existingLinks = this.getStudentGuardians(student.id);
+        const shouldBePrimary =
+          existingLinks.length === 0 ||
+          existingLinks.some(
+            (link) =>
+              link.guardianId === primaryGuardian.id && link.isPrimary,
+          );
+        this.linkGuardianToStudent({
+          studentId: student.id,
+          guardianId: primaryGuardian.id,
+          familyId,
+          relationToStudent: primaryGuardian.relation,
+          isPrimary: shouldBePrimary,
+          livesWithStudent: true,
+          financialResponsibility: false,
+          pickupAuthorized: primaryGuardian.canPickupStudent,
+        });
+      });
+      return this.getFamilyById(familyId);
+    },
+
+    getParentsInfoReport(filter = {}) {
+      const students = this.getStudents().filter((student) => {
+        if (optionalText(filter.studentId) && student.id !== filter.studentId) {
+          return false;
+        }
+        if (optionalText(filter.className) && student.className !== filter.className) {
+          return false;
+        }
+        if (optionalText(filter.section) && student.section !== filter.section) {
+          return false;
+        }
+        const academicSessionId = optionalText(filter.academicSessionId);
+        if (academicSessionId) {
+          return this
+            .getStudentSessionHistory(student.id)
+            .some((history) => history.academicSessionId === academicSessionId);
+        }
+        return true;
+      });
+      const rows = students.flatMap((student) => {
+        const links = this.getStudentGuardians(student.id);
+        if (links.length === 0) return makeLegacyParentInfoRows(student);
+        return links.map((link) =>
+          parentsInfoRowFromRow({
+            student_id: student.id,
+            admission_no: student.admissionNo,
+            student_name: student.name,
+            class_name: student.className,
+            section: student.section,
+            family_id: link.familyId,
+            family_code: link.familyCode,
+            family_name: link.familyName,
+            guardian_id: link.guardianId,
+            primary_guardian: link.guardianFullName || link.guardianName,
+            relation: link.relationToStudent || link.relation,
+            mobile: link.mobile,
+            alternate_mobile: link.alternateMobile,
+            email: link.email,
+            occupation: link.occupation,
+            address: link.address,
+            emergency_contact:
+              link.guardianEmergencyContact || Boolean(link.emergencyContactName)
+                ? 1
+                : 0,
+            emergency_contact_name:
+              link.emergencyContactName ||
+              (link.guardianEmergencyContact
+                ? link.guardianFullName || link.guardianName
+                : ""),
+            emergency_contact_mobile:
+              link.emergencyContactMobile ||
+              (link.guardianEmergencyContact ? link.mobile : ""),
+            pickup_authorized:
+              link.pickupAuthorized || link.guardianCanPickupStudent ? 1 : 0,
+            has_linked_guardian: 1,
+            source: "Linked",
+          }),
+        );
+      });
+      const relation = optionalText(filter.guardianRelation);
+      const filteredRows = rows.filter((row) => {
+        if (relation && relation !== "All" && row.relation !== relation) {
+          return false;
+        }
+        if (filter.missingMobile === true && row.mobile) return false;
+        if (filter.missingEmail === true && row.email) return false;
+        if (filter.emergencyContact === true && !row.emergencyContact) {
+          return false;
+        }
+        if (filter.pickupAuthorized === true && !row.pickupAuthorized) {
+          return false;
+        }
+        return true;
+      });
+      const uniqueFamilies = new Set(
+        rows.map((row) => row.familyId).filter(Boolean),
+      );
+      const uniqueGuardians = new Set(
+        rows
+          .map((row) => row.guardianId || `${row.studentId}-${row.primaryGuardian}`)
+          .filter(Boolean),
+      );
+      const studentsWithoutLinkedGuardian = students.filter(
+        (student) => this.getStudentGuardians(student.id).length === 0,
+      ).length;
+      return {
+        rows: filteredRows,
+        summary: {
+          totalFamilies: uniqueFamilies.size,
+          totalGuardians: uniqueGuardians.size,
+          missingMobile: rows.filter((row) => !row.mobile).length,
+          missingEmail: rows.filter((row) => !row.email).length,
+          studentsWithoutLinkedGuardian,
+        },
+      };
+    },
+
+    getEmergencyContactsReport(filter = {}) {
+      const parentReport = this.getParentsInfoReport(filter);
+      const rows = parentReport.rows
+        .filter(
+          (row) =>
+            row.emergencyContact ||
+            row.emergencyContactName ||
+            row.emergencyContactMobile ||
+            row.source === "Legacy",
+        )
+        .map((row) => ({
+          studentId: row.studentId,
+          admissionNo: row.admissionNo,
+          studentName: row.studentName,
+          className: row.className,
+          section: row.section,
+          primaryGuardian: row.primaryGuardian,
+          emergencyContactName:
+            row.emergencyContactName || row.primaryGuardian,
+          emergencyContactMobile: row.emergencyContactMobile || row.mobile,
+          pickupAuthorized: row.pickupAuthorized,
+          pickupAuthorizedPeople: parentReport.rows
+            .filter(
+              (item) =>
+                item.studentId === row.studentId && item.pickupAuthorized,
+            )
+            .map((item) => item.primaryGuardian)
+            .filter(Boolean)
+            .join(", "),
+        }));
+      return {
+        rows,
+        summary: {
+          totalRows: rows.length,
+          missingEmergencyMobile: rows.filter(
+            (row) => !row.emergencyContactMobile,
+          ).length,
+          pickupAuthorized: rows.filter((row) => row.pickupAuthorized).length,
+        },
+      };
+    },
+
+    getSiblingReport(filter = {}) {
+      const families = this.getFamilies({
+        status: optionalText(filter.status) || "Active",
+      });
+      const rows = families
+        .map((family) => ({
+          family,
+          students: this.getFamilyStudents(family.id),
+          guardians: this.getGuardians({ familyId: family.id }),
+        }))
+        .map((row) => ({
+          ...row,
+          students: row.students.filter((student) => {
+            if (optionalText(filter.className) && student.className !== filter.className) {
+              return false;
+            }
+            if (optionalText(filter.section) && student.section !== filter.section) {
+              return false;
+            }
+            return true;
+          }),
+        }))
+        .filter((row) => row.students.length > 1)
+        .map((row) => ({
+          familyId: row.family.id,
+          familyCode: row.family.familyCode,
+          familyName: row.family.familyName,
+          primaryContactName: row.family.primaryContactName,
+          primaryMobile: row.family.primaryMobile,
+          guardianCount: row.guardians.length,
+          studentCount: row.students.length,
+          students: row.students,
+        }));
+      return {
+        rows,
+        summary: {
+          siblingFamilies: rows.length,
+          linkedStudents: rows.reduce(
+            (total, row) => total + row.studentCount,
+            0,
+          ),
+        },
+      };
+    },
+
+    getSchoolRules(filter = {}) {
+      const { where, params } = buildSchoolRulesWhere(filter);
+      return db
+        .prepare(`
+          SELECT *
+          FROM school_rules
+          WHERE ${where}
+          ORDER BY
+            category COLLATE NOCASE,
+            display_order ASC,
+            title COLLATE NOCASE
+        `)
+        .all(params)
+        .map(schoolRuleFromRow);
+    },
+
+    createSchoolRule(input = {}) {
+      const timestamp = now();
+      const values = resolveSchoolRuleValues(input);
+      const id = crypto.randomUUID();
+      db.prepare(`
+        INSERT INTO school_rules (
+          id, title, category, rule_text, display_order, status,
+          academic_session_id, academic_session_name, effective_from,
+          created_by, created_at, updated_at, deleted_at, sync_status
+        ) VALUES (
+          @id, @title, @category, @ruleText, @displayOrder, @status,
+          @academicSessionId, @academicSessionName, @effectiveFrom,
+          @createdBy, @createdAt, @updatedAt, NULL, 'pending'
+        )
+      `).run({
+        id,
+        ...values,
+        createdBy: optionalText(input.createdBy),
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+      return schoolRuleFromRow(
+        db.prepare("SELECT * FROM school_rules WHERE id = ?").get(id),
+      );
+    },
+
+    updateSchoolRule(id, input = {}) {
+      const ruleId = requiredText(id, "Rule id");
+      const existing = db
+        .prepare(`
+          SELECT *
+          FROM school_rules
+          WHERE id = ? AND deleted_at IS NULL
+        `)
+        .get(ruleId);
+      if (!existing) throw new Error("Rule was not found.");
+      const values = resolveSchoolRuleValues(input, existing);
+      db.prepare(`
+        UPDATE school_rules
+        SET title = @title,
+            category = @category,
+            rule_text = @ruleText,
+            display_order = @displayOrder,
+            status = @status,
+            academic_session_id = @academicSessionId,
+            academic_session_name = @academicSessionName,
+            effective_from = @effectiveFrom,
+            updated_at = @updatedAt,
+            sync_status = 'pending'
+        WHERE id = @id AND deleted_at IS NULL
+      `).run({
+        id: ruleId,
+        ...values,
+        updatedAt: now(),
+      });
+      return schoolRuleFromRow(
+        db.prepare("SELECT * FROM school_rules WHERE id = ?").get(ruleId),
+      );
+    },
+
+    deleteSchoolRule(id) {
+      const ruleId = requiredText(id, "Rule id");
+      const timestamp = now();
+      const result = db
+        .prepare(`
+          UPDATE school_rules
+          SET deleted_at = @deletedAt,
+              updated_at = @updatedAt,
+              sync_status = 'pending'
+          WHERE id = @id AND deleted_at IS NULL
+        `)
+        .run({ id: ruleId, deletedAt: timestamp, updatedAt: timestamp });
+      return { success: result.changes === 1 };
+    },
+
+    reorderSchoolRules(records = []) {
+      if (!Array.isArray(records)) {
+        throw new Error("Rule order records must be an array.");
+      }
+      const timestamp = now();
+      const updateOrder = db.prepare(`
+        UPDATE school_rules
+        SET display_order = @displayOrder,
+            updated_at = @updatedAt,
+            sync_status = 'pending'
+        WHERE id = @id AND deleted_at IS NULL
+      `);
+      db.transaction(() => {
+        records.forEach((record, index) => {
+          updateOrder.run({
+            id: requiredText(record?.id, "Rule id"),
+            displayOrder:
+              record?.displayOrder === undefined
+                ? index
+                : wholeNumber(record.displayOrder, "Display order", 0),
+            updatedAt: timestamp,
+          });
+        });
+      })();
+      return this.getSchoolRules({});
+    },
+
+    getAppPreferences() {
+      return appPreferenceFromRow(getApplicationPreferenceRow());
+    },
+
+    updateAppPreferences(input = {}) {
+      const existing = getApplicationPreferenceRow();
+      const values = resolvePreferenceValues(input, existing);
+      const timestamp = now();
+      db.prepare(`
+        UPDATE app_preferences
+        SET theme_mode = @themeMode,
+            accent_color = @accentColor,
+            language = @language,
+            compact_sidebar = @compactSidebar,
+            font_scale = @fontScale,
+            date_format = @dateFormat,
+            time_format = @timeFormat,
+            updated_at = @updatedAt
+        WHERE id = @id
+      `).run({
+        id: existing.id,
+        ...values,
+        compactSidebar: values.compactSidebar ? 1 : 0,
+        updatedAt: timestamp,
+      });
+      return this.getAppPreferences();
+    },
+
+    getUserPreferences(userId) {
+      const normalizedUserId = requiredText(userId, "User id");
+      const user = this.getUserById(normalizedUserId);
+      if (!user) throw new Error("User record was not found.");
+      const row = db
+        .prepare(`
+          SELECT *
+          FROM app_preferences
+          WHERE preference_scope = 'User' AND user_id = ?
+          LIMIT 1
+        `)
+        .get(normalizedUserId);
+      if (row) return appPreferenceFromRow(row);
+      const defaults = this.getAppPreferences();
+      return {
+        ...defaults,
+        id: `user-${normalizedUserId}`,
+        preferenceScope: "User",
+        userId: normalizedUserId,
+      };
+    },
+
+    updateUserPreferences(userId, input = {}) {
+      const normalizedUserId = requiredText(userId, "User id");
+      const user = this.getUserById(normalizedUserId);
+      if (!user) throw new Error("User record was not found.");
+      const existing = db
+        .prepare(`
+          SELECT *
+          FROM app_preferences
+          WHERE preference_scope = 'User' AND user_id = ?
+          LIMIT 1
+        `)
+        .get(normalizedUserId);
+      const fallback = existing ?? getApplicationPreferenceRow();
+      const values = resolvePreferenceValues(input, fallback);
+      const timestamp = now();
+      if (existing) {
+        db.prepare(`
+          UPDATE app_preferences
+          SET theme_mode = @themeMode,
+              accent_color = @accentColor,
+              language = @language,
+              compact_sidebar = @compactSidebar,
+              font_scale = @fontScale,
+              date_format = @dateFormat,
+              time_format = @timeFormat,
+              updated_at = @updatedAt
+          WHERE id = @id
+        `).run({
+          id: existing.id,
+          ...values,
+          compactSidebar: values.compactSidebar ? 1 : 0,
+          updatedAt: timestamp,
+        });
+      } else {
+        db.prepare(`
+          INSERT INTO app_preferences (
+            id, preference_scope, user_id, theme_mode, accent_color,
+            language, compact_sidebar, font_scale, date_format, time_format,
+            created_at, updated_at
+          ) VALUES (
+            @id, 'User', @userId, @themeMode, @accentColor, @language,
+            @compactSidebar, @fontScale, @dateFormat, @timeFormat,
+            @createdAt, @updatedAt
+          )
+        `).run({
+          id: crypto.randomUUID(),
+          userId: normalizedUserId,
+          ...values,
+          compactSidebar: values.compactSidebar ? 1 : 0,
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        });
+      }
+      return this.getUserPreferences(normalizedUserId);
+    },
+
+    createLoginHistory(input = {}) {
+      const timestamp = now();
+      const id = crypto.randomUUID();
+      db.prepare(`
+        INSERT INTO login_history (
+          id, user_id, username, role, login_at, logout_at, success,
+          device_name, os, failure_reason, created_at
+        ) VALUES (
+          @id, @userId, @username, @role, @loginAt, NULL, @success,
+          @deviceName, @os, @failureReason, @createdAt
+        )
+      `).run({
+        id,
+        userId: optionalText(input.userId) || null,
+        username: optionalText(input.username),
+        role: optionalText(input.role),
+        loginAt: optionalText(input.loginAt) || timestamp,
+        success: input.success === false ? 0 : 1,
+        deviceName: optionalText(input.deviceName),
+        os: optionalText(input.os),
+        failureReason: optionalText(input.failureReason),
+        createdAt: timestamp,
+      });
+      return loginHistoryFromRow(
+        db.prepare("SELECT * FROM login_history WHERE id = ?").get(id),
+      );
+    },
+
+    finishLoginHistory(id) {
+      const historyId = optionalText(id);
+      if (!historyId) return { success: false };
+      const result = db
+        .prepare(`
+          UPDATE login_history
+          SET logout_at = ?
+          WHERE id = ? AND logout_at IS NULL
+        `)
+        .run(now(), historyId);
+      return { success: result.changes === 1 };
+    },
+
+    getLoginHistory(filter = {}, userId = "") {
+      const { where, params } = buildLoginHistoryWhere(filter, userId);
+      const safeLimit = Math.min(
+        500,
+        Math.max(1, wholeNumber(filter.limit ?? 100, "History limit", 1)),
+      );
+      return db
+        .prepare(`
+          SELECT *
+          FROM login_history
+          ${where}
+          ORDER BY login_at DESC, created_at DESC
+          LIMIT @limit
+        `)
+        .all({ ...params, limit: safeLimit })
+        .map(loginHistoryFromRow);
     },
 
     getUserCount() {
@@ -11089,6 +18470,12 @@ function createDatabase(databasePath) {
       if (!USER_ROLES.has(role)) {
         throw new Error("User role is invalid.");
       }
+      const accountType = optionalText(input?.accountType) || (
+        role === "Student" ? "Student" : "Staff"
+      );
+      if (!USER_ACCOUNT_TYPES.has(accountType)) {
+        throw new Error("User account type is invalid.");
+      }
       const status = masterStatus(input?.status);
       const duplicateUsername = db
         .prepare(
@@ -11112,11 +18499,13 @@ function createDatabase(databasePath) {
       db.prepare(`
         INSERT INTO users (
           id, name, email, username, password_hash, password_salt, role,
-          status, last_login_at, created_at, updated_at, deleted_at,
-          sync_status
+          status, account_type, must_change_password, password_changed_at,
+          failed_login_count, locked_until, last_login_at, created_at,
+          updated_at, deleted_at, sync_status
         ) VALUES (
           @id, @name, @email, @username, @passwordHash, @passwordSalt, @role,
-          @status, NULL, @createdAt, @updatedAt, NULL, 'pending'
+          @status, @accountType, @mustChangePassword, @passwordChangedAt,
+          0, NULL, NULL, @createdAt, @updatedAt, NULL, 'pending'
         )
       `).run({
         id,
@@ -11127,6 +18516,9 @@ function createDatabase(databasePath) {
         passwordSalt,
         role,
         status,
+        accountType,
+        mustChangePassword: input?.mustChangePassword ? 1 : 0,
+        passwordChangedAt: input?.mustChangePassword ? null : timestamp,
         createdAt: timestamp,
         updatedAt: timestamp,
       });
@@ -11145,6 +18537,10 @@ function createDatabase(databasePath) {
         input?.name === undefined
           ? existing.name
           : requiredText(input.name, "User name");
+      const username =
+        input?.username === undefined
+          ? existing.username
+          : requiredText(input.username, "Username").toLowerCase();
       const email =
         input?.email === undefined
           ? existing.email
@@ -11155,6 +18551,13 @@ function createDatabase(databasePath) {
           : requiredText(input.role, "Role");
       if (!USER_ROLES.has(role)) {
         throw new Error("User role is invalid.");
+      }
+      const accountType =
+        input?.accountType === undefined
+          ? existing.account_type ?? (role === "Student" ? "Student" : "Staff")
+          : requiredText(input.accountType, "Account type");
+      if (!USER_ACCOUNT_TYPES.has(accountType)) {
+        throw new Error("User account type is invalid.");
       }
       const status = masterStatus(input?.status, existing.status);
       if (
@@ -11179,6 +18582,18 @@ function createDatabase(databasePath) {
         }
       }
       if (
+        username !== existing.username &&
+        db
+          .prepare(`
+            SELECT id
+            FROM users
+            WHERE username = ? COLLATE NOCASE AND id <> ?
+          `)
+          .get(username, userId)
+      ) {
+        throw new Error("This username is already in use.");
+      }
+      if (
         email &&
         db
           .prepare(`
@@ -11194,29 +18609,56 @@ function createDatabase(databasePath) {
       db.prepare(`
         UPDATE users
         SET name = @name,
+            username = @username,
             email = @email,
             role = @role,
             status = @status,
+            account_type = @accountType,
+            must_change_password = @mustChangePassword,
+            failed_login_count = @failedLoginCount,
+            locked_until = @lockedUntil,
             updated_at = @updatedAt,
             sync_status = 'pending'
         WHERE id = @id AND deleted_at IS NULL
       `).run({
         id: userId,
         name,
+        username,
         email,
         role,
         status,
+        accountType,
+        mustChangePassword:
+          input?.mustChangePassword === undefined
+            ? Number(existing.must_change_password ?? 0)
+            : input.mustChangePassword
+              ? 1
+              : 0,
+        failedLoginCount:
+          input?.failedLoginCount === undefined
+            ? Number(existing.failed_login_count ?? 0)
+            : wholeNumber(input.failedLoginCount, "Failed login count", 0),
+        lockedUntil:
+          input?.lockedUntil === undefined
+            ? existing.locked_until ?? null
+            : optionalText(input.lockedUntil) || null,
         updatedAt: now(),
       });
       return this.getUserById(userId);
     },
 
-    setUserPassword(id, passwordHash, passwordSalt) {
+    setUserPassword(id, passwordHash, passwordSalt, options = {}) {
+      const timestamp = now();
+      const mustChangePassword = options.mustChangePassword ? 1 : 0;
       const result = db
         .prepare(`
           UPDATE users
           SET password_hash = ?,
               password_salt = ?,
+              must_change_password = ?,
+              password_changed_at = ?,
+              failed_login_count = 0,
+              locked_until = NULL,
               updated_at = ?,
               sync_status = 'pending'
           WHERE id = ? AND deleted_at IS NULL
@@ -11224,7 +18666,9 @@ function createDatabase(databasePath) {
         .run(
           requiredText(passwordHash, "Password hash"),
           requiredText(passwordSalt, "Password salt"),
-          now(),
+          mustChangePassword,
+          mustChangePassword ? null : timestamp,
+          timestamp,
           requiredText(id, "User id"),
         );
       if (result.changes !== 1) {
@@ -11237,10 +18681,420 @@ function createDatabase(databasePath) {
       const timestamp = now();
       db.prepare(`
         UPDATE users
-        SET last_login_at = ?, updated_at = ?
+        SET last_login_at = ?,
+            failed_login_count = 0,
+            locked_until = NULL,
+            updated_at = ?
         WHERE id = ? AND deleted_at IS NULL
       `).run(timestamp, timestamp, requiredText(id, "User id"));
       return this.getUserById(id);
+    },
+
+    recordFailedLogin(userId) {
+      const normalizedUserId = optionalText(userId);
+      if (!normalizedUserId) return null;
+      const row = db
+        .prepare(`
+          SELECT id, failed_login_count, role
+          FROM users
+          WHERE id = ? AND deleted_at IS NULL
+        `)
+        .get(normalizedUserId);
+      if (!row) return null;
+      const failedLoginCount = Number(row.failed_login_count ?? 0) + 1;
+      const shouldLock = row.role !== "Owner" && failedLoginCount >= 5;
+      const lockedUntil = shouldLock
+        ? new Date(Date.now() + 15 * 60 * 1000).toISOString()
+        : null;
+      db.prepare(`
+        UPDATE users
+        SET failed_login_count = @failedLoginCount,
+            locked_until = @lockedUntil,
+            updated_at = @updatedAt,
+            sync_status = 'pending'
+        WHERE id = @id AND deleted_at IS NULL
+      `).run({
+        id: normalizedUserId,
+        failedLoginCount,
+        lockedUntil,
+        updatedAt: now(),
+      });
+      return this.getUserById(normalizedUserId);
+    },
+
+    clearUserLock(id) {
+      const result = db
+        .prepare(`
+          UPDATE users
+          SET failed_login_count = 0,
+              locked_until = NULL,
+              updated_at = ?,
+              sync_status = 'pending'
+          WHERE id = ? AND deleted_at IS NULL
+        `)
+        .run(now(), requiredText(id, "User id"));
+      return { success: result.changes === 1 };
+    },
+
+    setUserMustChangePassword(id, mustChangePassword) {
+      const result = db
+        .prepare(`
+          UPDATE users
+          SET must_change_password = ?,
+              updated_at = ?,
+              sync_status = 'pending'
+          WHERE id = ? AND deleted_at IS NULL
+        `)
+        .run(mustChangePassword ? 1 : 0, now(), requiredText(id, "User id"));
+      if (result.changes !== 1) throw new Error("User record was not found.");
+      return this.getUserById(id);
+    },
+
+    getPrimaryUserEntityLink(userId) {
+      const row = db
+        .prepare(`
+          SELECT
+            links.*,
+            users.username,
+            users.name AS user_name,
+            users.role,
+            users.account_type,
+            users.status AS user_status,
+            users.must_change_password,
+            users.last_login_at
+          FROM user_entity_links AS links
+          JOIN users ON users.id = links.user_id AND users.deleted_at IS NULL
+          WHERE links.user_id = ?
+            AND links.is_primary = 1
+            AND links.deleted_at IS NULL
+          LIMIT 1
+        `)
+        .get(requiredText(userId, "User id"));
+      return row ? userEntityLinkFromRow(row) : null;
+    },
+
+    getUserEntityLinks(filter = {}) {
+      const clauses = ["links.deleted_at IS NULL"];
+      const params = {};
+      const userId = optionalText(filter.userId);
+      if (userId) {
+        clauses.push("links.user_id = @userId");
+        params.userId = userId;
+      }
+      const entityType = optionalText(filter.entityType);
+      if (entityType) {
+        if (!USER_ENTITY_TYPES.has(entityType)) {
+          throw new Error("Entity type is invalid.");
+        }
+        clauses.push("links.entity_type = @entityType");
+        params.entityType = entityType;
+      }
+      const entityId = optionalText(filter.entityId);
+      if (entityId) {
+        clauses.push("links.entity_id = @entityId");
+        params.entityId = entityId;
+      }
+      return db
+        .prepare(`
+          SELECT
+            links.*,
+            users.username,
+            users.name AS user_name,
+            users.role,
+            users.account_type,
+            users.status AS user_status,
+            users.must_change_password,
+            users.last_login_at
+          FROM user_entity_links AS links
+          JOIN users ON users.id = links.user_id AND users.deleted_at IS NULL
+          WHERE ${clauses.join(" AND ")}
+          ORDER BY links.created_at DESC
+        `)
+        .all(params)
+        .map(userEntityLinkFromRow);
+    },
+
+    createUserEntityLink(input = {}) {
+      const user = this.getUserById(requiredText(input.userId, "User id"));
+      if (!user) throw new Error("User record was not found.");
+      const entityType = requiredText(input.entityType, "Entity type");
+      if (!USER_ENTITY_TYPES.has(entityType)) {
+        throw new Error("Entity type is invalid.");
+      }
+      const entityId = requiredText(input.entityId, "Entity id");
+      if (entityType === "Student" && !this.getStudentById(entityId)) {
+        throw new Error("Student record was not found.");
+      }
+      if (entityType === "Employee" && !this.getEmployeeById(entityId)) {
+        throw new Error("Employee record was not found.");
+      }
+      const isPrimary = input.isPrimary === false ? 0 : 1;
+      const duplicateUser = db
+        .prepare(`
+          SELECT id
+          FROM user_entity_links
+          WHERE user_id = ?
+            AND is_primary = 1
+            AND deleted_at IS NULL
+          LIMIT 1
+        `)
+        .get(user.id);
+      if (isPrimary && duplicateUser) {
+        throw new Error("This user already has an active primary entity link.");
+      }
+      const duplicateEntity = db
+        .prepare(`
+          SELECT id
+          FROM user_entity_links
+          WHERE entity_type = ?
+            AND entity_id = ?
+            AND is_primary = 1
+            AND deleted_at IS NULL
+          LIMIT 1
+        `)
+        .get(entityType, entityId);
+      if (isPrimary && duplicateEntity && !input.allowDuplicateEntity) {
+        throw new Error(`${entityType} already has an active login account.`);
+      }
+      const timestamp = now();
+      const id = crypto.randomUUID();
+      db.prepare(`
+        INSERT INTO user_entity_links (
+          id, user_id, entity_type, entity_id, entity_code, entity_name,
+          is_primary, created_at, updated_at, deleted_at, sync_status
+        ) VALUES (
+          @id, @userId, @entityType, @entityId, @entityCode, @entityName,
+          @isPrimary, @createdAt, @updatedAt, NULL, 'pending'
+        )
+      `).run({
+        id,
+        userId: user.id,
+        entityType,
+        entityId,
+        entityCode: optionalText(input.entityCode),
+        entityName: optionalText(input.entityName),
+        isPrimary,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+      return this.getUserEntityLinks({ userId: user.id }).find(
+        (link) => link.id === id,
+      );
+    },
+
+    updateUserEntityLink(id, input = {}) {
+      const linkId = requiredText(id, "Entity link id");
+      const existing = db
+        .prepare(`
+          SELECT *
+          FROM user_entity_links
+          WHERE id = ? AND deleted_at IS NULL
+        `)
+        .get(linkId);
+      if (!existing) throw new Error("Entity link was not found.");
+      db.prepare(`
+        UPDATE user_entity_links
+        SET entity_code = @entityCode,
+            entity_name = @entityName,
+            is_primary = @isPrimary,
+            updated_at = @updatedAt,
+            sync_status = 'pending'
+        WHERE id = @id AND deleted_at IS NULL
+      `).run({
+        id: linkId,
+        entityCode:
+          input.entityCode === undefined
+            ? existing.entity_code ?? ""
+            : optionalText(input.entityCode),
+        entityName:
+          input.entityName === undefined
+            ? existing.entity_name ?? ""
+            : optionalText(input.entityName),
+        isPrimary:
+          input.isPrimary === undefined
+            ? Number(existing.is_primary ?? 1)
+            : input.isPrimary
+              ? 1
+              : 0,
+        updatedAt: now(),
+      });
+      return this.getUserEntityLinks({ userId: existing.user_id }).find(
+        (link) => link.id === linkId,
+      );
+    },
+
+    unlinkUserEntity(id) {
+      const linkId = requiredText(id, "Entity link id");
+      const timestamp = now();
+      const row = db
+        .prepare(`
+          SELECT *
+          FROM user_entity_links
+          WHERE id = ? AND deleted_at IS NULL
+        `)
+        .get(linkId);
+      if (!row) return { success: false };
+      db.transaction(() => {
+        db.prepare(`
+          UPDATE user_entity_links
+          SET deleted_at = @deletedAt,
+              updated_at = @updatedAt,
+              sync_status = 'pending'
+          WHERE id = @id AND deleted_at IS NULL
+        `).run({ id: linkId, deletedAt: timestamp, updatedAt: timestamp });
+        db.prepare(`
+          UPDATE users
+          SET status = 'Inactive',
+              updated_at = @updatedAt,
+              sync_status = 'pending'
+          WHERE id = @userId AND deleted_at IS NULL
+        `).run({ userId: row.user_id, updatedAt: timestamp });
+      })();
+      return { success: true };
+    },
+
+    getStudentLoginAccounts(filter = {}) {
+      const search = optionalText(filter.search).toLowerCase();
+      const status = optionalText(filter.status);
+      const rows = db
+        .prepare(`
+          SELECT
+            links.id,
+            links.user_id,
+            links.entity_id AS student_id,
+            links.entity_code,
+            links.entity_name,
+            users.name AS account_name,
+            users.username,
+            users.email,
+            users.role,
+            users.status,
+            users.account_type,
+            users.must_change_password,
+            users.last_login_at,
+            users.locked_until,
+            students.admission_no,
+            students.name AS student_name,
+            students.class_name,
+            students.section
+          FROM user_entity_links AS links
+          JOIN users
+            ON users.id = links.user_id
+            AND users.deleted_at IS NULL
+          LEFT JOIN students
+            ON students.id = links.entity_id
+            AND students.deleted_at IS NULL
+          WHERE links.entity_type = 'Student'
+            AND links.deleted_at IS NULL
+          ORDER BY students.class_name COLLATE NOCASE,
+            students.section COLLATE NOCASE,
+            students.name COLLATE NOCASE
+        `)
+        .all();
+      return rows
+        .filter((row) => !status || status === "All" || row.status === status)
+        .filter((row) => {
+          if (!search) return true;
+          return [
+            row.admission_no,
+            row.student_name,
+            row.class_name,
+            row.section,
+            row.username,
+            row.status,
+          ]
+            .filter(Boolean)
+            .some((value) => String(value).toLowerCase().includes(search));
+        })
+        .map((row) => ({
+          id: row.id,
+          userId: row.user_id,
+          studentId: row.student_id,
+          admissionNo: row.admission_no ?? row.entity_code ?? "",
+          studentName: row.student_name ?? row.entity_name ?? "",
+          className: row.class_name ?? "",
+          section: row.section ?? "",
+          username: row.username,
+          email: row.email ?? "",
+          role: row.role,
+          accountType: row.account_type ?? "Student",
+          status: row.status,
+          mustChangePassword: Number(row.must_change_password ?? 0) === 1,
+          lastLoginAt: row.last_login_at ?? null,
+          lockedUntil: row.locked_until ?? null,
+        }));
+    },
+
+    getEmployeeLoginAccounts(filter = {}) {
+      const search = optionalText(filter.search).toLowerCase();
+      const status = optionalText(filter.status);
+      const rows = db
+        .prepare(`
+          SELECT
+            links.id,
+            links.user_id,
+            links.entity_id AS employee_id,
+            links.entity_code,
+            links.entity_name,
+            users.name AS account_name,
+            users.username,
+            users.email,
+            users.role,
+            users.status,
+            users.account_type,
+            users.must_change_password,
+            users.last_login_at,
+            users.locked_until,
+            employees.employee_no,
+            employees.name AS employee_name,
+            employees.department,
+            employees.designation
+          FROM user_entity_links AS links
+          JOIN users
+            ON users.id = links.user_id
+            AND users.deleted_at IS NULL
+          LEFT JOIN employees
+            ON employees.id = links.entity_id
+            AND employees.deleted_at IS NULL
+          WHERE links.entity_type = 'Employee'
+            AND links.deleted_at IS NULL
+          ORDER BY employees.department COLLATE NOCASE,
+            employees.name COLLATE NOCASE
+        `)
+        .all();
+      return rows
+        .filter((row) => !status || status === "All" || row.status === status)
+        .filter((row) => {
+          if (!search) return true;
+          return [
+            row.employee_no,
+            row.employee_name,
+            row.department,
+            row.designation,
+            row.username,
+            row.role,
+            row.status,
+          ]
+            .filter(Boolean)
+            .some((value) => String(value).toLowerCase().includes(search));
+        })
+        .map((row) => ({
+          id: row.id,
+          userId: row.user_id,
+          employeeId: row.employee_id,
+          employeeCode: row.employee_no ?? row.entity_code ?? "",
+          employeeName: row.employee_name ?? row.entity_name ?? "",
+          department: row.department ?? "",
+          designation: row.designation ?? "",
+          username: row.username,
+          email: row.email ?? "",
+          role: row.role,
+          accountType: row.account_type ?? "Staff",
+          status: row.status,
+          mustChangePassword: Number(row.must_change_password ?? 0) === 1,
+          lastLoginAt: row.last_login_at ?? null,
+          lockedUntil: row.locked_until ?? null,
+        }));
     },
 
     deleteUserRecord(id) {
@@ -11278,25 +19132,7 @@ function createDatabase(databasePath) {
     },
 
     createAuditLog(user, action, module, details = "") {
-      const id = crypto.randomUUID();
-      db.prepare(`
-        INSERT INTO audit_logs (
-          id, user_id, user_name, action, module, details, created_at
-        ) VALUES (
-          @id, @userId, @userName, @action, @module, @details, @createdAt
-        )
-      `).run({
-        id,
-        userId: user?.id ?? null,
-        userName: optionalText(user?.name) || "System",
-        action: requiredText(action, "Audit action"),
-        module: optionalText(module),
-        details: optionalText(details),
-        createdAt: now(),
-      });
-      return auditLogFromRow(
-        db.prepare("SELECT * FROM audit_logs WHERE id = ?").get(id),
-      );
+      return insertAuditLog(user, action, module, details);
     },
 
     getAuditLogs(limit = 100) {
