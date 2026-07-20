@@ -370,6 +370,30 @@ app.whenReady().then(async () => {
           "resetEmployeeLoginPassword",
           "unlinkEmployeeLoginAccount"
         ].every((method) => typeof window.erpApi[method] === "function");
+        const messageApiAvailable = [
+          "getMessageInbox",
+          "getSentMessages",
+          "getMessageThread",
+          "markMessageThreadRead",
+          "archiveMessageThread",
+          "unarchiveMessageThread",
+          "createDirectMessage",
+          "replyToMessageThread",
+          "editOwnMessage",
+          "deleteOwnMessage",
+          "closeMessageThread",
+          "getAnnouncements",
+          "getCurrentUserAnnouncements",
+          "createAnnouncement",
+          "updateAnnouncement",
+          "publishAnnouncement",
+          "cancelAnnouncement",
+          "deleteAnnouncement",
+          "getEligibleMessageRecipients",
+          "resolveAnnouncementRecipients",
+          "getMessageDeliveryReport",
+          "getAnnouncementReadReport"
+        ].every((method) => typeof window.erpApi[method] === "function");
         const demoApiAvailable =
           typeof window.erpApi.createDemoData === "function";
         const settingsPreferencesApiAvailable = [
@@ -617,6 +641,14 @@ app.whenReady().then(async () => {
           email: "teacher@example.com",
           password: "Initial-Teacher-Password",
           role: "Teacher",
+          status: "Active"
+        });
+        const admin = await window.erpApi.createUser({
+          name: "Smoke Test Admin",
+          username: "admin",
+          email: "admin@example.com",
+          password: "Admin-Password",
+          role: "Admin",
           status: "Active"
         });
         await window.erpApi.resetUserPassword(
@@ -2214,6 +2246,155 @@ app.whenReady().then(async () => {
         );
         await window.erpApi.logout();
         await window.erpApi.login("owner", "Updated-Owner-Password");
+        const repeatStudentLoginAccount =
+          await window.erpApi.createStudentLoginAccount({
+            studentId: repeatStudent.id,
+            username: "smoke_repeat_student_login",
+            password: "Repeat-Student-Password",
+            mustChangePassword: false,
+            status: "Active"
+          });
+        const disabledStudentLoginAccount =
+          await window.erpApi.createStudentLoginAccount({
+            studentId: tcStudent.id,
+            username: "smoke_disabled_student_login",
+            password: "Disabled-Student-Password",
+            mustChangePassword: false,
+            status: "Active"
+          });
+        await window.erpApi.disableStudentLoginAccount(
+          disabledStudentLoginAccount.id,
+          "Exclude disabled account from local message delivery"
+        );
+        await window.erpApi.logout();
+        await window.erpApi.login("admin", "Admin-Password");
+        const adminDirectThread =
+          await window.erpApi.createDirectMessage({
+            recipientType: "Student",
+            recipientUserId: studentLoginAccount.userId,
+            subject: "Local Admin Message",
+            priority: "High",
+            messageText: "This is a local ERP inbox message."
+          });
+        const adminDirectDeliveryReport =
+          await window.erpApi.getMessageDeliveryReport(
+            adminDirectThread.id
+          );
+        await window.erpApi.logout();
+        await window.erpApi.login(
+          "smoke_student_login",
+          "Student-New-Password"
+        );
+        const studentMessageInbox = await window.erpApi.getMessageInbox({});
+        const studentMessageThread =
+          await window.erpApi.getMessageThread(adminDirectThread.id);
+        const firstReadThread =
+          await window.erpApi.markMessageThreadRead(adminDirectThread.id);
+        const firstReadAt = firstReadThread.recipients.find(
+          (recipient) =>
+            recipient.recipientUserId === studentLoginAccount.userId
+        )?.readAt;
+        const secondReadThread =
+          await window.erpApi.markMessageThreadRead(adminDirectThread.id);
+        const secondReadAt = secondReadThread.recipients.find(
+          (recipient) =>
+            recipient.recipientUserId === studentLoginAccount.userId
+        )?.readAt;
+        const studentReplyThread =
+          await window.erpApi.replyToMessageThread({
+            threadId: adminDirectThread.id,
+            messageText: "Student reply saved locally."
+          });
+        const studentReplyMessage = studentReplyThread.messages.find(
+          (item) => item.senderUserId === studentLoginAccount.userId
+        );
+        await window.erpApi.deleteOwnMessage(studentReplyMessage.id);
+        const threadAfterStudentDelete =
+          await window.erpApi.getMessageThread(adminDirectThread.id);
+        await window.erpApi.archiveMessageThread(adminDirectThread.id);
+        const archivedStudentThreads =
+          await window.erpApi.getMessageInbox({ archived: true });
+        await window.erpApi.unarchiveMessageThread(adminDirectThread.id);
+        await window.erpApi.logout();
+        await window.erpApi.login(
+          "smoke_repeat_student_login",
+          "Repeat-Student-Password"
+        );
+        const otherStudentInbox = await window.erpApi.getMessageInbox({});
+        let otherStudentThreadRejected = false;
+        try {
+          await window.erpApi.getMessageThread(adminDirectThread.id);
+        } catch {
+          otherStudentThreadRejected = true;
+        }
+        await window.erpApi.logout();
+        await window.erpApi.login("owner", "Updated-Owner-Password");
+        const allStudentsAnnouncement =
+          await window.erpApi.createAnnouncement({
+            title: "All Students Local Notice",
+            announcementText: "All active student accounts should receive this.",
+            audienceType: "All Students",
+            priority: "Normal",
+            status: "Published"
+          });
+        const allStudentsReadReport =
+          await window.erpApi.getAnnouncementReadReport(
+            allStudentsAnnouncement.id
+          );
+        const classAnnouncement =
+          await window.erpApi.createAnnouncement({
+            title: "Class 10A Local Notice",
+            announcementText: "Only Class 10 A active student accounts should receive this.",
+            audienceType: "Specific Section",
+            className: "10",
+            section: "A",
+            priority: "High",
+            status: "Published"
+          });
+        const classAnnouncementReadReport =
+          await window.erpApi.getAnnouncementReadReport(
+            classAnnouncement.id
+          );
+        await window.erpApi.logout();
+        await window.erpApi.login(
+          "smoke_student_login",
+          "Student-New-Password"
+        );
+        const studentAnnouncements =
+          await window.erpApi.getCurrentUserAnnouncements();
+        await window.erpApi.logout();
+        await window.erpApi.login(
+          "smoke_employee_login",
+          "Employee-New-Password"
+        );
+        let teacherBroadcastRejected = false;
+        try {
+          await window.erpApi.createAnnouncement({
+            title: "Invalid Teacher Broadcast",
+            announcementText: "Teachers must not broadcast to all employees.",
+            audienceType: "All Employees",
+            priority: "Normal",
+            status: "Published"
+          });
+        } catch {
+          teacherBroadcastRejected = true;
+        }
+        const teacherClassNotice =
+          await window.erpApi.createAnnouncement({
+            title: "Teacher Class Notice",
+            announcementText: "Teacher notice for assigned Class 10 A.",
+            audienceType: "Specific Section",
+            className: "10",
+            section: "A",
+            priority: "Normal",
+            status: "Published"
+          });
+        const teacherClassNoticeReport =
+          await window.erpApi.getAnnouncementReadReport(
+            teacherClassNotice.id
+          );
+        await window.erpApi.logout();
+        await window.erpApi.login("owner", "Updated-Owner-Password");
         const parentsReportBeforeSibling =
           await window.erpApi.getParentsInfoReport({
             className: "10",
@@ -2437,6 +2618,7 @@ app.whenReady().then(async () => {
           academicSessionsApiAvailable,
           feeInvoiceApiAvailable,
           reportCardApiAvailable,
+          messageApiAvailable,
           settingsPreferencesApiAvailable,
           licenseApiAvailable,
           deviceId,
@@ -2598,6 +2780,81 @@ app.whenReady().then(async () => {
             studentPortalData.feePayments.every(
               (payment) => payment.studentId === student.id
             ),
+          messageCenterDirectCorrect:
+            adminDirectDeliveryReport.recipients.length === 1 &&
+            adminDirectDeliveryReport.recipients[0].recipientUserId ===
+              studentLoginAccount.userId &&
+            studentMessageInbox.some(
+              (thread) => thread.id === adminDirectThread.id
+            ) &&
+            studentMessageThread.messages.some(
+              (item) =>
+                item.messageText === "This is a local ERP inbox message."
+            ) &&
+            firstReadAt &&
+            secondReadAt === firstReadAt &&
+            studentReplyThread.messages.some(
+              (item) =>
+                item.senderUserId === studentLoginAccount.userId &&
+                item.messageText === "Student reply saved locally."
+            ) &&
+            threadAfterStudentDelete.messages.some(
+              (item) =>
+                item.id === studentReplyMessage.id &&
+                item.isDeleted &&
+                item.messageText === "This message was removed."
+            ) &&
+            archivedStudentThreads.some(
+              (thread) => thread.id === adminDirectThread.id
+            ) &&
+            otherStudentInbox.every(
+              (thread) => thread.id !== adminDirectThread.id
+            ) &&
+            otherStudentThreadRejected,
+          messageAnnouncementCorrect:
+            allStudentsAnnouncement.status === "Published" &&
+            allStudentsReadReport.recipients.some(
+              (recipient) =>
+                recipient.recipientUserId === studentLoginAccount.userId
+            ) &&
+            allStudentsReadReport.recipients.some(
+              (recipient) =>
+                recipient.recipientUserId === repeatStudentLoginAccount.userId
+            ) &&
+            !allStudentsReadReport.recipients.some(
+              (recipient) =>
+                recipient.recipientUserId === disabledStudentLoginAccount.userId
+            ) &&
+            classAnnouncement.status === "Published" &&
+            classAnnouncementReadReport.recipients.some(
+              (recipient) =>
+                recipient.recipientUserId === studentLoginAccount.userId
+            ) &&
+            classAnnouncementReadReport.recipients.some(
+              (recipient) =>
+                recipient.recipientUserId === repeatStudentLoginAccount.userId
+            ) &&
+            !classAnnouncementReadReport.recipients.some(
+              (recipient) =>
+                recipient.recipientUserId === disabledStudentLoginAccount.userId
+            ) &&
+            studentAnnouncements.some(
+              (thread) => thread.id === allStudentsAnnouncement.id
+            ) &&
+            studentAnnouncements.some(
+              (thread) => thread.id === classAnnouncement.id
+            ),
+          teacherMessagingCorrect:
+            teacherBroadcastRejected &&
+            teacherClassNotice.status === "Published" &&
+            teacherClassNoticeReport.recipients.some(
+              (recipient) =>
+                recipient.recipientUserId === studentLoginAccount.userId
+            ),
+          messageThreadId: adminDirectThread.id,
+          allStudentsAnnouncementId: allStudentsAnnouncement.id,
+          classAnnouncementId: classAnnouncement.id,
+          teacherClassNoticeId: teacherClassNotice.id,
           employeeLoginManagementCorrect:
             ownerRoleAssignmentRejected &&
             employeeLoginAccount.username === "smoke_employee_login" &&
@@ -3170,6 +3427,10 @@ app.whenReady().then(async () => {
       "Marks grading and report card APIs were not exposed by the preload bridge.",
     );
     assert(
+      bridgeResult.messageApiAvailable,
+      "Message Center APIs were not exposed by the preload bridge.",
+    );
+    assert(
       bridgeResult.settingsPreferencesApiAvailable,
       "Rules, preferences, and account settings APIs were not exposed by the preload bridge.",
     );
@@ -3312,6 +3573,12 @@ app.whenReady().then(async () => {
       bridgeResult.studentLoginManagementCorrect &&
         bridgeResult.studentPortalFiltered,
       "Student login management, password reset/change, role restriction, or portal filtering failed.",
+    );
+    assert(
+      bridgeResult.messageCenterDirectCorrect &&
+        bridgeResult.messageAnnouncementCorrect &&
+        bridgeResult.teacherMessagingCorrect,
+      "Local Message Center direct delivery, read receipts, announcements, or role restrictions failed.",
     );
     assert(
       bridgeResult.employeeLoginManagementCorrect &&
@@ -3888,6 +4155,24 @@ app.whenReady().then(async () => {
     assert(
       database.getSchoolSettings().schoolName === "Persistence Test School",
       "School settings did not persist.",
+    );
+    const restoredOwnerUser = database.getUserById(bridgeResult.ownerId);
+    const restoredDirectMessageReport = database.getMessageDeliveryReport(
+      restoredOwnerUser,
+      bridgeResult.messageThreadId,
+    );
+    const restoredAnnouncementReport = database.getAnnouncementReadReport(
+      restoredOwnerUser,
+      bridgeResult.allStudentsAnnouncementId,
+    );
+    assert(
+      restoredDirectMessageReport.recipients.length >= 1 &&
+        restoredDirectMessageReport.recipients.some(
+          (recipient) => recipient.readAt,
+        ) &&
+        restoredAnnouncementReport.announcement.status === "Published" &&
+        restoredAnnouncementReport.recipients.length >= 2,
+      "Message threads, recipients, read receipts, or announcements did not persist through backup and restore.",
     );
     assert(
       !database

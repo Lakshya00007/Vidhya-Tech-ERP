@@ -104,9 +104,19 @@ import type {
   LoginHistoryFilter,
   LinkGuardianToStudentInput,
   LinkSiblingStudentsInput,
+  Announcement,
+  AnnouncementInput,
+  AnnouncementReadReport,
+  CreateDirectMessageInput,
   RemoteLicenseStatus,
+  MessageDeliveryReport,
+  MessageFilter,
+  MessageRecipientCandidate,
+  MessageThreadDetail,
+  MessageThreadSummary,
   ParentsInfoReport,
   ParentsInfoReportFilter,
+  ReplyToMessageThreadInput,
   EmergencyContactsReport,
   ReportCardFilter,
   ReportCardPreview,
@@ -206,6 +216,7 @@ import type {
   UpdatePreferenceInput,
   UpdateSchoolRuleInput,
   UpdateEmployeeLoginAccountInput,
+  UpdateAnnouncementInput,
   UpdateStudentLoginAccountInput,
   CreateHomeworkInput,
   ReorderSchoolRuleInput,
@@ -299,6 +310,60 @@ export interface ErpApi {
     input: ResetLoginPasswordInput,
   ) => Promise<{ success: boolean }>
   unlinkEmployeeLoginAccount: (id: string) => Promise<{ success: boolean }>
+  getMessageInbox: (
+    filter?: MessageFilter,
+  ) => Promise<MessageThreadSummary[]>
+  getSentMessages: (
+    filter?: MessageFilter,
+  ) => Promise<MessageThreadSummary[]>
+  getMessageThread: (threadId: string) => Promise<MessageThreadDetail>
+  markMessageThreadRead: (threadId: string) => Promise<MessageThreadDetail>
+  archiveMessageThread: (threadId: string) => Promise<{ success: boolean }>
+  unarchiveMessageThread: (threadId: string) => Promise<{ success: boolean }>
+  createDirectMessage: (
+    input: CreateDirectMessageInput,
+  ) => Promise<MessageThreadDetail>
+  replyToMessageThread: (
+    input: ReplyToMessageThreadInput,
+  ) => Promise<MessageThreadDetail>
+  editOwnMessage: (
+    messageId: string,
+    text: string,
+  ) => Promise<MessageThreadDetail>
+  deleteOwnMessage: (messageId: string) => Promise<{ success: boolean }>
+  closeMessageThread: (threadId: string) => Promise<{ success: boolean }>
+  getAnnouncements: (filter?: {
+    search?: string
+    status?: string
+    audienceType?: string
+    className?: string
+    section?: string
+  }) => Promise<Announcement[]>
+  getCurrentUserAnnouncements: () => Promise<MessageThreadSummary[]>
+  createAnnouncement: (input: AnnouncementInput) => Promise<Announcement>
+  updateAnnouncement: (
+    id: string,
+    input: UpdateAnnouncementInput,
+  ) => Promise<Announcement>
+  publishAnnouncement: (id: string) => Promise<Announcement>
+  cancelAnnouncement: (id: string) => Promise<Announcement>
+  deleteAnnouncement: (id: string) => Promise<{ success: boolean }>
+  getEligibleMessageRecipients: (filter?: {
+    search?: string
+    recipientType?: 'User' | 'Student' | 'Employee'
+    role?: string
+    className?: string
+    section?: string
+  }) => Promise<MessageRecipientCandidate[]>
+  resolveAnnouncementRecipients: (
+    input: AnnouncementInput,
+  ) => Promise<MessageRecipientCandidate[]>
+  getMessageDeliveryReport: (
+    threadId: string,
+  ) => Promise<MessageDeliveryReport>
+  getAnnouncementReadReport: (
+    announcementId: string,
+  ) => Promise<AnnouncementReadReport>
   createDemoData: () => Promise<DemoDataResult>
 
   getStudents: () => Promise<Student[]>

@@ -9,6 +9,10 @@ import type {
   TimetableEntry,
 } from '../types'
 
+interface EmployeePortalProps {
+  onOpenMessages?: () => void
+}
+
 type EmployeePortalTab = 'profile' | 'attendance' | 'salary' | 'timetable'
 
 const tabs: { id: EmployeePortalTab; label: string }[] = [
@@ -27,7 +31,7 @@ const formatAmount = (value: number) =>
 
 const formatDate = (value: string) => value || '-'
 
-export function EmployeePortal() {
+export function EmployeePortal({ onOpenMessages }: EmployeePortalProps) {
   const [activeTab, setActiveTab] = useState<EmployeePortalTab>('profile')
   const [data, setData] = useState<EmployeePortalData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -126,6 +130,34 @@ export function EmployeePortal() {
           <span>Salary Slips</span>
           <strong>{data.salaryPayments.length}</strong>
         </div>
+        <button className="summary-card summary-card--button" onClick={onOpenMessages} type="button">
+          <span>Unread Messages</span>
+          <strong>{data.unreadMessageCount}</strong>
+        </button>
+      </section>
+
+      <section className="panel portal-notices-panel">
+        <div className="panel-heading">
+          <div>
+            <h3>Staff Notices & Messages</h3>
+            <p>Latest local notices and direct inbox items for this account.</p>
+          </div>
+          <button className="secondary-button" onClick={onOpenMessages} type="button">
+            Open Inbox
+          </button>
+        </div>
+        {data.announcements.length > 0 ? (
+          <div className="portal-notice-list">
+            {data.announcements.slice(0, 3).map((notice) => (
+              <article key={notice.id}>
+                <strong>{notice.subject}</strong>
+                <span>{notice.threadType} · {formatDate(notice.lastMessageAt)}</span>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <p className="empty-copy">No local notices found.</p>
+        )}
       </section>
 
       <nav className="settings-tabs" aria-label="Employee workspace sections">

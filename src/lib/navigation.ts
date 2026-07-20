@@ -310,8 +310,15 @@ export const erpNavigation: ErpMenuGroup[] = [
     id: 'messaging',
     label: 'Messaging',
     icon: 'bell',
-    roles: ['Owner', 'Admin', 'Accountant', 'Teacher'],
-    items: [placeholder('message-center', 'Message Center')],
+    roles: ['Owner', 'Admin', 'Accountant', 'Teacher', 'Viewer', 'Student'],
+    items: [
+      {
+        id: 'message-center',
+        label: 'Local Message Center',
+        target: { page: 'message-center', view: 'inbox' },
+        roles: ['Owner', 'Admin', 'Accountant', 'Teacher', 'Viewer', 'Student'],
+      },
+    ],
   },
   {
     id: 'sms-services',

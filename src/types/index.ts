@@ -19,6 +19,7 @@ export type PageId =
   | 'academic-sessions'
   | 'student-login-management'
   | 'employee-login-management'
+  | 'message-center'
   | 'student-portal'
   | 'employee-portal'
   | 'placeholder'
@@ -2780,6 +2781,210 @@ export interface IssueCertificateInput {
   issuedDate: string
 }
 
+export type MessageThreadType =
+  | 'Direct'
+  | 'Announcement'
+  | 'Class Notice'
+  | 'Staff Notice'
+  | 'System'
+
+export type MessagePriority = 'Low' | 'Normal' | 'High' | 'Urgent'
+
+export type MessageThreadStatus = 'Active' | 'Archived' | 'Closed'
+
+export type MessageType = 'Text' | 'Notice' | 'System'
+
+export type MessageDeliveryStatus = 'Delivered' | 'Read' | 'Archived'
+
+export type AnnouncementAudienceType =
+  | 'All Users'
+  | 'All Students'
+  | 'All Employees'
+  | 'Teachers'
+  | 'Accountants'
+  | 'Specific Class'
+  | 'Specific Section'
+  | 'Selected Users'
+
+export type AnnouncementStatus =
+  | 'Draft'
+  | 'Published'
+  | 'Expired'
+  | 'Cancelled'
+
+export interface MessageRecipientCandidate {
+  userId: string
+  name: string
+  username: string
+  role: PermissionRole
+  accountType: UserAccountType
+  entityType: EntityType | 'User'
+  entityId: string
+  entityCode: string
+  entityName: string
+  className: string
+  section: string
+  department: string
+  designation: string
+  label: string
+}
+
+export interface MessageRecipient {
+  id: string
+  threadId: string
+  recipientUserId: string
+  recipientName: string
+  recipientUsername: string
+  recipientRole: PermissionRole | ''
+  recipientEntityType: EntityType | 'User' | ''
+  recipientEntityId: string
+  recipientEntityCode: string
+  recipientEntityName: string
+  className: string
+  section: string
+  deliveryStatus: MessageDeliveryStatus
+  deliveredAt: string
+  readAt: string
+  archivedAt: string
+  createdAt: string
+  updatedAt: string
+  deletedAt: string | null
+  syncStatus: SyncStatus
+}
+
+export interface MessageItem {
+  id: string
+  threadId: string
+  senderUserId: string
+  senderName: string
+  senderRole: PermissionRole | ''
+  messageText: string
+  messageType: MessageType
+  replyToMessageId: string
+  editedAt: string
+  createdAt: string
+  updatedAt: string
+  deletedAt: string | null
+  isDeleted: boolean
+  syncStatus: SyncStatus
+}
+
+export interface MessageThreadSummary {
+  id: string
+  subject: string
+  threadType: MessageThreadType
+  createdByUserId: string
+  createdByName: string
+  createdByRole: PermissionRole | ''
+  academicSessionId: string
+  className: string
+  section: string
+  status: MessageThreadStatus
+  priority: MessagePriority
+  createdAt: string
+  updatedAt: string
+  deletedAt: string | null
+  syncStatus: SyncStatus
+  senderName: string
+  senderRole: PermissionRole | ''
+  lastMessageAt: string
+  lastMessagePreview: string
+  deliveryStatus: MessageDeliveryStatus | ''
+  deliveredAt: string
+  readAt: string
+  archivedAt: string
+  isRead: boolean
+  unreadCount: number
+  recipientCount: number
+  readCount: number
+  recipientSummary: string
+  announcementId: string
+}
+
+export interface MessageThreadDetail extends MessageThreadSummary {
+  messages: MessageItem[]
+  recipients: MessageRecipient[]
+  canReply: boolean
+}
+
+export interface MessageFilter {
+  search?: string
+  unreadOnly?: boolean
+  archived?: boolean
+  threadType?: MessageThreadType
+  type?: MessageThreadType
+  priority?: MessagePriority
+  limit?: number
+}
+
+export interface CreateDirectMessageInput {
+  recipientType?: EntityType | 'User'
+  recipientUserId?: string
+  recipientUserIds?: string[]
+  subject: string
+  priority?: MessagePriority
+  messageText: string
+  academicSessionId?: string
+  className?: string
+  section?: string
+}
+
+export interface ReplyToMessageThreadInput {
+  threadId: string
+  messageText: string
+  replyToMessageId?: string
+}
+
+export interface Announcement {
+  id: string
+  title: string
+  announcementText: string
+  audienceType: AnnouncementAudienceType
+  academicSessionId: string
+  className: string
+  section: string
+  priority: MessagePriority
+  publishFrom: string
+  publishUntil: string
+  status: AnnouncementStatus
+  selectedUserIds: string[]
+  createdByUserId: string
+  createdByName: string
+  createdAt: string
+  updatedAt: string
+  deletedAt: string | null
+  syncStatus: SyncStatus
+  recipientCount: number
+  readCount: number
+  threadId: string
+}
+
+export interface AnnouncementInput {
+  title: string
+  announcementText: string
+  audienceType: AnnouncementAudienceType
+  academicSessionId?: string
+  className?: string
+  section?: string
+  priority?: MessagePriority
+  publishFrom?: string
+  publishUntil?: string
+  status?: 'Draft' | 'Published'
+  selectedUserIds?: string[]
+}
+
+export type UpdateAnnouncementInput = Partial<AnnouncementInput>
+
+export interface MessageDeliveryReport {
+  thread: MessageThreadSummary
+  recipients: MessageRecipient[]
+}
+
+export interface AnnouncementReadReport {
+  announcement: Announcement
+  recipients: MessageRecipient[]
+}
+
 export interface StudentPortalData {
   student: Student
   guardians: StudentGuardianLink[]
@@ -2793,6 +2998,8 @@ export interface StudentPortalData {
   feeLedger: StudentFeeLedgerEntry[]
   invoices: FeeInvoice[]
   certificates: IssuedCertificate[]
+  announcements: MessageThreadSummary[]
+  unreadMessageCount: number
 }
 
 export interface EmployeePortalData {
@@ -2800,6 +3007,8 @@ export interface EmployeePortalData {
   attendance: EmployeeAttendanceRecord[]
   salaryPayments: SalaryPayment[]
   timetable: TimetableEntry[]
+  announcements: MessageThreadSummary[]
+  unreadMessageCount: number
 }
 
 export interface DatabaseInfo {

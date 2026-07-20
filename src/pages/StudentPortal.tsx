@@ -15,6 +15,10 @@ import type {
   TimetableEntry,
 } from '../types'
 
+interface StudentPortalProps {
+  onOpenMessages?: () => void
+}
+
 type StudentPortalTab =
   | 'profile'
   | 'attendance'
@@ -52,7 +56,7 @@ const attendancePercentage = (records: AttendanceRecord[]) => {
   return Math.round((present / working) * 100)
 }
 
-export function StudentPortal() {
+export function StudentPortal({ onOpenMessages }: StudentPortalProps) {
   const [activeTab, setActiveTab] = useState<StudentPortalTab>('profile')
   const [data, setData] = useState<StudentPortalData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -217,6 +221,34 @@ export function StudentPortal() {
           <span>Report Cards</span>
           <strong>{data.reportCards.length}</strong>
         </div>
+        <button className="summary-card summary-card--button" onClick={onOpenMessages} type="button">
+          <span>Unread Messages</span>
+          <strong>{data.unreadMessageCount}</strong>
+        </button>
+      </section>
+
+      <section className="panel portal-notices-panel">
+        <div className="panel-heading">
+          <div>
+            <h3>Notices & Announcements</h3>
+            <p>Latest local notices for your account and class.</p>
+          </div>
+          <button className="secondary-button" onClick={onOpenMessages} type="button">
+            Open Inbox
+          </button>
+        </div>
+        {data.announcements.length > 0 ? (
+          <div className="portal-notice-list">
+            {data.announcements.slice(0, 3).map((notice) => (
+              <article key={notice.id}>
+                <strong>{notice.subject}</strong>
+                <span>{notice.threadType} · {formatDate(notice.lastMessageAt)}</span>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <p className="empty-copy">No local notices found.</p>
+        )}
       </section>
 
       <nav className="settings-tabs" aria-label="Student dashboard sections">

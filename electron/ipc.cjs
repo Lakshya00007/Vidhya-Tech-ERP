@@ -19,6 +19,28 @@ const channels = [
   "account:update-profile",
   "account:change-password",
   "account:login-history",
+  "messages:inbox",
+  "messages:sent",
+  "messages:thread:get",
+  "messages:thread:read",
+  "messages:thread:archive",
+  "messages:thread:unarchive",
+  "messages:direct:create",
+  "messages:reply",
+  "messages:edit-own",
+  "messages:delete-own",
+  "messages:thread:close",
+  "announcements:get",
+  "announcements:current-user",
+  "announcements:create",
+  "announcements:update",
+  "announcements:publish",
+  "announcements:cancel",
+  "announcements:delete",
+  "messages:recipients:eligible",
+  "announcements:recipients:resolve",
+  "messages:delivery-report",
+  "announcements:read-report",
   "users:get-all",
   "users:create",
   "users:update",
@@ -458,6 +480,94 @@ function registerIpcHandlers(
     ipcMain.handle("employee-logins:unlink", (_event, id) => {
       requireValidLicense();
       return authService.unlinkEmployeeLoginAccount(id);
+    });
+    ipcMain.handle("messages:inbox", (_event, filter) => {
+      requireValidLicense();
+      return authService.getMessageInbox(filter);
+    });
+    ipcMain.handle("messages:sent", (_event, filter) => {
+      requireValidLicense();
+      return authService.getSentMessages(filter);
+    });
+    ipcMain.handle("messages:thread:get", (_event, threadId) => {
+      requireValidLicense();
+      return authService.getMessageThread(threadId);
+    });
+    ipcMain.handle("messages:thread:read", (_event, threadId) => {
+      requireValidLicense();
+      return authService.markMessageThreadRead(threadId);
+    });
+    ipcMain.handle("messages:thread:archive", (_event, threadId) => {
+      requireValidLicense();
+      return authService.archiveMessageThread(threadId);
+    });
+    ipcMain.handle("messages:thread:unarchive", (_event, threadId) => {
+      requireValidLicense();
+      return authService.unarchiveMessageThread(threadId);
+    });
+    ipcMain.handle("messages:direct:create", (_event, input) => {
+      requireValidLicense();
+      return authService.createDirectMessage(input);
+    });
+    ipcMain.handle("messages:reply", (_event, input) => {
+      requireValidLicense();
+      return authService.replyToMessageThread(input);
+    });
+    ipcMain.handle("messages:edit-own", (_event, messageId, text) => {
+      requireValidLicense();
+      return authService.editOwnMessage(messageId, text);
+    });
+    ipcMain.handle("messages:delete-own", (_event, messageId) => {
+      requireValidLicense();
+      return authService.deleteOwnMessage(messageId);
+    });
+    ipcMain.handle("messages:thread:close", (_event, threadId) => {
+      requireValidLicense();
+      return authService.closeMessageThread(threadId);
+    });
+    ipcMain.handle("announcements:get", (_event, filter) => {
+      requireValidLicense();
+      return authService.getAnnouncements(filter);
+    });
+    ipcMain.handle("announcements:current-user", () => {
+      requireValidLicense();
+      return authService.getCurrentUserAnnouncements();
+    });
+    ipcMain.handle("announcements:create", (_event, input) => {
+      requireValidLicense();
+      return authService.createAnnouncement(input);
+    });
+    ipcMain.handle("announcements:update", (_event, id, input) => {
+      requireValidLicense();
+      return authService.updateAnnouncement(id, input);
+    });
+    ipcMain.handle("announcements:publish", (_event, id) => {
+      requireValidLicense();
+      return authService.publishAnnouncement(id);
+    });
+    ipcMain.handle("announcements:cancel", (_event, id) => {
+      requireValidLicense();
+      return authService.cancelAnnouncement(id);
+    });
+    ipcMain.handle("announcements:delete", (_event, id) => {
+      requireValidLicense();
+      return authService.deleteAnnouncement(id);
+    });
+    ipcMain.handle("messages:recipients:eligible", (_event, filter) => {
+      requireValidLicense();
+      return authService.getEligibleMessageRecipients(filter);
+    });
+    ipcMain.handle("announcements:recipients:resolve", (_event, input) => {
+      requireValidLicense();
+      return authService.resolveAnnouncementRecipients(input);
+    });
+    ipcMain.handle("messages:delivery-report", (_event, threadId) => {
+      requireValidLicense();
+      return authService.getMessageDeliveryReport(threadId);
+    });
+    ipcMain.handle("announcements:read-report", (_event, announcementId) => {
+      requireValidLicense();
+      return authService.getAnnouncementReadReport(announcementId);
     });
   }
 

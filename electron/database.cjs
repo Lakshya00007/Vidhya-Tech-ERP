@@ -195,6 +195,33 @@ const DATE_FORMATS = new Set([
   "DD MMM YYYY",
 ]);
 const TIME_FORMATS = new Set(["12 Hour", "24 Hour"]);
+const MESSAGE_THREAD_TYPES = new Set([
+  "Direct",
+  "Announcement",
+  "Class Notice",
+  "Staff Notice",
+  "System",
+]);
+const MESSAGE_THREAD_STATUSES = new Set(["Active", "Archived", "Closed"]);
+const MESSAGE_PRIORITIES = new Set(["Low", "Normal", "High", "Urgent"]);
+const MESSAGE_TYPES = new Set(["Text", "Notice", "System"]);
+const MESSAGE_DELIVERY_STATUSES = new Set(["Delivered", "Read", "Archived"]);
+const ANNOUNCEMENT_AUDIENCE_TYPES = new Set([
+  "All Users",
+  "All Students",
+  "All Employees",
+  "Teachers",
+  "Accountants",
+  "Specific Class",
+  "Specific Section",
+  "Selected Users",
+]);
+const ANNOUNCEMENT_STATUSES = new Set([
+  "Draft",
+  "Published",
+  "Expired",
+  "Cancelled",
+]);
 const GUARDIAN_RELATIONS = new Set([
   "Father",
   "Mother",
@@ -1408,6 +1435,169 @@ function loginHistoryFromRow(row) {
     os: row.os ?? "",
     failureReason: row.failure_reason ?? "",
     createdAt: row.created_at,
+  };
+}
+
+function messageThreadFromRow(row) {
+  return {
+    id: row.id,
+    subject: row.subject,
+    threadType: row.thread_type,
+    createdByUserId: row.created_by_user_id,
+    createdByName: row.created_by_name ?? "",
+    createdByRole: row.created_by_role ?? "",
+    academicSessionId: row.academic_session_id ?? "",
+    className: row.class_name ?? "",
+    section: row.section ?? "",
+    status: row.status ?? "Active",
+    priority: row.priority ?? "Normal",
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at,
+    syncStatus: row.sync_status,
+    senderName: row.sender_name ?? row.created_by_name ?? "",
+    senderRole: row.sender_role ?? row.created_by_role ?? "",
+    lastMessageAt: row.last_message_at ?? row.updated_at ?? row.created_at,
+    lastMessagePreview:
+      row.last_message_deleted_at || row.last_message_deleted
+        ? "This message was removed."
+        : row.last_message_preview ?? "",
+    deliveryStatus: row.delivery_status ?? "",
+    deliveredAt: row.delivered_at ?? "",
+    readAt: row.read_at ?? "",
+    archivedAt: row.archived_at ?? "",
+    isRead: Boolean(row.read_at) || row.delivery_status === "Read",
+    unreadCount: Number(row.unread_count ?? 0),
+    recipientCount: Number(row.recipient_count ?? 0),
+    readCount: Number(row.read_count ?? 0),
+    recipientSummary: row.recipient_summary ?? "",
+    announcementId: row.announcement_id ?? "",
+  };
+}
+
+function messageFromRow(row) {
+  const isDeleted = Boolean(row.deleted_at);
+  return {
+    id: row.id,
+    threadId: row.thread_id,
+    senderUserId: row.sender_user_id,
+    senderName: row.sender_name ?? "",
+    senderRole: row.sender_role ?? "",
+    messageText: isDeleted
+      ? "This message was removed."
+      : row.message_text ?? "",
+    messageType: row.message_type ?? "Text",
+    replyToMessageId: row.reply_to_message_id ?? "",
+    editedAt: row.edited_at ?? "",
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at,
+    isDeleted,
+    syncStatus: row.sync_status,
+  };
+}
+
+function messageRecipientFromRow(row) {
+  return {
+    id: row.id,
+    threadId: row.thread_id,
+    recipientUserId: row.recipient_user_id,
+    recipientName: row.recipient_name ?? row.user_name ?? "",
+    recipientUsername: row.recipient_username ?? row.username ?? "",
+    recipientRole: row.recipient_role ?? "",
+    recipientEntityType: row.recipient_entity_type ?? "",
+    recipientEntityId: row.recipient_entity_id ?? "",
+    recipientEntityCode: row.recipient_entity_code ?? "",
+    recipientEntityName: row.recipient_entity_name ?? "",
+    className: row.class_name ?? "",
+    section: row.section ?? "",
+    deliveryStatus: row.delivery_status ?? "Delivered",
+    deliveredAt: row.delivered_at ?? "",
+    readAt: row.read_at ?? "",
+    archivedAt: row.archived_at ?? "",
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at,
+    syncStatus: row.sync_status,
+  };
+}
+
+function announcementFromRow(row) {
+  return {
+    id: row.id,
+    title: row.title,
+    announcementText: row.announcement_text,
+    audienceType: row.audience_type,
+    academicSessionId: row.academic_session_id ?? "",
+    className: row.class_name ?? "",
+    section: row.section ?? "",
+    priority: row.priority ?? "Normal",
+    publishFrom: row.publish_from ?? "",
+    publishUntil: row.publish_until ?? "",
+    status: row.status ?? "Draft",
+    selectedUserIds: (() => {
+      try {
+        const parsed = JSON.parse(row.selected_user_ids_json || "[]");
+        return Array.isArray(parsed) ? parsed.filter(Boolean) : [];
+      } catch {
+        return [];
+      }
+    })(),
+    createdByUserId: row.created_by_user_id ?? "",
+    createdByName: row.created_by_name ?? "",
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at,
+    syncStatus: row.sync_status,
+    recipientCount: Number(row.recipient_count ?? 0),
+    readCount: Number(row.read_count ?? 0),
+    threadId: row.thread_id ?? row.id,
+  };
+}
+
+function messageRecipientCandidateFromRow(row) {
+  const entityType = row.entity_type ?? (
+    row.account_type === "Student" || row.role === "Student" ? "Student" : "User"
+  );
+  const entityId = row.entity_id ?? "";
+  const studentName = row.student_name ?? "";
+  const employeeName = row.employee_name ?? "";
+  const entityName =
+    entityType === "Student"
+      ? studentName || row.entity_name || row.user_name
+      : entityType === "Employee"
+        ? employeeName || row.entity_name || row.user_name
+        : row.user_name;
+  const entityCode =
+    entityType === "Student"
+      ? row.admission_no ?? row.entity_code ?? ""
+      : entityType === "Employee"
+        ? row.employee_no ?? row.entity_code ?? ""
+        : "";
+  return {
+    userId: row.user_id,
+    name: row.user_name,
+    username: row.username,
+    role: row.role,
+    accountType: row.account_type ?? "Staff",
+    entityType,
+    entityId,
+    entityCode,
+    entityName,
+    className: row.class_name ?? "",
+    section: row.section ?? "",
+    department: row.department ?? "",
+    designation: row.designation ?? "",
+    label: [
+      entityName || row.user_name,
+      entityCode,
+      row.role,
+      row.class_name && row.section
+        ? `${row.class_name}-${row.section}`
+        : row.department,
+    ]
+      .filter(Boolean)
+      .join(" · "),
   };
 }
 
@@ -2813,6 +3003,120 @@ function createDatabase(databasePath) {
       FOREIGN KEY (user_id) REFERENCES users(id)
     );
 
+    CREATE TABLE IF NOT EXISTS message_threads (
+      id TEXT PRIMARY KEY,
+      subject TEXT NOT NULL,
+      thread_type TEXT NOT NULL CHECK (
+        thread_type IN (
+          'Direct',
+          'Announcement',
+          'Class Notice',
+          'Staff Notice',
+          'System'
+        )
+      ),
+      created_by_user_id TEXT NOT NULL,
+      created_by_name TEXT,
+      created_by_role TEXT,
+      academic_session_id TEXT,
+      class_name TEXT,
+      section TEXT,
+      status TEXT DEFAULT 'Active' CHECK (
+        status IN ('Active', 'Archived', 'Closed')
+      ),
+      priority TEXT DEFAULT 'Normal' CHECK (
+        priority IN ('Low', 'Normal', 'High', 'Urgent')
+      ),
+      created_at TEXT,
+      updated_at TEXT,
+      deleted_at TEXT,
+      sync_status TEXT DEFAULT 'pending',
+      FOREIGN KEY (created_by_user_id) REFERENCES users(id),
+      FOREIGN KEY (academic_session_id) REFERENCES academic_sessions(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS messages (
+      id TEXT PRIMARY KEY,
+      thread_id TEXT NOT NULL,
+      sender_user_id TEXT NOT NULL,
+      sender_name TEXT,
+      sender_role TEXT,
+      message_text TEXT NOT NULL,
+      message_type TEXT DEFAULT 'Text' CHECK (
+        message_type IN ('Text', 'Notice', 'System')
+      ),
+      reply_to_message_id TEXT,
+      edited_at TEXT,
+      created_at TEXT,
+      updated_at TEXT,
+      deleted_at TEXT,
+      sync_status TEXT DEFAULT 'pending',
+      FOREIGN KEY (thread_id) REFERENCES message_threads(id),
+      FOREIGN KEY (sender_user_id) REFERENCES users(id),
+      FOREIGN KEY (reply_to_message_id) REFERENCES messages(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS message_recipients (
+      id TEXT PRIMARY KEY,
+      thread_id TEXT NOT NULL,
+      recipient_user_id TEXT NOT NULL,
+      recipient_role TEXT,
+      recipient_entity_type TEXT CHECK (
+        recipient_entity_type IN ('Student', 'Employee', 'User')
+      ),
+      recipient_entity_id TEXT,
+      delivery_status TEXT DEFAULT 'Delivered' CHECK (
+        delivery_status IN ('Delivered', 'Read', 'Archived')
+      ),
+      delivered_at TEXT,
+      read_at TEXT,
+      archived_at TEXT,
+      created_at TEXT,
+      updated_at TEXT,
+      deleted_at TEXT,
+      sync_status TEXT DEFAULT 'pending',
+      FOREIGN KEY (thread_id) REFERENCES message_threads(id),
+      FOREIGN KEY (recipient_user_id) REFERENCES users(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS announcements (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      announcement_text TEXT NOT NULL,
+      audience_type TEXT NOT NULL CHECK (
+        audience_type IN (
+          'All Users',
+          'All Students',
+          'All Employees',
+          'Teachers',
+          'Accountants',
+          'Specific Class',
+          'Specific Section',
+          'Selected Users'
+        )
+      ),
+      academic_session_id TEXT,
+      class_name TEXT,
+      section TEXT,
+      priority TEXT DEFAULT 'Normal' CHECK (
+        priority IN ('Low', 'Normal', 'High', 'Urgent')
+      ),
+      publish_from TEXT,
+      publish_until TEXT,
+      status TEXT DEFAULT 'Draft' CHECK (
+        status IN ('Draft', 'Published', 'Expired', 'Cancelled')
+      ),
+      selected_user_ids_json TEXT,
+      created_by_user_id TEXT,
+      created_by_name TEXT,
+      created_at TEXT,
+      updated_at TEXT,
+      deleted_at TEXT,
+      sync_status TEXT DEFAULT 'pending',
+      FOREIGN KEY (academic_session_id) REFERENCES academic_sessions(id),
+      FOREIGN KEY (created_by_user_id) REFERENCES users(id)
+    );
+
     CREATE TABLE IF NOT EXISTS school_rules (
       id TEXT PRIMARY KEY,
       title TEXT NOT NULL,
@@ -3022,6 +3326,22 @@ function createDatabase(databasePath) {
       ON marks(student_id, exam_id);
     CREATE INDEX IF NOT EXISTS idx_users_active
       ON users(deleted_at, status, role);
+    CREATE INDEX IF NOT EXISTS idx_message_threads_filter
+      ON message_threads(deleted_at, status, thread_type, priority, updated_at);
+    CREATE INDEX IF NOT EXISTS idx_messages_thread
+      ON messages(thread_id, created_at, deleted_at);
+    CREATE INDEX IF NOT EXISTS idx_message_recipients_user
+      ON message_recipients(
+        recipient_user_id, deleted_at, delivery_status, thread_id
+      );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_message_recipients_active_unique
+      ON message_recipients(thread_id, recipient_user_id)
+      WHERE deleted_at IS NULL;
+    CREATE INDEX IF NOT EXISTS idx_announcements_filter
+      ON announcements(
+        deleted_at, status, audience_type, class_name, section,
+        publish_from, publish_until
+      );
     CREATE INDEX IF NOT EXISTS idx_school_rules_filter
       ON school_rules(deleted_at, status, category, display_order);
     CREATE INDEX IF NOT EXISTS idx_school_rules_session
@@ -3076,6 +3396,78 @@ function createDatabase(databasePath) {
     ["sync_status", "TEXT DEFAULT 'pending'"],
   ].forEach(([columnName, definition]) => {
     addColumnIfMissing(db, "user_entity_links", columnName, definition);
+  });
+  [
+    ["subject", "TEXT"],
+    ["thread_type", "TEXT DEFAULT 'Direct'"],
+    ["created_by_user_id", "TEXT"],
+    ["created_by_name", "TEXT"],
+    ["created_by_role", "TEXT"],
+    ["academic_session_id", "TEXT"],
+    ["class_name", "TEXT"],
+    ["section", "TEXT"],
+    ["status", "TEXT DEFAULT 'Active'"],
+    ["priority", "TEXT DEFAULT 'Normal'"],
+    ["created_at", "TEXT"],
+    ["updated_at", "TEXT"],
+    ["deleted_at", "TEXT"],
+    ["sync_status", "TEXT DEFAULT 'pending'"],
+  ].forEach(([columnName, definition]) => {
+    addColumnIfMissing(db, "message_threads", columnName, definition);
+  });
+  [
+    ["thread_id", "TEXT"],
+    ["sender_user_id", "TEXT"],
+    ["sender_name", "TEXT"],
+    ["sender_role", "TEXT"],
+    ["message_text", "TEXT"],
+    ["message_type", "TEXT DEFAULT 'Text'"],
+    ["reply_to_message_id", "TEXT"],
+    ["edited_at", "TEXT"],
+    ["created_at", "TEXT"],
+    ["updated_at", "TEXT"],
+    ["deleted_at", "TEXT"],
+    ["sync_status", "TEXT DEFAULT 'pending'"],
+  ].forEach(([columnName, definition]) => {
+    addColumnIfMissing(db, "messages", columnName, definition);
+  });
+  [
+    ["thread_id", "TEXT"],
+    ["recipient_user_id", "TEXT"],
+    ["recipient_role", "TEXT"],
+    ["recipient_entity_type", "TEXT"],
+    ["recipient_entity_id", "TEXT"],
+    ["delivery_status", "TEXT DEFAULT 'Delivered'"],
+    ["delivered_at", "TEXT"],
+    ["read_at", "TEXT"],
+    ["archived_at", "TEXT"],
+    ["created_at", "TEXT"],
+    ["updated_at", "TEXT"],
+    ["deleted_at", "TEXT"],
+    ["sync_status", "TEXT DEFAULT 'pending'"],
+  ].forEach(([columnName, definition]) => {
+    addColumnIfMissing(db, "message_recipients", columnName, definition);
+  });
+  [
+    ["title", "TEXT"],
+    ["announcement_text", "TEXT"],
+    ["audience_type", "TEXT DEFAULT 'All Users'"],
+    ["academic_session_id", "TEXT"],
+    ["class_name", "TEXT"],
+    ["section", "TEXT"],
+    ["priority", "TEXT DEFAULT 'Normal'"],
+    ["publish_from", "TEXT"],
+    ["publish_until", "TEXT"],
+    ["status", "TEXT DEFAULT 'Draft'"],
+    ["selected_user_ids_json", "TEXT"],
+    ["created_by_user_id", "TEXT"],
+    ["created_by_name", "TEXT"],
+    ["created_at", "TEXT"],
+    ["updated_at", "TEXT"],
+    ["deleted_at", "TEXT"],
+    ["sync_status", "TEXT DEFAULT 'pending'"],
+  ].forEach(([columnName, definition]) => {
+    addColumnIfMissing(db, "announcements", columnName, definition);
   });
   [
     ["family_code", "TEXT"],
@@ -3369,6 +3761,38 @@ function createDatabase(databasePath) {
     UPDATE users
     SET account_type = 'Student'
     WHERE role = 'Student' AND account_type <> 'Student';
+    UPDATE message_threads
+    SET thread_type = 'Direct'
+    WHERE thread_type IS NULL OR trim(thread_type) = '';
+    UPDATE message_threads
+    SET status = 'Active'
+    WHERE status IS NULL OR trim(status) = '';
+    UPDATE message_threads
+    SET priority = 'Normal'
+    WHERE priority IS NULL OR trim(priority) = '';
+    UPDATE messages
+    SET message_type = 'Text'
+    WHERE message_type IS NULL OR trim(message_type) = '';
+    UPDATE message_recipients
+    SET delivery_status = 'Delivered'
+    WHERE delivery_status IS NULL OR trim(delivery_status) = '';
+    UPDATE announcements
+    SET audience_type = 'All Users'
+    WHERE audience_type IS NULL OR trim(audience_type) = '';
+    UPDATE announcements
+    SET status = 'Draft'
+    WHERE status IS NULL OR trim(status) = '';
+    UPDATE announcements
+    SET priority = 'Normal'
+    WHERE priority IS NULL OR trim(priority) = '';
+    DELETE FROM message_recipients
+    WHERE deleted_at IS NULL
+      AND rowid NOT IN (
+        SELECT MIN(rowid)
+        FROM message_recipients
+        WHERE deleted_at IS NULL
+        GROUP BY thread_id, recipient_user_id
+      );
     DELETE FROM student_guardian_links
     WHERE deleted_at IS NULL
       AND rowid NOT IN (
@@ -3443,6 +3867,22 @@ function createDatabase(databasePath) {
     CREATE UNIQUE INDEX IF NOT EXISTS idx_user_entity_links_employee_primary
       ON user_entity_links(entity_type, entity_id)
       WHERE deleted_at IS NULL AND entity_type = 'Employee' AND is_primary = 1;
+    CREATE INDEX IF NOT EXISTS idx_message_threads_filter
+      ON message_threads(deleted_at, status, thread_type, priority, updated_at);
+    CREATE INDEX IF NOT EXISTS idx_messages_thread
+      ON messages(thread_id, created_at, deleted_at);
+    CREATE INDEX IF NOT EXISTS idx_message_recipients_user
+      ON message_recipients(
+        recipient_user_id, deleted_at, delivery_status, thread_id
+      );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_message_recipients_active_unique
+      ON message_recipients(thread_id, recipient_user_id)
+      WHERE deleted_at IS NULL;
+    CREATE INDEX IF NOT EXISTS idx_announcements_filter
+      ON announcements(
+        deleted_at, status, audience_type, class_name, section,
+        publish_from, publish_until
+      );
     CREATE INDEX IF NOT EXISTS idx_families_active
       ON families(deleted_at, status, family_code, family_name);
     CREATE INDEX IF NOT EXISTS idx_families_contact
@@ -7934,6 +8374,917 @@ function createDatabase(databasePath) {
       `)
       .all(promotionId)
       .map(promotionItemFromRow);
+  }
+
+  function normalizeMessageThreadType(value, fallback = "Direct") {
+    const threadType = optionalText(value) || fallback;
+    if (!MESSAGE_THREAD_TYPES.has(threadType)) {
+      throw new Error("Message thread type is invalid.");
+    }
+    return threadType;
+  }
+
+  function normalizeMessageThreadStatus(value, fallback = "Active") {
+    const status = optionalText(value) || fallback;
+    if (!MESSAGE_THREAD_STATUSES.has(status)) {
+      throw new Error("Message thread status is invalid.");
+    }
+    return status;
+  }
+
+  function normalizeMessagePriority(value, fallback = "Normal") {
+    const priority = optionalText(value) || fallback;
+    if (!MESSAGE_PRIORITIES.has(priority)) {
+      throw new Error("Message priority is invalid.");
+    }
+    return priority;
+  }
+
+  function normalizeMessageType(value, fallback = "Text") {
+    const messageType = optionalText(value) || fallback;
+    if (!MESSAGE_TYPES.has(messageType)) {
+      throw new Error("Message type is invalid.");
+    }
+    return messageType;
+  }
+
+  function normalizeAnnouncementAudience(value) {
+    const audienceType = requiredText(value, "Audience");
+    if (!ANNOUNCEMENT_AUDIENCE_TYPES.has(audienceType)) {
+      throw new Error("Announcement audience is invalid.");
+    }
+    return audienceType;
+  }
+
+  function normalizeAnnouncementStatus(value, fallback = "Draft") {
+    const status = optionalText(value) || fallback;
+    if (!ANNOUNCEMENT_STATUSES.has(status)) {
+      throw new Error("Announcement status is invalid.");
+    }
+    return status;
+  }
+
+  function messageIsAdmin(user) {
+    return user?.role === "Owner" || user?.role === "Admin";
+  }
+
+  function getMessageUserContext(user) {
+    const userId = requiredText(user?.id, "Current user");
+    const row = db
+      .prepare(`
+        SELECT *
+        FROM users
+        WHERE id = ?
+          AND status = 'Active'
+          AND deleted_at IS NULL
+      `)
+      .get(userId);
+    if (!row) throw new Error("Authenticated user is no longer active.");
+    const link = db
+      .prepare(`
+        SELECT
+          links.*,
+          users.username,
+          users.name AS user_name,
+          users.role,
+          users.account_type,
+          users.status AS user_status,
+          users.must_change_password,
+          users.last_login_at
+        FROM user_entity_links AS links
+        JOIN users ON users.id = links.user_id AND users.deleted_at IS NULL
+        WHERE links.user_id = ?
+          AND links.is_primary = 1
+          AND links.deleted_at IS NULL
+        LIMIT 1
+      `)
+      .get(userId);
+    return {
+      id: row.id,
+      name: row.name,
+      username: row.username,
+      role: row.role,
+      accountType: row.account_type ?? "Staff",
+      status: row.status,
+      entityLink: link ? userEntityLinkFromRow(link) : null,
+    };
+  }
+
+  function getActiveRecipientCandidates() {
+    return db
+      .prepare(`
+        SELECT
+          users.id AS user_id,
+          users.name AS user_name,
+          users.username,
+          users.role,
+          users.account_type,
+          links.entity_type,
+          links.entity_id,
+          links.entity_code,
+          links.entity_name,
+          students.admission_no,
+          students.name AS student_name,
+          students.class_name,
+          students.section,
+          students.status AS student_status,
+          employees.employee_no,
+          employees.name AS employee_name,
+          employees.department,
+          employees.designation,
+          employees.status AS employee_status
+        FROM users
+        LEFT JOIN user_entity_links AS links
+          ON links.user_id = users.id
+          AND links.is_primary = 1
+          AND links.deleted_at IS NULL
+        LEFT JOIN students
+          ON links.entity_type = 'Student'
+          AND students.id = links.entity_id
+          AND students.deleted_at IS NULL
+        LEFT JOIN employees
+          ON links.entity_type = 'Employee'
+          AND employees.id = links.entity_id
+          AND employees.deleted_at IS NULL
+        WHERE users.deleted_at IS NULL
+          AND users.status = 'Active'
+        ORDER BY users.name COLLATE NOCASE
+      `)
+      .all()
+      .map(messageRecipientCandidateFromRow)
+      .filter((candidate) => {
+        if (candidate.entityType === "Student") {
+          return Boolean(candidate.entityId) && candidate.accountType === "Student";
+        }
+        if (candidate.entityType === "Employee") {
+          return Boolean(candidate.entityId);
+        }
+        return candidate.accountType !== "Student" && candidate.role !== "Student";
+      });
+  }
+
+  function getMessageRecipientCandidateByUserId(userId) {
+    const normalizedUserId = requiredText(userId, "Recipient user");
+    return (
+      getActiveRecipientCandidates().find(
+        (candidate) => candidate.userId === normalizedUserId,
+      ) ?? null
+    );
+  }
+
+  function getTeacherMessageScopes(user) {
+    if (user.role !== "Teacher") return [];
+    const employeeId =
+      user.entityLink?.entityType === "Employee"
+        ? optionalText(user.entityLink.entityId)
+        : "";
+    if (!employeeId) return [];
+    return db
+      .prepare(`
+        SELECT DISTINCT class_name, COALESCE(section, '') AS section
+        FROM timetable_entries
+        WHERE teacher_id = ?
+          AND deleted_at IS NULL
+      `)
+      .all(employeeId)
+      .map((row) => ({
+        className: row.class_name,
+        section: row.section ?? "",
+      }));
+  }
+
+  function teacherCanReachClass(user, className, section = "") {
+    const targetClass = requiredText(className, "Class");
+    const targetSection = optionalText(section);
+    const scopes = getTeacherMessageScopes(user);
+    return scopes.some(
+      (scope) =>
+        scope.className === targetClass &&
+        (!targetSection || !scope.section || scope.section === targetSection),
+    );
+  }
+
+  function teacherCanReachStudent(user, candidate) {
+    return (
+      candidate.entityType === "Student" &&
+      Boolean(candidate.className) &&
+      teacherCanReachClass(user, candidate.className, candidate.section)
+    );
+  }
+
+  function candidateMatchesMessageFilter(candidate, filter = {}) {
+    const recipientType = optionalText(filter.recipientType);
+    if (recipientType === "Student" && candidate.entityType !== "Student") {
+      return false;
+    }
+    if (recipientType === "Employee" && candidate.entityType !== "Employee") {
+      return false;
+    }
+    if (recipientType === "User" && candidate.entityType !== "User") {
+      return false;
+    }
+    const role = optionalText(filter.role);
+    if (role && candidate.role !== role) return false;
+    const className = optionalText(filter.className);
+    if (className && candidate.className !== className) return false;
+    const section = optionalText(filter.section);
+    if (section && candidate.section !== section) return false;
+    const search = optionalText(filter.search).toLowerCase();
+    if (!search) return true;
+    return [
+      candidate.name,
+      candidate.username,
+      candidate.role,
+      candidate.entityName,
+      candidate.entityCode,
+      candidate.className,
+      candidate.section,
+      candidate.department,
+      candidate.designation,
+    ]
+      .filter(Boolean)
+      .some((value) => String(value).toLowerCase().includes(search));
+  }
+
+  function getEligibleMessageRecipientCandidates(user, filter = {}) {
+    const context = getMessageUserContext(user);
+    if (context.role === "Student" || context.role === "Viewer") return [];
+    return getActiveRecipientCandidates()
+      .filter((candidate) => candidate.userId !== context.id)
+      .filter((candidate) => {
+        if (messageIsAdmin(context)) return true;
+        if (context.role === "Accountant") {
+          return candidate.entityType !== "Student" && candidate.role !== "Student";
+        }
+        if (context.role === "Teacher") {
+          if (candidate.entityType === "Student") {
+            return teacherCanReachStudent(context, candidate);
+          }
+          return candidate.role !== "Student";
+        }
+        return false;
+      })
+      .filter((candidate) => candidateMatchesMessageFilter(candidate, filter));
+  }
+
+  function getMessageThreadRow(threadId) {
+    return (
+      db
+        .prepare(`
+          SELECT *
+          FROM message_threads
+          WHERE id = ?
+            AND deleted_at IS NULL
+        `)
+        .get(requiredText(threadId, "Message thread id")) ?? null
+    );
+  }
+
+  function isThreadRecipient(threadId, userId) {
+    return Boolean(
+      db
+        .prepare(`
+          SELECT id
+          FROM message_recipients
+          WHERE thread_id = ?
+            AND recipient_user_id = ?
+            AND deleted_at IS NULL
+          LIMIT 1
+        `)
+        .get(threadId, userId),
+    );
+  }
+
+  function isThreadSender(threadId, userId) {
+    return Boolean(
+      db
+        .prepare(`
+          SELECT id
+          FROM messages
+          WHERE thread_id = ?
+            AND sender_user_id = ?
+          LIMIT 1
+        `)
+        .get(threadId, userId),
+    );
+  }
+
+  function canReadMessageThreadContent(user, thread) {
+    if (isThreadRecipient(thread.id, user.id)) return true;
+    if (isThreadSender(thread.id, user.id)) return true;
+    if (thread.thread_type !== "Direct" && messageIsAdmin(user)) return true;
+    return false;
+  }
+
+  function ensureMessageThreadContentAccess(user, threadId) {
+    const context = getMessageUserContext(user);
+    const thread = getMessageThreadRow(threadId);
+    if (!thread) throw new Error("Message thread was not found.");
+    if (!canReadMessageThreadContent(context, thread)) {
+      throw new Error("You do not have access to this message thread.");
+    }
+    return { user: context, thread };
+  }
+
+  function ensureMessageReportAccess(user, thread) {
+    const context = getMessageUserContext(user);
+    if (
+      messageIsAdmin(context) ||
+      thread.created_by_user_id === context.id ||
+      isThreadSender(thread.id, context.id) ||
+      isThreadRecipient(thread.id, context.id)
+    ) {
+      return context;
+    }
+    throw new Error("You do not have access to this message report.");
+  }
+
+  function insertMessageRecipient(threadId, candidate, timestamp) {
+    if (!candidate?.userId) return null;
+    db.prepare(`
+      INSERT OR IGNORE INTO message_recipients (
+        id, thread_id, recipient_user_id, recipient_role,
+        recipient_entity_type, recipient_entity_id, delivery_status,
+        delivered_at, read_at, archived_at, created_at, updated_at,
+        deleted_at, sync_status
+      ) VALUES (
+        @id, @threadId, @recipientUserId, @recipientRole,
+        @recipientEntityType, @recipientEntityId, 'Delivered',
+        @deliveredAt, NULL, NULL, @createdAt, @updatedAt, NULL, 'pending'
+      )
+    `).run({
+      id: crypto.randomUUID(),
+      threadId,
+      recipientUserId: candidate.userId,
+      recipientRole: candidate.role,
+      recipientEntityType: candidate.entityType || "User",
+      recipientEntityId: candidate.entityId || "",
+      deliveredAt: timestamp,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    });
+    return candidate;
+  }
+
+  function getThreadRecipientRows(threadId) {
+    return db
+      .prepare(`
+        SELECT
+          recipients.*,
+          users.name AS recipient_name,
+          users.username AS recipient_username,
+          links.entity_code AS recipient_entity_code,
+          links.entity_name AS recipient_entity_name,
+          students.class_name,
+          students.section
+        FROM message_recipients AS recipients
+        LEFT JOIN users
+          ON users.id = recipients.recipient_user_id
+        LEFT JOIN user_entity_links AS links
+          ON links.user_id = recipients.recipient_user_id
+          AND links.is_primary = 1
+          AND links.deleted_at IS NULL
+        LEFT JOIN students
+          ON links.entity_type = 'Student'
+          AND students.id = links.entity_id
+          AND students.deleted_at IS NULL
+        WHERE recipients.thread_id = ?
+          AND recipients.deleted_at IS NULL
+        ORDER BY users.name COLLATE NOCASE
+      `)
+      .all(threadId)
+      .map(messageRecipientFromRow);
+  }
+
+  function createThreadMessage({
+    threadId,
+    sender,
+    messageText,
+    messageType = "Text",
+    replyToMessageId = "",
+    timestamp,
+  }) {
+    const messageId = crypto.randomUUID();
+    db.prepare(`
+      INSERT INTO messages (
+        id, thread_id, sender_user_id, sender_name, sender_role, message_text,
+        message_type, reply_to_message_id, edited_at, created_at, updated_at,
+        deleted_at, sync_status
+      ) VALUES (
+        @id, @threadId, @senderUserId, @senderName, @senderRole, @messageText,
+        @messageType, @replyToMessageId, NULL, @createdAt, @updatedAt, NULL,
+        'pending'
+      )
+    `).run({
+      id: messageId,
+      threadId,
+      senderUserId: sender.id,
+      senderName: sender.name,
+      senderRole: sender.role,
+      messageText: requiredText(messageText, "Message"),
+      messageType: normalizeMessageType(messageType),
+      replyToMessageId: optionalText(replyToMessageId) || null,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    });
+    db.prepare(`
+      UPDATE message_threads
+      SET updated_at = ?, sync_status = 'pending'
+      WHERE id = ?
+    `).run(timestamp, threadId);
+    return messageId;
+  }
+
+  function queryMessageInbox(user, filter = {}) {
+    const context = getMessageUserContext(user);
+    const clauses = [
+      "recipients.recipient_user_id = @userId",
+      "recipients.deleted_at IS NULL",
+      "threads.deleted_at IS NULL",
+    ];
+    const params = {
+      userId: context.id,
+      today: now().slice(0, 10),
+      now: now(),
+    };
+    const archived = filter.archived === true;
+    clauses.push(
+      archived
+        ? "recipients.delivery_status = 'Archived'"
+        : "recipients.delivery_status <> 'Archived'",
+    );
+    const unreadOnly = filter.unreadOnly === true;
+    if (unreadOnly) {
+      clauses.push("recipients.read_at IS NULL");
+    }
+    const type = optionalText(filter.threadType || filter.type);
+    if (type && MESSAGE_THREAD_TYPES.has(type)) {
+      clauses.push("threads.thread_type = @threadType");
+      params.threadType = type;
+    }
+    const priority = optionalText(filter.priority);
+    if (priority && MESSAGE_PRIORITIES.has(priority)) {
+      clauses.push("threads.priority = @priority");
+      params.priority = priority;
+    }
+    const search = optionalText(filter.search).toLowerCase();
+    const rows = db
+      .prepare(`
+        SELECT
+          threads.*,
+          recipients.delivery_status,
+          recipients.delivered_at,
+          recipients.read_at,
+          recipients.archived_at,
+          announcements.id AS announcement_id,
+          (
+            SELECT messages.sender_name
+            FROM messages
+            WHERE messages.thread_id = threads.id
+            ORDER BY messages.created_at DESC
+            LIMIT 1
+          ) AS sender_name,
+          (
+            SELECT messages.sender_role
+            FROM messages
+            WHERE messages.thread_id = threads.id
+            ORDER BY messages.created_at DESC
+            LIMIT 1
+          ) AS sender_role,
+          (
+            SELECT messages.created_at
+            FROM messages
+            WHERE messages.thread_id = threads.id
+            ORDER BY messages.created_at DESC
+            LIMIT 1
+          ) AS last_message_at,
+          (
+            SELECT messages.message_text
+            FROM messages
+            WHERE messages.thread_id = threads.id
+            ORDER BY messages.created_at DESC
+            LIMIT 1
+          ) AS last_message_preview,
+          (
+            SELECT messages.deleted_at
+            FROM messages
+            WHERE messages.thread_id = threads.id
+            ORDER BY messages.created_at DESC
+            LIMIT 1
+          ) AS last_message_deleted_at,
+          (
+            SELECT COUNT(*)
+            FROM messages
+            WHERE messages.thread_id = threads.id
+              AND messages.sender_user_id <> @userId
+              AND messages.deleted_at IS NULL
+              AND (
+                recipients.read_at IS NULL
+                OR messages.created_at > recipients.read_at
+              )
+          ) AS unread_count
+        FROM message_recipients AS recipients
+        JOIN message_threads AS threads
+          ON threads.id = recipients.thread_id
+        LEFT JOIN announcements
+          ON announcements.id = threads.id
+        WHERE ${clauses.join(" AND ")}
+          AND (
+            announcements.id IS NULL
+            OR (
+              announcements.status = 'Published'
+              AND (
+                announcements.publish_from IS NULL
+                OR trim(announcements.publish_from) = ''
+                OR announcements.publish_from <= @now
+                OR announcements.publish_from <= @today
+              )
+              AND (
+                announcements.publish_until IS NULL
+                OR trim(announcements.publish_until) = ''
+                OR announcements.publish_until >= @today
+              )
+            )
+          )
+        ORDER BY COALESCE(last_message_at, threads.updated_at, threads.created_at) DESC
+      `)
+      .all(params)
+      .map(messageThreadFromRow)
+      .filter((thread) => {
+        if (!search) return true;
+        return [
+          thread.subject,
+          thread.threadType,
+          thread.priority,
+          thread.senderName,
+          thread.createdByName,
+          thread.lastMessagePreview,
+        ]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(search));
+      });
+    const limit = filter.limit
+      ? Math.min(200, Math.max(1, wholeNumber(filter.limit, "Message limit", 1)))
+      : 200;
+    return rows.slice(0, limit);
+  }
+
+  function querySentMessages(user, filter = {}) {
+    const context = getMessageUserContext(user);
+    const clauses = [
+      "threads.deleted_at IS NULL",
+      `(
+        threads.created_by_user_id = @userId
+        OR EXISTS (
+          SELECT 1
+          FROM messages AS sent_messages
+          WHERE sent_messages.thread_id = threads.id
+            AND sent_messages.sender_user_id = @userId
+        )
+      )`,
+    ];
+    const params = { userId: context.id };
+    const type = optionalText(filter.threadType || filter.type);
+    if (type && MESSAGE_THREAD_TYPES.has(type)) {
+      clauses.push("threads.thread_type = @threadType");
+      params.threadType = type;
+    }
+    const priority = optionalText(filter.priority);
+    if (priority && MESSAGE_PRIORITIES.has(priority)) {
+      clauses.push("threads.priority = @priority");
+      params.priority = priority;
+    }
+    const search = optionalText(filter.search).toLowerCase();
+    const rows = db
+      .prepare(`
+        SELECT
+          threads.*,
+          (
+            SELECT messages.created_at
+            FROM messages
+            WHERE messages.thread_id = threads.id
+            ORDER BY messages.created_at DESC
+            LIMIT 1
+          ) AS last_message_at,
+          (
+            SELECT messages.message_text
+            FROM messages
+            WHERE messages.thread_id = threads.id
+            ORDER BY messages.created_at DESC
+            LIMIT 1
+          ) AS last_message_preview,
+          (
+            SELECT messages.deleted_at
+            FROM messages
+            WHERE messages.thread_id = threads.id
+            ORDER BY messages.created_at DESC
+            LIMIT 1
+          ) AS last_message_deleted_at,
+          (
+            SELECT COUNT(*)
+            FROM message_recipients
+            WHERE message_recipients.thread_id = threads.id
+              AND message_recipients.deleted_at IS NULL
+          ) AS recipient_count,
+          (
+            SELECT COUNT(*)
+            FROM message_recipients
+            WHERE message_recipients.thread_id = threads.id
+              AND message_recipients.deleted_at IS NULL
+              AND message_recipients.read_at IS NOT NULL
+          ) AS read_count,
+          (
+            SELECT GROUP_CONCAT(users.name, ', ')
+            FROM message_recipients
+            LEFT JOIN users ON users.id = message_recipients.recipient_user_id
+            WHERE message_recipients.thread_id = threads.id
+              AND message_recipients.deleted_at IS NULL
+          ) AS recipient_summary
+        FROM message_threads AS threads
+        WHERE ${clauses.join(" AND ")}
+        ORDER BY COALESCE(last_message_at, threads.updated_at, threads.created_at) DESC
+      `)
+      .all(params)
+      .map(messageThreadFromRow)
+      .filter((thread) => {
+        if (!search) return true;
+        return [
+          thread.subject,
+          thread.threadType,
+          thread.priority,
+          thread.recipientSummary,
+        ]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(search));
+      });
+    const limit = filter.limit
+      ? Math.min(200, Math.max(1, wholeNumber(filter.limit, "Message limit", 1)))
+      : 200;
+    return rows.slice(0, limit);
+  }
+
+  function ensureAnnouncementManageAccess(user, announcement) {
+    const context = getMessageUserContext(user);
+    if (messageIsAdmin(context)) return context;
+    if (
+      context.role === "Teacher" &&
+      announcement.created_by_user_id === context.id
+    ) {
+      return context;
+    }
+    throw new Error("You do not have permission to manage this announcement.");
+  }
+
+  function assertCanCreateAnnouncement(user, input = {}) {
+    const context = getMessageUserContext(user);
+    const audienceType = normalizeAnnouncementAudience(input.audienceType);
+    if (messageIsAdmin(context)) return context;
+    if (context.role !== "Teacher") {
+      throw new Error("You do not have permission to create announcements.");
+    }
+    if (!["Specific Class", "Specific Section"].includes(audienceType)) {
+      throw new Error("Teachers can only create class notices.");
+    }
+    if (!teacherCanReachClass(
+      context,
+      input.className,
+      audienceType === "Specific Section" ? input.section : "",
+    )) {
+      throw new Error("This class or section is outside your assigned scope.");
+    }
+    return context;
+  }
+
+  function resolveAnnouncementRecipientCandidates(user, input = {}) {
+    const context = assertCanCreateAnnouncement(user, input);
+    const audienceType = normalizeAnnouncementAudience(input.audienceType);
+    const className = optionalText(input.className);
+    const section = optionalText(input.section);
+    const selectedUserIds = Array.isArray(input.selectedUserIds)
+      ? new Set(input.selectedUserIds.map((id) => optionalText(id)).filter(Boolean))
+      : new Set();
+    const candidates = getActiveRecipientCandidates();
+    return candidates.filter((candidate) => {
+      if (audienceType === "All Users") return true;
+      if (audienceType === "All Students") return candidate.entityType === "Student";
+      if (audienceType === "All Employees") {
+        return candidate.entityType === "Employee" || (
+          candidate.entityType === "User" && candidate.role !== "Student"
+        );
+      }
+      if (audienceType === "Teachers") return candidate.role === "Teacher";
+      if (audienceType === "Accountants") return candidate.role === "Accountant";
+      if (audienceType === "Specific Class") {
+        return (
+          candidate.entityType === "Student" &&
+          candidate.className === className
+        );
+      }
+      if (audienceType === "Specific Section") {
+        return (
+          candidate.entityType === "Student" &&
+          candidate.className === className &&
+          candidate.section === section
+        );
+      }
+      if (audienceType === "Selected Users") {
+        return selectedUserIds.has(candidate.userId);
+      }
+      return false;
+    });
+  }
+
+  function threadTypeForAnnouncementAudience(audienceType) {
+    if (["All Employees", "Teachers", "Accountants"].includes(audienceType)) {
+      return "Staff Notice";
+    }
+    if (["All Students", "Specific Class", "Specific Section"].includes(audienceType)) {
+      return "Class Notice";
+    }
+    return "Announcement";
+  }
+
+  function publishAnnouncementInternal(announcementId, user) {
+    const context = getMessageUserContext(user);
+    const announcement = db
+      .prepare(`
+        SELECT *
+        FROM announcements
+        WHERE id = ?
+          AND deleted_at IS NULL
+      `)
+      .get(requiredText(announcementId, "Announcement id"));
+    if (!announcement) throw new Error("Announcement was not found.");
+    ensureAnnouncementManageAccess(context, announcement);
+    if (announcement.status === "Cancelled") {
+      throw new Error("Cancelled announcements cannot be published.");
+    }
+    const recipients = resolveAnnouncementRecipientCandidates(context, {
+      ...announcementFromRow(announcement),
+      selectedUserIds: announcementFromRow(announcement).selectedUserIds,
+    });
+    if (recipients.length === 0) {
+      throw new Error("No eligible recipients were found for this announcement.");
+    }
+    const timestamp = now();
+    const threadType = threadTypeForAnnouncementAudience(
+      announcement.audience_type,
+    );
+    db.transaction(() => {
+      const existingThread = getMessageThreadRow(announcement.id);
+      if (existingThread) {
+        db.prepare(`
+          UPDATE message_threads
+          SET subject = @subject,
+              thread_type = @threadType,
+              academic_session_id = @academicSessionId,
+              class_name = @className,
+              section = @section,
+              priority = @priority,
+              status = 'Active',
+              updated_at = @updatedAt,
+              sync_status = 'pending'
+          WHERE id = @id
+        `).run({
+          id: announcement.id,
+          subject: announcement.title,
+          threadType,
+          academicSessionId: announcement.academic_session_id || null,
+          className: announcement.class_name ?? "",
+          section: announcement.section ?? "",
+          priority: announcement.priority ?? "Normal",
+          updatedAt: timestamp,
+        });
+      } else {
+        db.prepare(`
+          INSERT INTO message_threads (
+            id, subject, thread_type, created_by_user_id, created_by_name,
+            created_by_role, academic_session_id, class_name, section, status,
+            priority, created_at, updated_at, deleted_at, sync_status
+          ) VALUES (
+            @id, @subject, @threadType, @createdByUserId, @createdByName,
+            @createdByRole, @academicSessionId, @className, @section, 'Active',
+            @priority, @createdAt, @updatedAt, NULL, 'pending'
+          )
+        `).run({
+          id: announcement.id,
+          subject: announcement.title,
+          threadType,
+          createdByUserId: announcement.created_by_user_id || context.id,
+          createdByName: announcement.created_by_name || context.name,
+          createdByRole: context.role,
+          academicSessionId: announcement.academic_session_id || null,
+          className: announcement.class_name ?? "",
+          section: announcement.section ?? "",
+          priority: announcement.priority ?? "Normal",
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        });
+      }
+      const existingMessage = db
+        .prepare(`
+          SELECT id
+          FROM messages
+          WHERE thread_id = ?
+            AND message_type = 'Notice'
+          ORDER BY created_at ASC
+          LIMIT 1
+        `)
+        .get(announcement.id);
+      if (existingMessage) {
+        db.prepare(`
+          UPDATE messages
+          SET message_text = @messageText,
+              updated_at = @updatedAt,
+              sync_status = 'pending'
+          WHERE id = @id
+        `).run({
+          id: existingMessage.id,
+          messageText: announcement.announcement_text,
+          updatedAt: timestamp,
+        });
+      } else {
+        createThreadMessage({
+          threadId: announcement.id,
+          sender: context,
+          messageText: announcement.announcement_text,
+          messageType: "Notice",
+          timestamp,
+        });
+      }
+      recipients.forEach((recipient) =>
+        insertMessageRecipient(announcement.id, recipient, timestamp),
+      );
+      db.prepare(`
+        UPDATE announcements
+        SET status = 'Published',
+            publish_from = COALESCE(NULLIF(publish_from, ''), @publishFrom),
+            updated_at = @updatedAt,
+            sync_status = 'pending'
+        WHERE id = @id
+      `).run({
+        id: announcement.id,
+        publishFrom: timestamp,
+        updatedAt: timestamp,
+      });
+    })();
+    return getAnnouncementByIdInternal(announcement.id);
+  }
+
+  function getAnnouncementByIdInternal(id) {
+    const announcementId = requiredText(id, "Announcement id");
+    const row = db
+      .prepare(`
+        SELECT
+          announcements.*,
+          (
+            SELECT COUNT(*)
+            FROM message_recipients
+            WHERE thread_id = announcements.id
+              AND deleted_at IS NULL
+          ) AS recipient_count,
+          (
+            SELECT COUNT(*)
+            FROM message_recipients
+            WHERE thread_id = announcements.id
+              AND deleted_at IS NULL
+              AND read_at IS NOT NULL
+          ) AS read_count,
+          announcements.id AS thread_id
+        FROM announcements
+        WHERE id = ?
+          AND deleted_at IS NULL
+      `)
+      .get(announcementId);
+    return row ? announcementFromRow(row) : null;
+  }
+
+  function buildMessageThreadDetail(user, threadId) {
+    const { user: context, thread } = ensureMessageThreadContentAccess(
+      user,
+      threadId,
+    );
+    const messages = db
+      .prepare(`
+        SELECT *
+        FROM messages
+        WHERE thread_id = ?
+        ORDER BY created_at ASC
+      `)
+      .all(thread.id)
+      .map(messageFromRow);
+    return {
+      ...messageThreadFromRow(thread),
+      messages,
+      recipients: getThreadRecipientRows(thread.id),
+      canReply:
+        thread.status === "Active" &&
+        context.role !== "Viewer" &&
+        (
+          context.role !== "Student" ||
+          thread.thread_type === "Direct"
+        ),
+    };
   }
 
   return {
@@ -19095,6 +20446,661 @@ function createDatabase(databasePath) {
           lastLoginAt: row.last_login_at ?? null,
           lockedUntil: row.locked_until ?? null,
         }));
+    },
+
+    getMessageInbox(currentUser, filter = {}) {
+      return queryMessageInbox(currentUser, filter);
+    },
+
+    getSentMessages(currentUser, filter = {}) {
+      return querySentMessages(currentUser, filter);
+    },
+
+    getMessageThread(currentUser, threadId) {
+      return buildMessageThreadDetail(currentUser, threadId);
+    },
+
+    markMessageThreadRead(currentUser, threadId) {
+      const context = getMessageUserContext(currentUser);
+      const thread = getMessageThreadRow(threadId);
+      if (!thread) throw new Error("Message thread was not found.");
+      const timestamp = now();
+      const result = db
+        .prepare(`
+          UPDATE message_recipients
+          SET delivery_status = CASE
+                WHEN delivery_status = 'Archived' THEN 'Archived'
+                ELSE 'Read'
+              END,
+              read_at = COALESCE(read_at, @readAt),
+              updated_at = @updatedAt,
+              sync_status = 'pending'
+          WHERE thread_id = @threadId
+            AND recipient_user_id = @recipientUserId
+            AND deleted_at IS NULL
+        `)
+        .run({
+          threadId: thread.id,
+          recipientUserId: context.id,
+          readAt: timestamp,
+          updatedAt: timestamp,
+        });
+      if (result.changes !== 1) {
+        throw new Error("Only message recipients can mark this thread read.");
+      }
+      return buildMessageThreadDetail(context, thread.id);
+    },
+
+    archiveMessageThread(currentUser, threadId) {
+      const context = getMessageUserContext(currentUser);
+      const thread = getMessageThreadRow(threadId);
+      if (!thread) throw new Error("Message thread was not found.");
+      const timestamp = now();
+      const result = db
+        .prepare(`
+          UPDATE message_recipients
+          SET delivery_status = 'Archived',
+              archived_at = @archivedAt,
+              updated_at = @updatedAt,
+              sync_status = 'pending'
+          WHERE thread_id = @threadId
+            AND recipient_user_id = @recipientUserId
+            AND deleted_at IS NULL
+        `)
+        .run({
+          threadId: thread.id,
+          recipientUserId: context.id,
+          archivedAt: timestamp,
+          updatedAt: timestamp,
+        });
+      if (result.changes !== 1) {
+        throw new Error("Only message recipients can archive this thread.");
+      }
+      return { success: true };
+    },
+
+    unarchiveMessageThread(currentUser, threadId) {
+      const context = getMessageUserContext(currentUser);
+      const thread = getMessageThreadRow(threadId);
+      if (!thread) throw new Error("Message thread was not found.");
+      const result = db
+        .prepare(`
+          UPDATE message_recipients
+          SET delivery_status = CASE
+                WHEN read_at IS NULL THEN 'Delivered'
+                ELSE 'Read'
+              END,
+              archived_at = NULL,
+              updated_at = @updatedAt,
+              sync_status = 'pending'
+          WHERE thread_id = @threadId
+            AND recipient_user_id = @recipientUserId
+            AND deleted_at IS NULL
+        `)
+        .run({
+          threadId: thread.id,
+          recipientUserId: context.id,
+          updatedAt: now(),
+        });
+      if (result.changes !== 1) {
+        throw new Error("Only message recipients can unarchive this thread.");
+      }
+      return { success: true };
+    },
+
+    createDirectMessage(currentUser, input = {}) {
+      const context = getMessageUserContext(currentUser);
+      if (!["Owner", "Admin", "Accountant", "Teacher"].includes(context.role)) {
+        throw new Error("You do not have permission to send direct messages.");
+      }
+      const recipientUserIds = (
+        Array.isArray(input.recipientUserIds)
+          ? input.recipientUserIds
+          : [input.recipientUserId]
+      )
+        .map((id) => optionalText(id))
+        .filter(Boolean);
+      const uniqueRecipientUserIds = [...new Set(recipientUserIds)];
+      if (uniqueRecipientUserIds.length === 0) {
+        throw new Error("Select at least one message recipient.");
+      }
+      const eligible = getEligibleMessageRecipientCandidates(context, {
+        recipientType: input.recipientType,
+      });
+      const recipients = uniqueRecipientUserIds.map((userId) => {
+        const candidate = eligible.find((item) => item.userId === userId);
+        if (!candidate) {
+          throw new Error("One or more recipients are not permitted.");
+        }
+        return candidate;
+      });
+      const timestamp = now();
+      const threadId = crypto.randomUUID();
+      db.transaction(() => {
+        db.prepare(`
+          INSERT INTO message_threads (
+            id, subject, thread_type, created_by_user_id, created_by_name,
+            created_by_role, academic_session_id, class_name, section, status,
+            priority, created_at, updated_at, deleted_at, sync_status
+          ) VALUES (
+            @id, @subject, 'Direct', @createdByUserId, @createdByName,
+            @createdByRole, @academicSessionId, @className, @section, 'Active',
+            @priority, @createdAt, @updatedAt, NULL, 'pending'
+          )
+        `).run({
+          id: threadId,
+          subject: requiredText(input.subject, "Subject"),
+          createdByUserId: context.id,
+          createdByName: context.name,
+          createdByRole: context.role,
+          academicSessionId: optionalText(input.academicSessionId) || null,
+          className: optionalText(input.className),
+          section: optionalText(input.section),
+          priority: normalizeMessagePriority(input.priority),
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        });
+        createThreadMessage({
+          threadId,
+          sender: context,
+          messageText: input.messageText,
+          messageType: "Text",
+          timestamp,
+        });
+        recipients.forEach((recipient) =>
+          insertMessageRecipient(threadId, recipient, timestamp),
+        );
+      })();
+      return buildMessageThreadDetail(context, threadId);
+    },
+
+    replyToMessageThread(currentUser, input = {}) {
+      const context = getMessageUserContext(currentUser);
+      if (context.role === "Viewer") {
+        throw new Error("Viewer accounts cannot reply to messages.");
+      }
+      const thread = getMessageThreadRow(input.threadId);
+      if (!thread) throw new Error("Message thread was not found.");
+      if (thread.status !== "Active") {
+        throw new Error("Closed or archived threads cannot accept replies.");
+      }
+      if (!canReadMessageThreadContent(context, thread)) {
+        throw new Error("You do not have access to this message thread.");
+      }
+      if (context.role === "Student") {
+        const staffOriginated = db
+          .prepare(`
+            SELECT id
+            FROM messages
+            WHERE thread_id = ?
+              AND sender_role <> 'Student'
+            LIMIT 1
+          `)
+          .get(thread.id);
+        if (thread.thread_type !== "Direct" || !staffOriginated) {
+          throw new Error("Student accounts can only reply to staff messages.");
+        }
+      }
+      const timestamp = now();
+      db.transaction(() => {
+        const previousSenders = db
+          .prepare(`
+            SELECT DISTINCT sender_user_id
+            FROM messages
+            WHERE thread_id = ?
+              AND sender_user_id <> ?
+          `)
+          .all(thread.id, context.id)
+          .map((row) => row.sender_user_id);
+        createThreadMessage({
+          threadId: thread.id,
+          sender: context,
+          messageText: input.messageText,
+          messageType: "Text",
+          replyToMessageId: input.replyToMessageId,
+          timestamp,
+        });
+        previousSenders.forEach((senderUserId) => {
+          const candidate = getMessageRecipientCandidateByUserId(senderUserId);
+          if (candidate) insertMessageRecipient(thread.id, candidate, timestamp);
+        });
+      })();
+      return buildMessageThreadDetail(context, thread.id);
+    },
+
+    editOwnMessage(currentUser, messageId, text) {
+      const context = getMessageUserContext(currentUser);
+      const message = db
+        .prepare(`
+          SELECT *
+          FROM messages
+          WHERE id = ?
+            AND deleted_at IS NULL
+        `)
+        .get(requiredText(messageId, "Message id"));
+      if (!message) throw new Error("Message was not found.");
+      if (message.sender_user_id !== context.id) {
+        throw new Error("You can only edit your own messages.");
+      }
+      const timestamp = now();
+      db.prepare(`
+        UPDATE messages
+        SET message_text = @messageText,
+            edited_at = @editedAt,
+            updated_at = @updatedAt,
+            sync_status = 'pending'
+        WHERE id = @id
+          AND sender_user_id = @senderUserId
+          AND deleted_at IS NULL
+      `).run({
+        id: message.id,
+        senderUserId: context.id,
+        messageText: requiredText(text, "Message"),
+        editedAt: timestamp,
+        updatedAt: timestamp,
+      });
+      return buildMessageThreadDetail(context, message.thread_id);
+    },
+
+    deleteOwnMessage(currentUser, messageId) {
+      const context = getMessageUserContext(currentUser);
+      const message = db
+        .prepare(`
+          SELECT *
+          FROM messages
+          WHERE id = ?
+            AND deleted_at IS NULL
+        `)
+        .get(requiredText(messageId, "Message id"));
+      if (!message) throw new Error("Message was not found.");
+      if (message.sender_user_id !== context.id) {
+        throw new Error("You can only delete your own messages.");
+      }
+      const timestamp = now();
+      const result = db
+        .prepare(`
+          UPDATE messages
+          SET deleted_at = @deletedAt,
+              updated_at = @updatedAt,
+              sync_status = 'pending'
+          WHERE id = @id
+            AND sender_user_id = @senderUserId
+            AND deleted_at IS NULL
+        `)
+        .run({
+          id: message.id,
+          senderUserId: context.id,
+          deletedAt: timestamp,
+          updatedAt: timestamp,
+        });
+      return { success: result.changes === 1 };
+    },
+
+    closeMessageThread(currentUser, threadId) {
+      const context = getMessageUserContext(currentUser);
+      const thread = getMessageThreadRow(threadId);
+      if (!thread) throw new Error("Message thread was not found.");
+      if (
+        thread.created_by_user_id !== context.id &&
+        !messageIsAdmin(context)
+      ) {
+        throw new Error("You do not have permission to close this thread.");
+      }
+      const result = db
+        .prepare(`
+          UPDATE message_threads
+          SET status = 'Closed',
+              updated_at = @updatedAt,
+              sync_status = 'pending'
+          WHERE id = @id
+            AND deleted_at IS NULL
+        `)
+        .run({ id: thread.id, updatedAt: now() });
+      return { success: result.changes === 1 };
+    },
+
+    getAnnouncements(currentUser, filter = {}) {
+      const context = getMessageUserContext(currentUser);
+      const clauses = ["announcements.deleted_at IS NULL"];
+      const params = {
+        userId: context.id,
+      };
+      const status = optionalText(filter.status);
+      if (status && status !== "All") {
+        clauses.push("announcements.status = @status");
+        params.status = status;
+      }
+      const audienceType = optionalText(filter.audienceType);
+      if (audienceType && ANNOUNCEMENT_AUDIENCE_TYPES.has(audienceType)) {
+        clauses.push("announcements.audience_type = @audienceType");
+        params.audienceType = audienceType;
+      }
+      const className = optionalText(filter.className);
+      if (className) {
+        clauses.push("announcements.class_name = @className");
+        params.className = className;
+      }
+      const section = optionalText(filter.section);
+      if (section) {
+        clauses.push("announcements.section = @section");
+        params.section = section;
+      }
+      if (!messageIsAdmin(context)) {
+        clauses.push(`
+          (
+            announcements.created_by_user_id = @userId
+            OR EXISTS (
+              SELECT 1
+              FROM message_recipients
+              WHERE message_recipients.thread_id = announcements.id
+                AND message_recipients.recipient_user_id = @userId
+                AND message_recipients.deleted_at IS NULL
+            )
+          )
+        `);
+      }
+      const search = optionalText(filter.search).toLowerCase();
+      const rows = db
+        .prepare(`
+          SELECT
+            announcements.*,
+            (
+              SELECT COUNT(*)
+              FROM message_recipients
+              WHERE thread_id = announcements.id
+                AND deleted_at IS NULL
+            ) AS recipient_count,
+            (
+              SELECT COUNT(*)
+              FROM message_recipients
+              WHERE thread_id = announcements.id
+                AND deleted_at IS NULL
+                AND read_at IS NOT NULL
+            ) AS read_count,
+            announcements.id AS thread_id
+          FROM announcements
+          WHERE ${clauses.join(" AND ")}
+          ORDER BY announcements.updated_at DESC, announcements.created_at DESC
+        `)
+        .all(params)
+        .map(announcementFromRow)
+        .filter((announcement) => {
+          if (!search) return true;
+          return [
+            announcement.title,
+            announcement.announcementText,
+            announcement.audienceType,
+            announcement.className,
+            announcement.section,
+          ]
+            .filter(Boolean)
+            .some((value) => String(value).toLowerCase().includes(search));
+        });
+      return rows;
+    },
+
+    getCurrentUserAnnouncements(currentUser, filter = {}) {
+      const limit = filter.limit
+        ? Math.min(50, Math.max(1, wholeNumber(filter.limit, "Announcement limit", 1)))
+        : 10;
+      return queryMessageInbox(currentUser, {
+        ...filter,
+        archived: false,
+        limit: 200,
+      })
+        .filter((thread) => thread.threadType !== "Direct")
+        .slice(0, limit);
+    },
+
+    createAnnouncement(currentUser, input = {}) {
+      const context = assertCanCreateAnnouncement(currentUser, input);
+      const audienceType = normalizeAnnouncementAudience(input.audienceType);
+      const priority = normalizeMessagePriority(input.priority);
+      const status = normalizeAnnouncementStatus(input.status, "Draft");
+      if (status !== "Draft" && status !== "Published") {
+        throw new Error("New announcements must be saved as Draft or Published.");
+      }
+      const selectedUserIds = Array.isArray(input.selectedUserIds)
+        ? [...new Set(input.selectedUserIds.map((id) => optionalText(id)).filter(Boolean))]
+        : [];
+      const timestamp = now();
+      const id = crypto.randomUUID();
+      db.prepare(`
+        INSERT INTO announcements (
+          id, title, announcement_text, audience_type, academic_session_id,
+          class_name, section, priority, publish_from, publish_until, status,
+          selected_user_ids_json, created_by_user_id, created_by_name,
+          created_at, updated_at, deleted_at, sync_status
+        ) VALUES (
+          @id, @title, @announcementText, @audienceType, @academicSessionId,
+          @className, @section, @priority, @publishFrom, @publishUntil,
+          'Draft', @selectedUserIdsJson, @createdByUserId, @createdByName,
+          @createdAt, @updatedAt, NULL, 'pending'
+        )
+      `).run({
+        id,
+        title: requiredText(input.title, "Announcement title"),
+        announcementText: requiredText(input.announcementText, "Announcement text"),
+        audienceType,
+        academicSessionId: optionalText(input.academicSessionId) || null,
+        className: optionalText(input.className),
+        section: optionalText(input.section),
+        priority,
+        publishFrom: optionalText(input.publishFrom),
+        publishUntil: optionalText(input.publishUntil),
+        selectedUserIdsJson: JSON.stringify(selectedUserIds),
+        createdByUserId: context.id,
+        createdByName: context.name,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+      if (status === "Published") {
+        return publishAnnouncementInternal(id, context);
+      }
+      return getAnnouncementByIdInternal(id);
+    },
+
+    updateAnnouncement(currentUser, id, input = {}) {
+      const announcementId = requiredText(id, "Announcement id");
+      const existing = db
+        .prepare(`
+          SELECT *
+          FROM announcements
+          WHERE id = ?
+            AND deleted_at IS NULL
+        `)
+        .get(announcementId);
+      if (!existing) throw new Error("Announcement was not found.");
+      const context = ensureAnnouncementManageAccess(currentUser, existing);
+      const nextAudienceType =
+        input.audienceType === undefined
+          ? existing.audience_type
+          : normalizeAnnouncementAudience(input.audienceType);
+      assertCanCreateAnnouncement(context, {
+        ...input,
+        audienceType: nextAudienceType,
+        className: input.className ?? existing.class_name,
+        section: input.section ?? existing.section,
+      });
+      const selectedUserIds =
+        input.selectedUserIds === undefined
+          ? announcementFromRow(existing).selectedUserIds
+          : [
+              ...new Set(
+                input.selectedUserIds
+                  .map((userId) => optionalText(userId))
+                  .filter(Boolean),
+              ),
+            ];
+      db.prepare(`
+        UPDATE announcements
+        SET title = @title,
+            announcement_text = @announcementText,
+            audience_type = @audienceType,
+            academic_session_id = @academicSessionId,
+            class_name = @className,
+            section = @section,
+            priority = @priority,
+            publish_from = @publishFrom,
+            publish_until = @publishUntil,
+            selected_user_ids_json = @selectedUserIdsJson,
+            updated_at = @updatedAt,
+            sync_status = 'pending'
+        WHERE id = @id
+          AND deleted_at IS NULL
+      `).run({
+        id: announcementId,
+        title:
+          input.title === undefined
+            ? existing.title
+            : requiredText(input.title, "Announcement title"),
+        announcementText:
+          input.announcementText === undefined
+            ? existing.announcement_text
+            : requiredText(input.announcementText, "Announcement text"),
+        audienceType: nextAudienceType,
+        academicSessionId:
+          input.academicSessionId === undefined
+            ? existing.academic_session_id || null
+            : optionalText(input.academicSessionId) || null,
+        className:
+          input.className === undefined
+            ? existing.class_name ?? ""
+            : optionalText(input.className),
+        section:
+          input.section === undefined
+            ? existing.section ?? ""
+            : optionalText(input.section),
+        priority:
+          input.priority === undefined
+            ? existing.priority ?? "Normal"
+            : normalizeMessagePriority(input.priority),
+        publishFrom:
+          input.publishFrom === undefined
+            ? existing.publish_from ?? ""
+            : optionalText(input.publishFrom),
+        publishUntil:
+          input.publishUntil === undefined
+            ? existing.publish_until ?? ""
+            : optionalText(input.publishUntil),
+        selectedUserIdsJson: JSON.stringify(selectedUserIds),
+        updatedAt: now(),
+      });
+      if (existing.status === "Published") {
+        return publishAnnouncementInternal(announcementId, context);
+      }
+      return getAnnouncementByIdInternal(announcementId);
+    },
+
+    publishAnnouncement(currentUser, id) {
+      return publishAnnouncementInternal(id, currentUser);
+    },
+
+    cancelAnnouncement(currentUser, id) {
+      const announcementId = requiredText(id, "Announcement id");
+      const existing = db
+        .prepare(`
+          SELECT *
+          FROM announcements
+          WHERE id = ?
+            AND deleted_at IS NULL
+        `)
+        .get(announcementId);
+      if (!existing) throw new Error("Announcement was not found.");
+      ensureAnnouncementManageAccess(currentUser, existing);
+      const timestamp = now();
+      db.transaction(() => {
+        db.prepare(`
+          UPDATE announcements
+          SET status = 'Cancelled',
+              updated_at = @updatedAt,
+              sync_status = 'pending'
+          WHERE id = @id
+            AND deleted_at IS NULL
+        `).run({ id: announcementId, updatedAt: timestamp });
+        db.prepare(`
+          UPDATE message_threads
+          SET status = 'Closed',
+              updated_at = @updatedAt,
+              sync_status = 'pending'
+          WHERE id = @id
+            AND deleted_at IS NULL
+        `).run({ id: announcementId, updatedAt: timestamp });
+      })();
+      return getAnnouncementByIdInternal(announcementId);
+    },
+
+    deleteAnnouncement(currentUser, id) {
+      const announcementId = requiredText(id, "Announcement id");
+      const existing = db
+        .prepare(`
+          SELECT *
+          FROM announcements
+          WHERE id = ?
+            AND deleted_at IS NULL
+        `)
+        .get(announcementId);
+      if (!existing) return { success: false };
+      ensureAnnouncementManageAccess(currentUser, existing);
+      const timestamp = now();
+      let changes = 0;
+      db.transaction(() => {
+        const result = db
+          .prepare(`
+            UPDATE announcements
+            SET deleted_at = @deletedAt,
+                updated_at = @updatedAt,
+                sync_status = 'pending'
+            WHERE id = @id
+              AND deleted_at IS NULL
+          `)
+          .run({ id: announcementId, deletedAt: timestamp, updatedAt: timestamp });
+        changes = result.changes;
+        db.prepare(`
+          UPDATE message_threads
+          SET deleted_at = @deletedAt,
+              updated_at = @updatedAt,
+              sync_status = 'pending'
+          WHERE id = @id
+            AND deleted_at IS NULL
+        `).run({ id: announcementId, deletedAt: timestamp, updatedAt: timestamp });
+      })();
+      return { success: changes === 1 };
+    },
+
+    getEligibleMessageRecipients(currentUser, filter = {}) {
+      return getEligibleMessageRecipientCandidates(currentUser, filter);
+    },
+
+    resolveAnnouncementRecipients(currentUser, input = {}) {
+      return resolveAnnouncementRecipientCandidates(currentUser, input);
+    },
+
+    getMessageDeliveryReport(currentUser, threadId) {
+      const thread = getMessageThreadRow(threadId);
+      if (!thread) throw new Error("Message thread was not found.");
+      const context = ensureMessageReportAccess(currentUser, thread);
+      const threadSummary = messageThreadFromRow(thread);
+      if (!canReadMessageThreadContent(context, thread)) {
+        threadSummary.lastMessagePreview = "";
+      }
+      return {
+        thread: threadSummary,
+        recipients: getThreadRecipientRows(thread.id),
+      };
+    },
+
+    getAnnouncementReadReport(currentUser, announcementId) {
+      const announcement = getAnnouncementByIdInternal(announcementId);
+      if (!announcement) throw new Error("Announcement was not found.");
+      ensureAnnouncementManageAccess(currentUser, {
+        id: announcement.id,
+        created_by_user_id: announcement.createdByUserId,
+      });
+      return {
+        announcement,
+        recipients: getThreadRecipientRows(announcement.id),
+      };
     },
 
     deleteUserRecord(id) {

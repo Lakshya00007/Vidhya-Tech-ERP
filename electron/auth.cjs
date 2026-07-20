@@ -826,7 +826,7 @@ function createAuthService(database) {
     },
 
     getCurrentStudentPortalData() {
-      const { student } = requireCurrentStudentLink();
+      const { user, student } = requireCurrentStudentLink();
       const guardians = database.getStudentGuardians?.(student.id) ?? [];
       const attendance = database
         .getAttendance()
@@ -862,6 +862,14 @@ function createAuthService(database) {
         typeof database.getIssuedCertificatesByStudent === "function"
           ? database.getIssuedCertificatesByStudent(student.id)
           : [];
+      const announcements =
+        typeof database.getCurrentUserAnnouncements === "function"
+          ? database.getCurrentUserAnnouncements(user, { limit: 5 })
+          : [];
+      const unreadMessageCount =
+        typeof database.getMessageInbox === "function"
+          ? database.getMessageInbox(user, { unreadOnly: true }).length
+          : 0;
       return {
         student,
         guardians,
@@ -875,23 +883,244 @@ function createAuthService(database) {
         feeLedger,
         invoices,
         certificates,
+        announcements,
+        unreadMessageCount,
       };
     },
 
     getCurrentEmployeePortalData() {
-      const { employee } = requireCurrentEmployeeLink();
+      const { user, employee } = requireCurrentEmployeeLink();
       const attendance =
         typeof database.getEmployeeAttendanceByRange === "function"
           ? database.getEmployeeAttendanceByRange({ employeeId: employee.id })
           : [];
       const salaryPayments = database.getSalaryPaymentsByEmployee(employee.id);
       const timetable = database.getTimetableByTeacher(employee.id);
+      const announcements =
+        typeof database.getCurrentUserAnnouncements === "function"
+          ? database.getCurrentUserAnnouncements(user, { limit: 5 })
+          : [];
+      const unreadMessageCount =
+        typeof database.getMessageInbox === "function"
+          ? database.getMessageInbox(user, { unreadOnly: true }).length
+          : 0;
       return {
         employee,
         attendance,
         salaryPayments,
         timetable,
+        announcements,
+        unreadMessageCount,
       };
+    },
+
+    getMessageInbox(filter = {}) {
+      const user = requireAuthenticated();
+      return database.getMessageInbox(user, filter);
+    },
+
+    getSentMessages(filter = {}) {
+      const user = requireAuthenticated();
+      return database.getSentMessages(user, filter);
+    },
+
+    getMessageThread(threadId) {
+      const user = requireAuthenticated();
+      return database.getMessageThread(user, threadId);
+    },
+
+    markMessageThreadRead(threadId) {
+      const user = requireAuthenticated();
+      return database.markMessageThreadRead(user, threadId);
+    },
+
+    archiveMessageThread(threadId) {
+      const user = requireAuthenticated();
+      const result = database.archiveMessageThread(user, threadId);
+      audit(
+        "Thread archived",
+        "Message Center",
+        `Archived thread ${threadId}.`,
+        user,
+      );
+      return result;
+    },
+
+    unarchiveMessageThread(threadId) {
+      const user = requireAuthenticated();
+      return database.unarchiveMessageThread(user, threadId);
+    },
+
+    createDirectMessage(input = {}) {
+      const user = requireAuthenticated();
+      const thread = database.createDirectMessage(user, input);
+      audit(
+        "Direct message sent",
+        "Message Center",
+        `Thread ${thread.id} "${thread.subject}" sent to ${thread.recipients.length} recipient(s).`,
+        user,
+      );
+      return thread;
+    },
+
+    replyToMessageThread(input = {}) {
+      const user = requireAuthenticated();
+      const thread = database.replyToMessageThread(user, input);
+      audit(
+        "Message reply sent",
+        "Message Center",
+        `Reply added to thread ${thread.id}.`,
+        user,
+      );
+      return thread;
+    },
+
+    editOwnMessage(messageId, text) {
+      const user = requireAuthenticated();
+      const thread = database.editOwnMessage(user, messageId, text);
+      audit(
+        "Message edited",
+        "Message Center",
+        `Edited message ${messageId} in thread ${thread.id}.`,
+        user,
+      );
+      return thread;
+    },
+
+    deleteOwnMessage(messageId) {
+      const user = requireAuthenticated();
+      const result = database.deleteOwnMessage(user, messageId);
+      audit(
+        "Message deleted",
+        "Message Center",
+        `Soft-deleted message ${messageId}.`,
+        user,
+      );
+      return result;
+    },
+
+    closeMessageThread(threadId) {
+      const user = requireAuthenticated();
+      const result = database.closeMessageThread(user, threadId);
+      audit(
+        "Thread closed",
+        "Message Center",
+        `Closed thread ${threadId}.`,
+        user,
+      );
+      return result;
+    },
+
+    getAnnouncements(filter = {}) {
+      const user = requireAuthenticated();
+      return database.getAnnouncements(user, filter);
+    },
+
+    getCurrentUserAnnouncements() {
+      const user = requireAuthenticated();
+      return database.getCurrentUserAnnouncements(user);
+    },
+
+    createAnnouncement(input = {}) {
+      const user = requireAuthenticated();
+      const announcement = database.createAnnouncement(user, input);
+      audit(
+        "Announcement created",
+        "Message Center",
+        `Announcement ${announcement.id} "${announcement.title}" for ${announcement.audienceType}.`,
+        user,
+      );
+      if (announcement.status === "Published") {
+        audit(
+          "Announcement published",
+          "Message Center",
+          `Published announcement ${announcement.id} to ${announcement.recipientCount} recipient(s).`,
+          user,
+        );
+      }
+      return announcement;
+    },
+
+    updateAnnouncement(id, input = {}) {
+      const user = requireAuthenticated();
+      const announcement = database.updateAnnouncement(user, id, input);
+      audit(
+        "Announcement updated",
+        "Message Center",
+        `Updated announcement ${announcement.id} for ${announcement.audienceType}.`,
+        user,
+      );
+      return announcement;
+    },
+
+    publishAnnouncement(id) {
+      const user = requireAuthenticated();
+      const announcement = database.publishAnnouncement(user, id);
+      audit(
+        "Announcement published",
+        "Message Center",
+        `Published announcement ${announcement.id} to ${announcement.recipientCount} recipient(s).`,
+        user,
+      );
+      return announcement;
+    },
+
+    cancelAnnouncement(id) {
+      const user = requireAuthenticated();
+      const announcement = database.cancelAnnouncement(user, id);
+      audit(
+        "Announcement cancelled",
+        "Message Center",
+        `Cancelled announcement ${announcement.id}.`,
+        user,
+      );
+      return announcement;
+    },
+
+    deleteAnnouncement(id) {
+      const user = requireAuthenticated();
+      const result = database.deleteAnnouncement(user, id);
+      audit(
+        "Announcement deleted",
+        "Message Center",
+        `Soft-deleted announcement ${id}.`,
+        user,
+      );
+      return result;
+    },
+
+    getEligibleMessageRecipients(filter = {}) {
+      const user = requireAuthenticated();
+      return database.getEligibleMessageRecipients(user, filter);
+    },
+
+    resolveAnnouncementRecipients(input = {}) {
+      const user = requireAuthenticated();
+      return database.resolveAnnouncementRecipients(user, input);
+    },
+
+    getMessageDeliveryReport(threadId) {
+      const user = requireAuthenticated();
+      const report = database.getMessageDeliveryReport(user, threadId);
+      audit(
+        "Delivery report exported",
+        "Message Center",
+        `Message delivery report requested for thread ${threadId}.`,
+        user,
+      );
+      return report;
+    },
+
+    getAnnouncementReadReport(announcementId) {
+      const user = requireAuthenticated();
+      const report = database.getAnnouncementReadReport(user, announcementId);
+      audit(
+        "Delivery report exported",
+        "Message Center",
+        `Announcement read report requested for ${announcementId}.`,
+        user,
+      );
+      return report;
     },
 
     deleteUser(id) {

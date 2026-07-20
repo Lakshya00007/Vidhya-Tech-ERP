@@ -76,6 +76,7 @@ export function AppLayout({
           language={preferences.language}
           licenseStatus={licenseStatus}
           onLogout={onLogout}
+          onNavigate={onNavigate}
         />
         <main className="main-content">{children}</main>
       </div>

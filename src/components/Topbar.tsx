@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import type {
   AuthUser,
   LicenseStatus,
@@ -5,8 +6,11 @@ import type {
   PreferenceLanguage,
 } from '../types'
 import { APP_VERSION } from '../lib/appInfo'
+import { getErpApi } from '../lib/erpApi'
 import { translateText } from '../lib/i18n'
 import { licenseStatusLabels, remoteLicenseStatusLabels } from '../lib/license'
+import type { NavigationTarget } from '../lib/navigation'
+import { Icon } from './Icon'
 
 interface TopbarProps {
   activePage: PageId
@@ -16,6 +20,7 @@ interface TopbarProps {
   language: PreferenceLanguage
   licenseStatus: LicenseStatus
   onLogout: () => void
+  onNavigate: (target: NavigationTarget, navigationId: string) => void
 }
 
 const pageTitles: Record<PageId, string> = {
@@ -39,6 +44,7 @@ const pageTitles: Record<PageId, string> = {
   'academic-sessions': 'Academic Sessions & Promotion',
   'student-login-management': 'Student Manage Login',
   'employee-login-management': 'Employee Manage Login',
+  'message-center': 'Local Message Center',
   'student-portal': 'Student Dashboard',
   'employee-portal': 'My Workspace',
   placeholder: 'Advanced Module',
@@ -66,12 +72,29 @@ export function Topbar({
   language,
   licenseStatus,
   onLogout,
+  onNavigate,
 }: TopbarProps) {
+  const [unreadMessages, setUnreadMessages] = useState(0)
   const pageTitle = activeTitle || translateText(pageTitles[activePage], language)
   const breadcrumb = activeSubtitle
     ? `${activeSubtitle} / ${pageTitle}`
     : `Vidhya Public School / ${pageTitle}`
   const remoteStatus = licenseStatus.remote
+
+  useEffect(() => {
+    let cancelled = false
+    getErpApi()
+      .getMessageInbox({ unreadOnly: true, limit: 100 })
+      .then((messages) => {
+        if (!cancelled) setUnreadMessages(messages.length)
+      })
+      .catch(() => {
+        if (!cancelled) setUnreadMessages(0)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [activePage, currentUser.id])
 
   return (
     <header className="topbar">
@@ -102,6 +125,15 @@ export function Topbar({
           <span />
           {language === 'Hindi' ? 'डेटाबेस कनेक्टेड' : 'Database Connected'}
         </div>
+        <button
+          className="topbar-message-button"
+          onClick={() => onNavigate({ page: 'message-center', view: 'inbox' }, 'message-center')}
+          title={translateText('Open inbox', language)}
+          type="button"
+        >
+          <Icon name="bell" size={17} />
+          {unreadMessages > 0 && <span>{unreadMessages}</span>}
+        </button>
         <div className="admin-profile">
           <div className="admin-avatar">{getInitials(currentUser.name) || 'U'}</div>
           <div>

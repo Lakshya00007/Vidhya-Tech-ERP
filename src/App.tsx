@@ -31,6 +31,7 @@ import { EmployeeLoginManagement } from './pages/EmployeeLoginManagement'
 import { EmployeePortal } from './pages/EmployeePortal'
 import { Fees, type FeesView } from './pages/Fees'
 import { ManageFamilies } from './pages/ManageFamilies'
+import { MessageCenter, type MessageCenterTab } from './pages/MessageCenter'
 import { Login } from './pages/Login'
 import { QuestionPaper } from './pages/QuestionPaper'
 import { LicenseActivation } from './pages/LicenseActivation'
@@ -360,10 +361,30 @@ function App() {
         return <StudentLoginManagement />
       case 'employee-login-management':
         return <EmployeeLoginManagement />
+      case 'message-center':
+        return (
+          <MessageCenter
+            currentUser={currentUser}
+            initialTab={(activeView || 'inbox') as MessageCenterTab}
+            key={`message-center-${activeView}-${navigationRevision}`}
+          />
+        )
       case 'student-portal':
-        return <StudentPortal />
+        return (
+          <StudentPortal
+            onOpenMessages={() =>
+              handleNavigate({ page: 'message-center', view: 'inbox' }, 'message-center')
+            }
+          />
+        )
       case 'employee-portal':
-        return <EmployeePortal />
+        return (
+          <EmployeePortal
+            onOpenMessages={() =>
+              handleNavigate({ page: 'message-center', view: 'inbox' }, 'message-center')
+            }
+          />
+        )
       case 'fees':
         return (
           <Fees

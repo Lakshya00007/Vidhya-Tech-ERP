@@ -77,6 +77,43 @@ contextBridge.exposeInMainWorld("erpApi", {
     ipcRenderer.invoke("employee-logins:reset-password", id, input),
   unlinkEmployeeLoginAccount: (id) =>
     ipcRenderer.invoke("employee-logins:unlink", id),
+  getMessageInbox: (filter) => ipcRenderer.invoke("messages:inbox", filter),
+  getSentMessages: (filter) => ipcRenderer.invoke("messages:sent", filter),
+  getMessageThread: (threadId) =>
+    ipcRenderer.invoke("messages:thread:get", threadId),
+  markMessageThreadRead: (threadId) =>
+    ipcRenderer.invoke("messages:thread:read", threadId),
+  archiveMessageThread: (threadId) =>
+    ipcRenderer.invoke("messages:thread:archive", threadId),
+  unarchiveMessageThread: (threadId) =>
+    ipcRenderer.invoke("messages:thread:unarchive", threadId),
+  createDirectMessage: (input) =>
+    ipcRenderer.invoke("messages:direct:create", input),
+  replyToMessageThread: (input) => ipcRenderer.invoke("messages:reply", input),
+  editOwnMessage: (messageId, text) =>
+    ipcRenderer.invoke("messages:edit-own", messageId, text),
+  deleteOwnMessage: (messageId) =>
+    ipcRenderer.invoke("messages:delete-own", messageId),
+  closeMessageThread: (threadId) =>
+    ipcRenderer.invoke("messages:thread:close", threadId),
+  getAnnouncements: (filter) => ipcRenderer.invoke("announcements:get", filter),
+  getCurrentUserAnnouncements: () =>
+    ipcRenderer.invoke("announcements:current-user"),
+  createAnnouncement: (input) =>
+    ipcRenderer.invoke("announcements:create", input),
+  updateAnnouncement: (id, input) =>
+    ipcRenderer.invoke("announcements:update", id, input),
+  publishAnnouncement: (id) => ipcRenderer.invoke("announcements:publish", id),
+  cancelAnnouncement: (id) => ipcRenderer.invoke("announcements:cancel", id),
+  deleteAnnouncement: (id) => ipcRenderer.invoke("announcements:delete", id),
+  getEligibleMessageRecipients: (filter) =>
+    ipcRenderer.invoke("messages:recipients:eligible", filter),
+  resolveAnnouncementRecipients: (input) =>
+    ipcRenderer.invoke("announcements:recipients:resolve", input),
+  getMessageDeliveryReport: (threadId) =>
+    ipcRenderer.invoke("messages:delivery-report", threadId),
+  getAnnouncementReadReport: (announcementId) =>
+    ipcRenderer.invoke("announcements:read-report", announcementId),
   createDemoData: () => ipcRenderer.invoke("demo:create-data"),
 
   getStudents: () => ipcRenderer.invoke("students:get-all"),
