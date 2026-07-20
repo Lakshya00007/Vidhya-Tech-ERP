@@ -132,6 +132,7 @@ export const erpNavigation: ErpMenuGroup[] = [
       { id: 'marks-grading', label: 'Marks Grading', target: { page: 'settings', view: 'marks-grading' }, roles: gradingReaders },
       { id: 'theme-language', label: 'Theme & Language', target: { page: 'settings', view: 'theme-language' }, roles: settingsReaders },
       { id: 'account-settings', label: 'Account Settings', target: { page: 'settings', view: 'account' }, roles: settingsReaders },
+      { id: 'communication-integrations', label: 'Communication Integrations', target: { page: 'settings', view: 'communications' }, roles: owners },
       { id: 'users-roles', label: 'Users & Roles', target: { page: 'settings', view: 'users' }, roles: owners },
       { id: 'license', label: 'License', target: { page: 'settings', view: 'license' }, roles: finance },
       { id: 'backup-restore', label: 'Backup & Restore', target: { page: 'settings', view: 'backup' }, roles: owners },
@@ -301,9 +302,9 @@ export const erpNavigation: ErpMenuGroup[] = [
     id: 'whatsapp',
     label: 'WhatsApp',
     icon: 'bell',
-    roles: owners,
+    roles: ['Owner', 'Admin', 'Accountant', 'Teacher', 'Viewer'],
     items: [
-      onlineIntegration('whatsapp-services', 'WhatsApp Services', { locked: true, feature: 'whatsapp' }),
+      { id: 'whatsapp-services', label: 'WhatsApp Services', target: { page: 'external-communications', view: 'whatsapp' }, roles: ['Owner', 'Admin', 'Accountant', 'Teacher', 'Viewer'] },
     ],
   },
   {
@@ -324,11 +325,10 @@ export const erpNavigation: ErpMenuGroup[] = [
     id: 'sms-services',
     label: 'SMS Services',
     icon: 'bell',
-    roles: owners,
+    roles: ['Owner', 'Admin', 'Accountant', 'Teacher', 'Viewer'],
     items: [
-      onlineIntegration('free-sms-gateway', 'Free SMS Gateway'),
-      onlineIntegration('branded-sms', 'Branded SMS', { locked: true, feature: 'branded-sms' }),
-      onlineIntegration('sms-templates', 'SMS Templates', { locked: true, feature: 'branded-sms' }),
+      { id: 'sms-gateway', label: 'SMS Gateway', target: { page: 'external-communications', view: 'sms' }, roles: ['Owner', 'Admin', 'Accountant', 'Teacher', 'Viewer'] },
+      { id: 'sms-templates', label: 'SMS Templates', target: { page: 'external-communications', view: 'sms-templates' }, roles: ['Owner', 'Admin', 'Accountant', 'Teacher', 'Viewer'] },
     ],
   },
   {

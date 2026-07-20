@@ -114,6 +114,30 @@ contextBridge.exposeInMainWorld("erpApi", {
     ipcRenderer.invoke("messages:delivery-report", threadId),
   getAnnouncementReadReport: (announcementId) =>
     ipcRenderer.invoke("announcements:read-report", announcementId),
+  configureCommunicationGateway: (input) =>
+    ipcRenderer.invoke("communications:configure-gateway", input),
+  getCommunicationGatewayConfiguration: () =>
+    ipcRenderer.invoke("communications:get-configuration"),
+  removeCommunicationGatewayToken: () =>
+    ipcRenderer.invoke("communications:remove-token"),
+  getCommunicationIntegrationStatus: () =>
+    ipcRenderer.invoke("communications:get-status"),
+  testCommunicationGateway: () =>
+    ipcRenderer.invoke("communications:test-gateway"),
+  getCommunicationTemplates: (channel) =>
+    ipcRenderer.invoke("communications:get-templates", channel),
+  getExternalRecipientPreview: (input) =>
+    ipcRenderer.invoke("communications:preview-recipients", input),
+  sendExternalMessage: (input) =>
+    ipcRenderer.invoke("communications:send", input),
+  sendExternalBatch: (input) =>
+    ipcRenderer.invoke("communications:send-batch", input),
+  getCommunicationJobs: (filter) =>
+    ipcRenderer.invoke("communications:get-jobs", filter),
+  getCommunicationJob: (id) =>
+    ipcRenderer.invoke("communications:get-job", id),
+  retryCommunicationJob: (id) =>
+    ipcRenderer.invoke("communications:retry-job", id),
   createDemoData: () => ipcRenderer.invoke("demo:create-data"),
 
   getStudents: () => ipcRenderer.invoke("students:get-all"),

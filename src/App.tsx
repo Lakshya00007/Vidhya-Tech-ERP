@@ -29,6 +29,10 @@ import { Exams } from './pages/Exams'
 import { Employees } from './pages/Employees'
 import { EmployeeLoginManagement } from './pages/EmployeeLoginManagement'
 import { EmployeePortal } from './pages/EmployeePortal'
+import {
+  ExternalCommunications,
+  type ExternalCommunicationsView,
+} from './pages/ExternalCommunications'
 import { Fees, type FeesView } from './pages/Fees'
 import { ManageFamilies } from './pages/ManageFamilies'
 import { MessageCenter, type MessageCenterTab } from './pages/MessageCenter'
@@ -369,6 +373,17 @@ function App() {
             key={`message-center-${activeView}-${navigationRevision}`}
           />
         )
+      case 'external-communications': {
+        const communicationsView =
+          (activeView || 'whatsapp') as ExternalCommunicationsView
+        return (
+          <ExternalCommunications
+            channel={communicationsView.startsWith('sms') ? 'SMS' : 'WhatsApp'}
+            initialView={communicationsView}
+            key={`external-communications-${activeView}-${navigationRevision}`}
+          />
+        )
+      }
       case 'student-portal':
         return (
           <StudentPortal

@@ -894,6 +894,42 @@ function settingsFromRow(row) {
   };
 }
 
+function communicationGatewayFromRow(row) {
+  if (!row) {
+    return {
+      id: DEFAULT_SETTINGS_ID,
+      gatewayUrl: "",
+      encryptedDeviceToken: "",
+      tokenStorage: "",
+      tokenPrefix: "",
+      hasToken: false,
+      connectionStatus: "Not configured",
+      whatsappStatus: "Unknown",
+      smsStatus: "Unknown",
+      lastSuccessAt: null,
+      lastError: "",
+      createdAt: "",
+      updatedAt: "",
+    };
+  }
+
+  return {
+    id: row.id,
+    gatewayUrl: row.gateway_url ?? "",
+    encryptedDeviceToken: row.encrypted_device_token ?? "",
+    tokenStorage: row.token_storage ?? "",
+    tokenPrefix: row.token_prefix ?? "",
+    hasToken: Boolean(row.encrypted_device_token),
+    connectionStatus: row.connection_status ?? "Not configured",
+    whatsappStatus: row.whatsapp_status ?? "Unknown",
+    smsStatus: row.sms_status ?? "Unknown",
+    lastSuccessAt: row.last_success_at ?? null,
+    lastError: row.last_error ?? "",
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
 function paymentFromRow(row) {
   return {
     id: row.id,
@@ -1890,6 +1926,21 @@ function createDatabase(databasePath) {
       email TEXT,
       academic_year TEXT,
       receipt_prefix TEXT,
+      created_at TEXT,
+      updated_at TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS communication_gateway_settings (
+      id TEXT PRIMARY KEY,
+      gateway_url TEXT,
+      encrypted_device_token TEXT,
+      token_storage TEXT,
+      token_prefix TEXT,
+      connection_status TEXT DEFAULT 'Not configured',
+      whatsapp_status TEXT DEFAULT 'Unknown',
+      sms_status TEXT DEFAULT 'Unknown',
+      last_success_at TEXT,
+      last_error TEXT,
       created_at TEXT,
       updated_at TEXT
     );
@@ -4151,6 +4202,21 @@ function createDatabase(databasePath) {
     email: "office@vidhyaschool.edu.in",
     academicYear: "2026–2027",
     receiptPrefix: "VSE-RC",
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  });
+
+  db.prepare(`
+    INSERT OR IGNORE INTO communication_gateway_settings (
+      id, gateway_url, encrypted_device_token, token_storage, token_prefix,
+      connection_status, whatsapp_status, sms_status, last_success_at,
+      last_error, created_at, updated_at
+    ) VALUES (
+      @id, '', NULL, '', '', 'Not configured', 'Unknown', 'Unknown',
+      NULL, '', @createdAt, @updatedAt
+    )
+  `).run({
+    id: DEFAULT_SETTINGS_ID,
     createdAt: timestamp,
     updatedAt: timestamp,
   });
@@ -9874,6 +9940,109 @@ function createDatabase(databasePath) {
         .prepare("SELECT * FROM school_settings WHERE id = ?")
         .get(DEFAULT_SETTINGS_ID);
       return settingsFromRow(row);
+    },
+
+    getCommunicationGatewaySettings() {
+      const row = db
+        .prepare("SELECT * FROM communication_gateway_settings WHERE id = ?")
+        .get(DEFAULT_SETTINGS_ID);
+      return communicationGatewayFromRow(row);
+    },
+
+    saveCommunicationGatewaySettings(input = {}) {
+      const existing = this.getCommunicationGatewaySettings();
+      const timestamp = now();
+      db.prepare(`
+        INSERT INTO communication_gateway_settings (
+          id, gateway_url, encrypted_device_token, token_storage, token_prefix,
+          connection_status, whatsapp_status, sms_status, last_success_at,
+          last_error, created_at, updated_at
+        ) VALUES (
+          @id, @gatewayUrl, @encryptedDeviceToken, @tokenStorage, @tokenPrefix,
+          @connectionStatus, @whatsappStatus, @smsStatus, @lastSuccessAt,
+          @lastError, @createdAt, @updatedAt
+        )
+        ON CONFLICT(id) DO UPDATE SET
+          gateway_url = excluded.gateway_url,
+          encrypted_device_token = excluded.encrypted_device_token,
+          token_storage = excluded.token_storage,
+          token_prefix = excluded.token_prefix,
+          connection_status = excluded.connection_status,
+          last_error = excluded.last_error,
+          updated_at = excluded.updated_at
+      `).run({
+        id: DEFAULT_SETTINGS_ID,
+        gatewayUrl:
+          input.gatewayUrl === undefined
+            ? existing.gatewayUrl
+            : optionalText(input.gatewayUrl),
+        encryptedDeviceToken:
+          input.encryptedDeviceToken === undefined
+            ? existing.encryptedDeviceToken || null
+            : optionalText(input.encryptedDeviceToken) || null,
+        tokenStorage:
+          input.tokenStorage === undefined
+            ? existing.tokenStorage
+            : optionalText(input.tokenStorage),
+        tokenPrefix:
+          input.tokenPrefix === undefined
+            ? existing.tokenPrefix
+            : optionalText(input.tokenPrefix),
+        connectionStatus:
+          input.connectionStatus === undefined
+            ? existing.connectionStatus
+            : optionalText(input.connectionStatus) || "Not configured",
+        whatsappStatus: existing.whatsappStatus || "Unknown",
+        smsStatus: existing.smsStatus || "Unknown",
+        lastSuccessAt: existing.lastSuccessAt ?? null,
+        lastError:
+          input.lastError === undefined
+            ? existing.lastError
+            : optionalText(input.lastError),
+        createdAt: existing.createdAt || timestamp,
+        updatedAt: timestamp,
+      });
+      return this.getCommunicationGatewaySettings();
+    },
+
+    updateCommunicationGatewayStatus(input = {}) {
+      const timestamp = now();
+      db.prepare(`
+        UPDATE communication_gateway_settings
+        SET connection_status = @connectionStatus,
+            whatsapp_status = @whatsappStatus,
+            sms_status = @smsStatus,
+            last_success_at = @lastSuccessAt,
+            last_error = @lastError,
+            updated_at = @updatedAt
+        WHERE id = @id
+      `).run({
+        id: DEFAULT_SETTINGS_ID,
+        connectionStatus: optionalText(input.connectionStatus) || "Unknown",
+        whatsappStatus: optionalText(input.whatsappStatus) || "Unknown",
+        smsStatus: optionalText(input.smsStatus) || "Unknown",
+        lastSuccessAt: input.lastSuccessAt ?? null,
+        lastError: optionalText(input.lastError),
+        updatedAt: timestamp,
+      });
+      return this.getCommunicationGatewaySettings();
+    },
+
+    removeCommunicationGatewayToken() {
+      const timestamp = now();
+      db.prepare(`
+        UPDATE communication_gateway_settings
+        SET encrypted_device_token = NULL,
+            token_storage = '',
+            token_prefix = '',
+            connection_status = 'Not configured',
+            whatsapp_status = 'Unknown',
+            sms_status = 'Unknown',
+            last_error = '',
+            updated_at = ?
+        WHERE id = ?
+      `).run(timestamp, DEFAULT_SETTINGS_ID);
+      return this.getCommunicationGatewaySettings();
     },
 
     saveSchoolSettings(input) {

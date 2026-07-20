@@ -20,6 +20,7 @@ export type PageId =
   | 'student-login-management'
   | 'employee-login-management'
   | 'message-center'
+  | 'external-communications'
   | 'student-portal'
   | 'employee-portal'
   | 'placeholder'
@@ -107,6 +108,129 @@ export interface LicenseStatus {
   activatedAt: string | null
   lastCheckedAt: string | null
   remote: RemoteLicenseStatus | null
+}
+
+export type ExternalCommunicationChannel = 'WhatsApp' | 'SMS'
+
+export type ExternalCommunicationStatus =
+  | 'Queued'
+  | 'Processing'
+  | 'Submitted'
+  | 'Sent'
+  | 'Delivered'
+  | 'Read'
+  | 'Failed'
+  | 'Rejected'
+  | 'Cancelled'
+
+export interface CommunicationGatewaySettings {
+  id: string
+  gatewayUrl: string
+  tokenStorage: string
+  tokenPrefix: string
+  hasToken: boolean
+  connectionStatus: string
+  whatsappStatus: string
+  smsStatus: string
+  lastSuccessAt: string | null
+  lastError: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ConfigureCommunicationGatewayInput {
+  gatewayUrl: string
+  deviceToken?: string
+}
+
+export interface CommunicationTemplate {
+  id: string
+  channel: ExternalCommunicationChannel
+  provider: string
+  internalName: string
+  category: string | null
+  providerTemplateId: string | null
+  providerTemplateName: string | null
+  providerLanguageCode: string | null
+  dltTemplateId: string | null
+  msg91FlowId: string | null
+  senderId: string | null
+  bodyPreview: string | null
+  variableDefinitions: Array<{ name?: string; key?: string; label?: string }>
+  status: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ExternalRecipientCandidate {
+  type: 'Student' | 'Guardian' | 'Employee'
+  entityId: string
+  studentId?: string
+  name: string
+  label?: string
+  relation?: string
+  className?: string
+  section?: string
+  department?: string
+  designation?: string
+  phoneMasked: string
+}
+
+export interface ExternalRecipientPreview {
+  totalRecords: number
+  validCount: number
+  missingCount: number
+  duplicateCount: number
+  optedOutCount: number
+  candidates: ExternalRecipientCandidate[]
+  missing: Array<{ entityId: string; name: string; reason: string }>
+}
+
+export interface ExternalCommunicationJob {
+  id: string
+  batchId: string | null
+  channel: ExternalCommunicationChannel
+  provider: string
+  templateId: string | null
+  recipientType: string | null
+  recipientEntityId: string | null
+  recipientName: string | null
+  recipientPhoneMasked: string | null
+  requestedByName: string | null
+  requestedByRole: string | null
+  status: ExternalCommunicationStatus
+  providerMessageId: string | null
+  providerResponseCode: string | null
+  errorCode: string | null
+  errorMessage: string | null
+  attemptCount: number
+  queuedAt: string | null
+  submittedAt: string | null
+  sentAt: string | null
+  deliveredAt: string | null
+  readAt: string | null
+  failedAt: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface SendExternalMessageInput {
+  channel: ExternalCommunicationChannel
+  templateId: string
+  recipient: ExternalRecipientCandidate
+  variables?: Record<string, string>
+  mediaUrl?: string
+  idempotencyKey?: string
+}
+
+export interface SendExternalBatchInput {
+  channel: ExternalCommunicationChannel
+  templateId: string
+  title?: string
+  audienceType?: string
+  recipients: ExternalRecipientCandidate[]
+  variables?: Record<string, string>
+  idempotencyKey?: string
 }
 
 export interface User {

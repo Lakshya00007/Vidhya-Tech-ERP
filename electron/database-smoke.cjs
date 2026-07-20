@@ -11,6 +11,7 @@ const {
   validateDatabaseFile,
 } = require("./backup.cjs");
 const { createAuthService } = require("./auth.cjs");
+const { createCommunicationService } = require("./communications.cjs");
 const { createDatabase } = require("./database.cjs");
 const { registerIpcHandlers } = require("./ipc.cjs");
 const {
@@ -292,6 +293,11 @@ app.whenReady().then(async () => {
     );
 
     const authService = createAuthService(database);
+    const communicationService = createCommunicationService({
+      database,
+      licenseService,
+      isDevelopment: true,
+    });
     const backupService = createBackupService({
       app,
       databasePath,
@@ -303,6 +309,7 @@ app.whenReady().then(async () => {
       backupService,
       authService,
       licenseService,
+      communicationService,
     );
     const window = new BrowserWindow({
       show: false,
@@ -393,6 +400,20 @@ app.whenReady().then(async () => {
           "resolveAnnouncementRecipients",
           "getMessageDeliveryReport",
           "getAnnouncementReadReport"
+        ].every((method) => typeof window.erpApi[method] === "function");
+        const communicationApiAvailable = [
+          "configureCommunicationGateway",
+          "getCommunicationGatewayConfiguration",
+          "removeCommunicationGatewayToken",
+          "getCommunicationIntegrationStatus",
+          "testCommunicationGateway",
+          "getCommunicationTemplates",
+          "getExternalRecipientPreview",
+          "sendExternalMessage",
+          "sendExternalBatch",
+          "getCommunicationJobs",
+          "getCommunicationJob",
+          "retryCommunicationJob"
         ].every((method) => typeof window.erpApi[method] === "function");
         const demoApiAvailable =
           typeof window.erpApi.createDemoData === "function";
@@ -2218,6 +2239,21 @@ app.whenReady().then(async () => {
         } catch {
           studentMutationRejected = true;
         }
+        let studentExternalSendRejected = false;
+        try {
+          await window.erpApi.sendExternalMessage({
+            channel: "SMS",
+            templateId: "blocked",
+            recipient: {
+              type: "Student",
+              entityId: student.id,
+              name: student.name,
+              phoneMasked: "+91******9999"
+            }
+          });
+        } catch {
+          studentExternalSendRejected = true;
+        }
         await window.erpApi.logout();
         await window.erpApi.login("owner", "Updated-Owner-Password");
         await window.erpApi.disableStudentLoginAccount(
@@ -2619,6 +2655,7 @@ app.whenReady().then(async () => {
           feeInvoiceApiAvailable,
           reportCardApiAvailable,
           messageApiAvailable,
+          communicationApiAvailable,
           settingsPreferencesApiAvailable,
           licenseApiAvailable,
           deviceId,
@@ -2762,6 +2799,7 @@ app.whenReady().then(async () => {
             studentRelogin.accountType === "Student" &&
             studentListAccessRejected &&
             studentMutationRejected &&
+            studentExternalSendRejected &&
             disabledStudentLoginRejected &&
             reenabledStudentLogin.status === "Active" &&
             reenabledStudentRelogin.role === "Student",
@@ -3431,6 +3469,10 @@ app.whenReady().then(async () => {
       "Message Center APIs were not exposed by the preload bridge.",
     );
     assert(
+      bridgeResult.communicationApiAvailable,
+      "External communication APIs were not exposed by the preload bridge.",
+    );
+    assert(
       bridgeResult.settingsPreferencesApiAvailable,
       "Rules, preferences, and account settings APIs were not exposed by the preload bridge.",
     );
@@ -3445,6 +3487,28 @@ app.whenReady().then(async () => {
         bridgeResult.activatedLicense.status === "active" &&
         bridgeResult.readableLicense.license.licenseId === "LIC-SMOKE-001",
       "Valid license activation or status read failed.",
+    );
+    const communicationSecret = "vse_comm_smoke_token_should_not_leak";
+    const safeCommunicationConfig =
+      communicationService.configureCommunicationGateway({
+        gatewayUrl: "http://localhost:3000",
+        deviceToken: communicationSecret,
+      });
+    const storedCommunicationConfig =
+      database.getCommunicationGatewaySettings();
+    assert(
+      safeCommunicationConfig.hasToken &&
+        safeCommunicationConfig.tokenPrefix.startsWith("sha256:") &&
+        !safeCommunicationConfig.tokenPrefix.includes(communicationSecret) &&
+        !Object.prototype.hasOwnProperty.call(
+          safeCommunicationConfig,
+          "encryptedDeviceToken",
+        ) &&
+        storedCommunicationConfig.encryptedDeviceToken &&
+        !storedCommunicationConfig.encryptedDeviceToken.includes(
+          communicationSecret,
+        ),
+      "Communication token was not safely encrypted or was exposed through the safe API.",
     );
     const remoteActive = await licenseService.checkRemoteLicenseNow();
     assert(

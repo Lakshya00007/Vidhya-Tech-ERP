@@ -15,6 +15,7 @@ import { MarksGradingSettings } from './settings/MarksGradingSettings'
 import { SchoolRulesSettings } from './settings/SchoolRulesSettings'
 import { ThemeLanguageSettings } from './settings/ThemeLanguageSettings'
 import { AccountSettings } from './settings/AccountSettings'
+import { CommunicationIntegrationsSettings } from './settings/CommunicationIntegrationsSettings'
 import { translateText } from '../lib/i18n'
 import type { AppPreference, AuthUser, LicenseStatus } from '../types'
 
@@ -38,6 +39,7 @@ export type SettingsTab =
   | 'marks-grading'
   | 'theme-language'
   | 'account'
+  | 'communications'
   | 'users'
   | 'backup'
   | 'demo'
@@ -55,6 +57,7 @@ const tabs: { id: SettingsTab; label: string; icon: IconName }[] = [
   { id: 'marks-grading', label: 'Marks Grading', icon: 'exams' },
   { id: 'theme-language', label: 'Theme & Language', icon: 'settings' },
   { id: 'account', label: 'Account Settings', icon: 'user' },
+  { id: 'communications', label: 'Communication Integrations', icon: 'bell' },
   { id: 'users', label: 'Users & Roles', icon: 'user' },
   { id: 'backup', label: 'Backup & Restore', icon: 'download' },
   { id: 'demo', label: 'Demo Tools', icon: 'settings' },
@@ -102,6 +105,7 @@ export function Settings({
             'marks-grading',
             'theme-language',
             'account',
+            'communications',
             'license',
             'about',
           ].includes(tab.id),
@@ -220,6 +224,9 @@ export function Settings({
           onNotice={setNotice}
           preferences={preferences}
         />
+      )}
+      {selectedTab === 'communications' && (
+        <CommunicationIntegrationsSettings onNotice={setNotice} />
       )}
       {selectedTab === 'users' && (
         <UsersRolesSettings currentUser={currentUser} onNotice={setNotice} />

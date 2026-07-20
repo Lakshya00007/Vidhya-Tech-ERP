@@ -6,6 +6,7 @@ const {
   createBackupService,
 } = require("./backup.cjs");
 const { createAuthService } = require("./auth.cjs");
+const { createCommunicationService } = require("./communications.cjs");
 const { createDatabase } = require("./database.cjs");
 const { registerIpcHandlers } = require("./ipc.cjs");
 const {
@@ -71,6 +72,11 @@ app
       os: `${process.platform} ${os.release()}`,
     });
     const authService = createAuthService(database);
+    const communicationService = createCommunicationService({
+      database,
+      licenseService,
+      isDevelopment,
+    });
     const backupService = createBackupService({
       app,
       databasePath,
@@ -82,6 +88,7 @@ app
       backupService,
       authService,
       licenseService,
+      communicationService,
     );
     await createWindow();
   })

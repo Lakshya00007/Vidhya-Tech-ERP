@@ -283,6 +283,18 @@ const channels = [
   "certificates:issue",
   "certificates:get-issued",
   "certificates:get-issued-by-student",
+  "communications:configure-gateway",
+  "communications:get-configuration",
+  "communications:remove-token",
+  "communications:get-status",
+  "communications:test-gateway",
+  "communications:get-templates",
+  "communications:preview-recipients",
+  "communications:send",
+  "communications:send-batch",
+  "communications:get-jobs",
+  "communications:get-job",
+  "communications:retry-job",
   "database:create-backup",
   "database:restore-backup",
   "database:get-info",
@@ -295,6 +307,7 @@ function registerIpcHandlers(
   backupService,
   authService,
   licenseService,
+  communicationService,
 ) {
   const requireValidLicense = () =>
     licenseService?.requireValidLicense();
@@ -3090,6 +3103,107 @@ function registerIpcHandlers(
       return database.getIssuedCertificatesByStudent(studentId);
     }),
   );
+
+  if (communicationService) {
+    ipcMain.handle(
+      "communications:configure-gateway",
+      authenticated((_event, input) => {
+        const actor = requireRoles(["Owner", "Admin"]);
+        const result = communicationService.configureCommunicationGateway(input);
+        authService?.audit(
+          "Communication gateway configured",
+          "External Communications",
+          `Gateway URL configured. Token ${input?.deviceToken ? "replaced" : "unchanged"}.`,
+          actor,
+        );
+        return result;
+      }),
+    );
+    ipcMain.handle(
+      "communications:get-configuration",
+      authenticated(() => {
+        requireRoles(["Owner", "Admin"]);
+        return communicationService.getCommunicationGatewayConfiguration();
+      }),
+    );
+    ipcMain.handle(
+      "communications:remove-token",
+      authenticated(() => {
+        const actor = requireRoles(["Owner", "Admin"]);
+        const result = communicationService.removeCommunicationGatewayToken();
+        authService?.audit(
+          "Communication token removed",
+          "External Communications",
+          "Local encrypted communication token was removed.",
+          actor,
+        );
+        return result;
+      }),
+    );
+    ipcMain.handle(
+      "communications:get-status",
+      authenticated(() => {
+        requireRoles(["Owner", "Admin", "Accountant", "Teacher", "Viewer"]);
+        return communicationService.getCommunicationIntegrationStatus();
+      }),
+    );
+    ipcMain.handle(
+      "communications:test-gateway",
+      authenticated(() => {
+        requireRoles(["Owner", "Admin"]);
+        return communicationService.testCommunicationGateway();
+      }),
+    );
+    ipcMain.handle(
+      "communications:get-templates",
+      authenticated((_event, channel) => {
+        requireRoles(["Owner", "Admin", "Accountant", "Teacher"]);
+        return communicationService.getCommunicationTemplates(channel);
+      }),
+    );
+    ipcMain.handle(
+      "communications:preview-recipients",
+      authenticated((_event, input) => {
+        const actor = requireRoles(["Owner", "Admin", "Accountant", "Teacher"]);
+        return communicationService.getExternalRecipientPreview(actor, input);
+      }),
+    );
+    ipcMain.handle(
+      "communications:send",
+      authenticated((_event, input) => {
+        const actor = requireRoles(["Owner", "Admin", "Accountant", "Teacher"]);
+        return communicationService.sendExternalMessage(actor, input);
+      }),
+    );
+    ipcMain.handle(
+      "communications:send-batch",
+      authenticated((_event, input) => {
+        const actor = requireRoles(["Owner", "Admin", "Accountant", "Teacher"]);
+        return communicationService.sendExternalBatch(actor, input);
+      }),
+    );
+    ipcMain.handle(
+      "communications:get-jobs",
+      authenticated((_event, filter) => {
+        requireRoles(["Owner", "Admin", "Accountant", "Teacher", "Viewer"]);
+        return communicationService.getCommunicationJobs(filter);
+      }),
+    );
+    ipcMain.handle(
+      "communications:get-job",
+      authenticated((_event, id) => {
+        requireRoles(["Owner", "Admin", "Accountant", "Teacher", "Viewer"]);
+        return communicationService.getCommunicationJob(id);
+      }),
+    );
+    ipcMain.handle(
+      "communications:retry-job",
+      authenticated((_event, id) => {
+        const actor = requireRoles(["Owner", "Admin"]);
+        return communicationService.retryCommunicationJob(actor, id);
+      }),
+    );
+  }
 
   if (backupService) {
     ipcMain.handle("database:create-backup", async (event) => {

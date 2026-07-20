@@ -45,6 +45,7 @@ const pageTitles: Record<PageId, string> = {
   'student-login-management': 'Student Manage Login',
   'employee-login-management': 'Employee Manage Login',
   'message-center': 'Local Message Center',
+  'external-communications': 'External Communications',
   'student-portal': 'Student Dashboard',
   'employee-portal': 'My Workspace',
   placeholder: 'Advanced Module',

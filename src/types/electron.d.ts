@@ -56,6 +56,9 @@ import type {
   CalculateGradeInput,
   CalculateGradeResult,
   ClassResultSummary,
+  CommunicationGatewaySettings,
+  CommunicationTemplate,
+  ConfigureCommunicationGatewayInput,
   DatabaseActionResult,
   DatabaseInfo,
   DemoDataResult,
@@ -118,6 +121,9 @@ import type {
   ParentsInfoReportFilter,
   ReplyToMessageThreadInput,
   EmergencyContactsReport,
+  ExternalCommunicationChannel,
+  ExternalCommunicationJob,
+  ExternalRecipientPreview,
   ReportCardFilter,
   ReportCardPreview,
   ReportCardPreviewInput,
@@ -137,6 +143,8 @@ import type {
   SchoolSettings,
   SectionItem,
   SaveTimetableEntryInput,
+  SendExternalBatchInput,
+  SendExternalMessageInput,
   Student,
   StudentGuardianLink,
   StudentDiscount,
@@ -364,6 +372,39 @@ export interface ErpApi {
   getAnnouncementReadReport: (
     announcementId: string,
   ) => Promise<AnnouncementReadReport>
+  configureCommunicationGateway: (
+    input: ConfigureCommunicationGatewayInput,
+  ) => Promise<CommunicationGatewaySettings>
+  getCommunicationGatewayConfiguration: () => Promise<CommunicationGatewaySettings>
+  removeCommunicationGatewayToken: () => Promise<CommunicationGatewaySettings>
+  getCommunicationIntegrationStatus: () => Promise<CommunicationGatewaySettings>
+  testCommunicationGateway: () => Promise<CommunicationGatewaySettings>
+  getCommunicationTemplates: (
+    channel?: ExternalCommunicationChannel,
+  ) => Promise<CommunicationTemplate[]>
+  getExternalRecipientPreview: (input: {
+    audienceType?: string
+    className?: string
+    section?: string
+    studentIds?: string[]
+    employeeIds?: string[]
+    includeAllGuardians?: boolean
+  }) => Promise<ExternalRecipientPreview>
+  sendExternalMessage: (
+    input: SendExternalMessageInput,
+  ) => Promise<{ job: ExternalCommunicationJob; duplicate: boolean }>
+  sendExternalBatch: (input: SendExternalBatchInput) => Promise<{
+    batchId: string
+    totalRecipients: number
+    queuedCount: number
+    excluded: Array<{ name: string; reason: string }>
+  }>
+  getCommunicationJobs: (filter?: {
+    channel?: ExternalCommunicationChannel
+    status?: ExternalCommunicationJob['status'] | 'All'
+  }) => Promise<ExternalCommunicationJob[]>
+  getCommunicationJob: (id: string) => Promise<ExternalCommunicationJob>
+  retryCommunicationJob: (id: string) => Promise<ExternalCommunicationJob>
   createDemoData: () => Promise<DemoDataResult>
 
   getStudents: () => Promise<Student[]>
