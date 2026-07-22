@@ -1,4 +1,5 @@
 const fs = require("node:fs");
+const http = require("node:http");
 const os = require("node:os");
 const path = require("node:path");
 const crypto = require("node:crypto");
@@ -11,7 +12,10 @@ const {
   validateDatabaseFile,
 } = require("./backup.cjs");
 const { createAuthService } = require("./auth.cjs");
-const { createCommunicationService } = require("./communications.cjs");
+const {
+  createCommunicationService,
+  extractSafeErrorMessage,
+} = require("./communications.cjs");
 const { createDatabase } = require("./database.cjs");
 const { registerIpcHandlers } = require("./ipc.cjs");
 const {
@@ -3509,6 +3513,121 @@ app.whenReady().then(async () => {
           communicationSecret,
         ),
       "Communication token was not safely encrypted or was exposed through the safe API.",
+    );
+    assert(
+      extractSafeErrorMessage("String gateway failure") ===
+        "String gateway failure" &&
+        extractSafeErrorMessage(new Error("Error instance failure")) ===
+          "Error instance failure" &&
+        extractSafeErrorMessage({
+          error: { message: "Nested JSON gateway failure" },
+        }) === "Nested JSON gateway failure" &&
+        extractSafeErrorMessage({
+          code: "IPC_ERROR",
+          message: "IPC structured rejection failure",
+        }) === "IPC structured rejection failure",
+      "Communication error normalization did not handle string, Error, nested JSON, or IPC-shaped errors.",
+    );
+    let gatewayReply = {
+      status: 200,
+      body: {
+        mode: "mock",
+        integrations: [
+          { channel: "WhatsApp", status: "Disabled" },
+          { channel: "SMS", status: "Disabled" },
+        ],
+      },
+    };
+    const gatewayServer = http.createServer((_request, response) => {
+      response.writeHead(gatewayReply.status, {
+        "Content-Type": "application/json",
+      });
+      response.end(JSON.stringify(gatewayReply.body));
+    });
+    await new Promise((resolve) => gatewayServer.listen(0, "127.0.0.1", resolve));
+    const gatewayAddress = gatewayServer.address();
+    const gatewayUrl = `http://127.0.0.1:${gatewayAddress.port}`;
+    communicationService.configureCommunicationGateway({
+      gatewayUrl,
+      deviceToken: communicationSecret,
+    });
+    const connectedDisabledProviders =
+      await communicationService.testCommunicationGateway();
+    assert(
+      connectedDisabledProviders.connectionStatus === "Connected" &&
+        connectedDisabledProviders.providerMode === "Mock" &&
+        connectedDisabledProviders.whatsappStatus === "Disabled" &&
+        connectedDisabledProviders.smsStatus === "Disabled" &&
+        !connectedDisabledProviders.lastError,
+      "Gateway authentication, provider mode, or Disabled provider status was not represented accurately.",
+    );
+    gatewayReply = {
+      status: 401,
+      body: { error: { message: `Rejected ${communicationSecret}` } },
+    };
+    const unauthorizedGateway = await communicationService.testCommunicationGateway();
+    assert(
+      unauthorizedGateway.connectionStatus === "Error" &&
+        unauthorizedGateway.lastError ===
+          "Device communication token is invalid or expired.",
+      "HTTP 401 gateway response did not produce the safe token error message.",
+    );
+    gatewayReply = {
+      status: 403,
+      body: { error: "Device license is blocked" },
+    };
+    const forbiddenGateway = await communicationService.testCommunicationGateway();
+    assert(
+      forbiddenGateway.connectionStatus === "Error" &&
+        forbiddenGateway.lastError ===
+          "Communication is not permitted for this device or license.",
+      "HTTP 403 gateway response did not produce the safe permission error message.",
+    );
+    gatewayReply = {
+      status: 400,
+      body: { error: { message: "WhatsApp integration is not active." } },
+    };
+    const missingProviderGateway =
+      await communicationService.testCommunicationGateway();
+    assert(
+      missingProviderGateway.connectionStatus === "Error" &&
+        missingProviderGateway.lastError === "WhatsApp integration is not active.",
+      "Nested gateway JSON error was not normalized to a readable provider error.",
+    );
+    gatewayReply = {
+      status: 500,
+      body: {
+        error: {
+          message: `Gateway failed for ${communicationSecret} and +919876543210`,
+        },
+      },
+    };
+    const serverErrorGateway = await communicationService.testCommunicationGateway();
+    assert(
+      serverErrorGateway.connectionStatus === "Error" &&
+        serverErrorGateway.lastError.includes("Gateway failed") &&
+        !serverErrorGateway.lastError.includes(communicationSecret) &&
+        !serverErrorGateway.lastError.includes("+919876543210") &&
+        !serverErrorGateway.lastError.includes("[object Object]"),
+      "HTTP 500 gateway error was not safely normalized or leaked secret values.",
+    );
+    await new Promise((resolve) => gatewayServer.close(resolve));
+    const networkFailureGateway =
+      await communicationService.testCommunicationGateway();
+    assert(
+      networkFailureGateway.connectionStatus === "Error" &&
+        networkFailureGateway.lastError ===
+          "Communication gateway could not be reached.",
+      "Network failure did not produce a readable communication gateway message.",
+    );
+    communicationService.removeCommunicationGatewayToken();
+    const missingGatewayConfiguration =
+      await communicationService.testCommunicationGateway();
+    assert(
+      missingGatewayConfiguration.connectionStatus === "Not configured" &&
+        missingGatewayConfiguration.lastError ===
+          "Gateway URL and device communication token are required.",
+      "Missing communication gateway configuration did not show the required safe message.",
     );
     const remoteActive = await licenseService.checkRemoteLicenseNow();
     assert(

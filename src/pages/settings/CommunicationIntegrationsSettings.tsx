@@ -11,6 +11,7 @@ const emptySettings: CommunicationGatewaySettings = {
   tokenPrefix: '',
   hasToken: false,
   connectionStatus: 'Not configured',
+  providerMode: 'Unknown',
   whatsappStatus: 'Unknown',
   smsStatus: 'Unknown',
   lastSuccessAt: null,
@@ -21,6 +22,9 @@ const emptySettings: CommunicationGatewaySettings = {
 
 const formatDateTime = (value: string | null) =>
   value ? new Date(value).toLocaleString() : 'Never'
+
+const COMMUNICATION_ERROR_FALLBACK =
+  'Communication gateway request failed.'
 
 export function CommunicationIntegrationsSettings({
   onNotice,
@@ -39,7 +43,10 @@ export function CommunicationIntegrationsSettings({
       setSettings(nextSettings)
       setGatewayUrl(nextSettings.gatewayUrl)
     } catch (error) {
-      onNotice({ type: 'error', message: getErrorMessage(error) })
+      onNotice({
+        type: 'error',
+        message: getErrorMessage(error, COMMUNICATION_ERROR_FALLBACK),
+      })
     }
   }, [onNotice])
 
@@ -62,7 +69,10 @@ export function CommunicationIntegrationsSettings({
         message: 'Communication gateway configuration saved.',
       })
     } catch (error) {
-      onNotice({ type: 'error', message: getErrorMessage(error) })
+      onNotice({
+        type: 'error',
+        message: getErrorMessage(error, COMMUNICATION_ERROR_FALLBACK),
+      })
     } finally {
       setIsSaving(false)
     }
@@ -73,16 +83,17 @@ export function CommunicationIntegrationsSettings({
     try {
       const nextSettings = await getErpApi().testCommunicationGateway()
       setSettings(nextSettings)
-      onNotice({
-        type:
-          nextSettings.connectionStatus === 'Connected' ? 'success' : 'error',
-        message:
-          nextSettings.connectionStatus === 'Connected'
-            ? 'Communication gateway connection verified.'
-            : nextSettings.lastError || 'Communication gateway test failed.',
-      })
+      if (nextSettings.connectionStatus === 'Connected') {
+        onNotice({
+          type: 'success',
+          message: 'Communication gateway authentication verified.',
+        })
+      }
     } catch (error) {
-      onNotice({ type: 'error', message: getErrorMessage(error) })
+      onNotice({
+        type: 'error',
+        message: getErrorMessage(error, COMMUNICATION_ERROR_FALLBACK),
+      })
     } finally {
       setIsTesting(false)
     }
@@ -101,7 +112,10 @@ export function CommunicationIntegrationsSettings({
         message: 'Stored communication token was removed.',
       })
     } catch (error) {
-      onNotice({ type: 'error', message: getErrorMessage(error) })
+      onNotice({
+        type: 'error',
+        message: getErrorMessage(error, COMMUNICATION_ERROR_FALLBACK),
+      })
     }
   }
 
@@ -183,6 +197,14 @@ export function CommunicationIntegrationsSettings({
         </div>
         <dl className="license-detail-grid">
           <div>
+            <dt>Gateway</dt>
+            <dd>{settings.connectionStatus}</dd>
+          </div>
+          <div>
+            <dt>Mode</dt>
+            <dd>{settings.providerMode || 'Unknown'}</dd>
+          </div>
+          <div>
             <dt>WhatsApp</dt>
             <dd>{settings.whatsappStatus}</dd>
           </div>
@@ -202,7 +224,7 @@ export function CommunicationIntegrationsSettings({
         {settings.lastError && (
           <div className="inline-message inline-message--error">
             <Icon name="close" size={17} />
-            {settings.lastError}
+            {getErrorMessage(settings.lastError, COMMUNICATION_ERROR_FALLBACK)}
           </div>
         )}
       </section>

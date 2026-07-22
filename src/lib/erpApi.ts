@@ -429,12 +429,66 @@ export function getReportCardsErpApi(): ErpApi {
   return api
 }
 
-export function getErrorMessage(error: unknown) {
-  if (!(error instanceof Error)) {
-    return 'An unexpected local database error occurred.'
+const DEFAULT_ERROR_MESSAGE = 'An unexpected local database error occurred.'
+
+function cleanErrorMessage(value: string, fallback: string) {
+  const message = value
+    .replace(/^Error invoking remote method '[^']+': Error: /, '')
+    .replace(/^Error invoking remote method '[^']+': /, '')
+    .replace(/^Error: /, '')
+    .trim()
+
+  if (!message || message === '[object Object]') {
+    return fallback
   }
 
-  return error.message
-    .replace(/^Error invoking remote method '[^']+': Error: /, '')
-    .replace(/^Error: /, '')
+  return message
+}
+
+function messageFromErrorObject(error: Record<string, unknown>): string | null {
+  if (typeof error.message === 'string') {
+    return error.message
+  }
+
+  if (typeof error.error === 'string') {
+    return error.error
+  }
+
+  if (error.error && typeof error.error === 'object') {
+    const nested = error.error as Record<string, unknown>
+    if (typeof nested.message === 'string') {
+      return nested.message
+    }
+    if (typeof nested.error === 'string') {
+      return nested.error
+    }
+  }
+
+  if (typeof error.reason === 'string') {
+    return error.reason
+  }
+
+  return null
+}
+
+export function getErrorMessage(
+  error: unknown,
+  fallback = DEFAULT_ERROR_MESSAGE,
+) {
+  if (typeof error === 'string') {
+    return cleanErrorMessage(error, fallback)
+  }
+
+  if (error instanceof Error && error.message) {
+    return cleanErrorMessage(error.message, fallback)
+  }
+
+  if (error && typeof error === 'object') {
+    const message = messageFromErrorObject(error as Record<string, unknown>)
+    if (message) {
+      return cleanErrorMessage(message, fallback)
+    }
+  }
+
+  return fallback
 }

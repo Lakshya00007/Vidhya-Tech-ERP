@@ -904,6 +904,7 @@ function communicationGatewayFromRow(row) {
       tokenPrefix: "",
       hasToken: false,
       connectionStatus: "Not configured",
+      providerMode: "Unknown",
       whatsappStatus: "Unknown",
       smsStatus: "Unknown",
       lastSuccessAt: null,
@@ -921,6 +922,7 @@ function communicationGatewayFromRow(row) {
     tokenPrefix: row.token_prefix ?? "",
     hasToken: Boolean(row.encrypted_device_token),
     connectionStatus: row.connection_status ?? "Not configured",
+    providerMode: row.provider_mode ?? "Unknown",
     whatsappStatus: row.whatsapp_status ?? "Unknown",
     smsStatus: row.sms_status ?? "Unknown",
     lastSuccessAt: row.last_success_at ?? null,
@@ -1937,6 +1939,7 @@ function createDatabase(databasePath) {
       token_storage TEXT,
       token_prefix TEXT,
       connection_status TEXT DEFAULT 'Not configured',
+      provider_mode TEXT DEFAULT 'Unknown',
       whatsapp_status TEXT DEFAULT 'Unknown',
       sms_status TEXT DEFAULT 'Unknown',
       last_success_at TEXT,
@@ -3420,6 +3423,12 @@ function createDatabase(databasePath) {
   addColumnIfMissing(db, "fee_payments", "reversed_at", "TEXT");
   addColumnIfMissing(db, "fee_payments", "reversed_by", "TEXT");
   addColumnIfMissing(db, "fee_payments", "reversal_reason", "TEXT");
+  addColumnIfMissing(
+    db,
+    "communication_gateway_settings",
+    "provider_mode",
+    "TEXT DEFAULT 'Unknown'",
+  );
   addColumnIfMissing(db, "fee_invoice_allocations", "reversed_at", "TEXT");
   addColumnIfMissing(db, "fee_invoice_allocations", "reversal_id", "TEXT");
   db.prepare(`
@@ -4209,10 +4218,10 @@ function createDatabase(databasePath) {
   db.prepare(`
     INSERT OR IGNORE INTO communication_gateway_settings (
       id, gateway_url, encrypted_device_token, token_storage, token_prefix,
-      connection_status, whatsapp_status, sms_status, last_success_at,
+      connection_status, provider_mode, whatsapp_status, sms_status, last_success_at,
       last_error, created_at, updated_at
     ) VALUES (
-      @id, '', NULL, '', '', 'Not configured', 'Unknown', 'Unknown',
+      @id, '', NULL, '', '', 'Not configured', 'Unknown', 'Unknown', 'Unknown',
       NULL, '', @createdAt, @updatedAt
     )
   `).run({
@@ -9955,11 +9964,11 @@ function createDatabase(databasePath) {
       db.prepare(`
         INSERT INTO communication_gateway_settings (
           id, gateway_url, encrypted_device_token, token_storage, token_prefix,
-          connection_status, whatsapp_status, sms_status, last_success_at,
+          connection_status, provider_mode, whatsapp_status, sms_status, last_success_at,
           last_error, created_at, updated_at
         ) VALUES (
           @id, @gatewayUrl, @encryptedDeviceToken, @tokenStorage, @tokenPrefix,
-          @connectionStatus, @whatsappStatus, @smsStatus, @lastSuccessAt,
+          @connectionStatus, @providerMode, @whatsappStatus, @smsStatus, @lastSuccessAt,
           @lastError, @createdAt, @updatedAt
         )
         ON CONFLICT(id) DO UPDATE SET
@@ -9968,6 +9977,7 @@ function createDatabase(databasePath) {
           token_storage = excluded.token_storage,
           token_prefix = excluded.token_prefix,
           connection_status = excluded.connection_status,
+          provider_mode = excluded.provider_mode,
           last_error = excluded.last_error,
           updated_at = excluded.updated_at
       `).run({
@@ -9992,6 +10002,10 @@ function createDatabase(databasePath) {
           input.connectionStatus === undefined
             ? existing.connectionStatus
             : optionalText(input.connectionStatus) || "Not configured",
+        providerMode:
+          input.providerMode === undefined
+            ? existing.providerMode || "Unknown"
+            : optionalText(input.providerMode) || "Unknown",
         whatsappStatus: existing.whatsappStatus || "Unknown",
         smsStatus: existing.smsStatus || "Unknown",
         lastSuccessAt: existing.lastSuccessAt ?? null,
@@ -10010,6 +10024,7 @@ function createDatabase(databasePath) {
       db.prepare(`
         UPDATE communication_gateway_settings
         SET connection_status = @connectionStatus,
+            provider_mode = @providerMode,
             whatsapp_status = @whatsappStatus,
             sms_status = @smsStatus,
             last_success_at = @lastSuccessAt,
@@ -10019,6 +10034,7 @@ function createDatabase(databasePath) {
       `).run({
         id: DEFAULT_SETTINGS_ID,
         connectionStatus: optionalText(input.connectionStatus) || "Unknown",
+        providerMode: optionalText(input.providerMode) || "Unknown",
         whatsappStatus: optionalText(input.whatsappStatus) || "Unknown",
         smsStatus: optionalText(input.smsStatus) || "Unknown",
         lastSuccessAt: input.lastSuccessAt ?? null,
@@ -10036,6 +10052,7 @@ function createDatabase(databasePath) {
             token_storage = '',
             token_prefix = '',
             connection_status = 'Not configured',
+            provider_mode = 'Unknown',
             whatsapp_status = 'Unknown',
             sms_status = 'Unknown',
             last_error = '',

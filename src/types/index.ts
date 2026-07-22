@@ -130,6 +130,7 @@ export interface CommunicationGatewaySettings {
   tokenPrefix: string
   hasToken: boolean
   connectionStatus: string
+  providerMode: string
   whatsappStatus: string
   smsStatus: string
   lastSuccessAt: string | null

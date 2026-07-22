@@ -3,9 +3,96 @@ const { safeStorage } = require("electron");
 
 const DEFAULT_TIMEOUT_MS = 10000;
 const SEND_TIMEOUT_MS = 20000;
+const DEFAULT_GATEWAY_ERROR = "Communication gateway request failed.";
+const MISSING_GATEWAY_CONFIGURATION_MESSAGE =
+  "Gateway URL and device communication token are required.";
 
 function optionalText(value) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function sanitizeCommunicationErrorMessage(value, fallback = DEFAULT_GATEWAY_ERROR) {
+  let message = optionalText(value);
+  if (!message || message === "[object Object]") {
+    return fallback;
+  }
+
+  message = message
+    .replace(/Bearer\s+[A-Za-z0-9._~+/-]+=*/gi, "Bearer [redacted]")
+    .replace(/vse_comm_[A-Za-z0-9._~+/-]+/g, "vse_comm_[redacted]")
+    .replace(/\+91[6-9]\d{9}\b/g, "+91******0000")
+    .replace(/\b[6-9]\d{9}\b/g, "******0000");
+
+  return message || fallback;
+}
+
+function extractSafeErrorMessage(value, fallback = DEFAULT_GATEWAY_ERROR) {
+  if (typeof value === "string") {
+    return sanitizeCommunicationErrorMessage(value, fallback);
+  }
+
+  if (value instanceof Error && value.message) {
+    return sanitizeCommunicationErrorMessage(value.message, fallback);
+  }
+
+  if (value && typeof value === "object") {
+    if (typeof value.message === "string") {
+      return sanitizeCommunicationErrorMessage(value.message, fallback);
+    }
+    if (typeof value.error === "string") {
+      return sanitizeCommunicationErrorMessage(value.error, fallback);
+    }
+    if (value.error && typeof value.error === "object") {
+      return extractSafeErrorMessage(value.error, fallback);
+    }
+    if (typeof value.reason === "string") {
+      return sanitizeCommunicationErrorMessage(value.reason, fallback);
+    }
+  }
+
+  return fallback;
+}
+
+function gatewayHttpError(status, body) {
+  let message;
+  let code = `HTTP_${status}`;
+
+  if (status === 401) {
+    message = "Device communication token is invalid or expired.";
+    code = "COMMUNICATION_TOKEN_INVALID";
+  } else if (status === 403) {
+    message = "Communication is not permitted for this device or license.";
+    code = "COMMUNICATION_FORBIDDEN";
+  } else if (status === 404) {
+    message = "Communication gateway endpoint was not found.";
+    code = "COMMUNICATION_ENDPOINT_NOT_FOUND";
+  } else if (status >= 500) {
+    message = extractSafeErrorMessage(
+      body,
+      "Communication gateway returned an internal server error.",
+    );
+    code = "COMMUNICATION_GATEWAY_SERVER_ERROR";
+  } else {
+    message = extractSafeErrorMessage(
+      body,
+      `Communication gateway returned HTTP ${status}.`,
+    );
+  }
+
+  const error = new Error(sanitizeCommunicationErrorMessage(message));
+  error.code = code;
+  error.httpStatus = status;
+  return error;
+}
+
+async function parseJsonResponse(response) {
+  const text = await response.text().catch(() => "");
+  if (!text) return {};
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { message: text };
+  }
 }
 
 function maskPhone(value) {
@@ -123,19 +210,38 @@ async function fetchJson(url, options = {}) {
         ...(options.headers ?? {}),
       },
     });
-    const body = await response.json().catch(() => ({}));
+    const body = await parseJsonResponse(response);
     if (!response.ok) {
-      throw new Error(body?.error || body?.message || `Communication gateway returned HTTP ${response.status}.`);
+      throw gatewayHttpError(response.status, body);
     }
     return body;
   } catch (error) {
     if (error?.name === "AbortError") {
       throw new Error("Communication gateway request timed out.");
     }
-    throw error;
+    if (error instanceof TypeError) {
+      throw new Error("Communication gateway could not be reached.");
+    }
+    if (error?.code === "ECONNREFUSED" || error?.code === "ENOTFOUND") {
+      throw new Error("Communication gateway could not be reached.");
+    }
+    if (error instanceof Error && error.message) {
+      const nextError = new Error(extractSafeErrorMessage(error, DEFAULT_GATEWAY_ERROR));
+      if (error.code) nextError.code = error.code;
+      if (error.httpStatus) nextError.httpStatus = error.httpStatus;
+      throw nextError;
+    }
+    throw new Error(extractSafeErrorMessage(error, DEFAULT_GATEWAY_ERROR));
   } finally {
     clearTimeout(timeout);
   }
+}
+
+function normalizeProviderMode(value) {
+  const mode = optionalText(value).toLowerCase();
+  if (mode === "mock") return "Mock";
+  if (mode === "live") return "Live";
+  return "Unknown";
 }
 
 function createCommunicationService({
@@ -152,6 +258,9 @@ function createCommunicationService({
 
   function getGatewayAuth() {
     const settings = database.getCommunicationGatewaySettings();
+    if (!settings.gatewayUrl || !settings.hasToken) {
+      throw new Error(MISSING_GATEWAY_CONFIGURATION_MESSAGE);
+    }
     const gatewayUrl = normalizeGatewayUrl(settings.gatewayUrl, isDevelopment);
     const token = decryptToken(settings, licenseService.getDeviceId());
     return { settings, gatewayUrl, token };
@@ -408,6 +517,14 @@ function createCommunicationService({
     async getCommunicationIntegrationStatus() {
       const settings = database.getCommunicationGatewaySettings();
       if (!settings.gatewayUrl || !settings.hasToken) {
+        database.updateCommunicationGatewayStatus({
+          connectionStatus: "Not configured",
+          providerMode: "Unknown",
+          whatsappStatus: "Unknown",
+          smsStatus: "Unknown",
+          lastSuccessAt: settings.lastSuccessAt,
+          lastError: MISSING_GATEWAY_CONFIGURATION_MESSAGE,
+        });
         return getSafeSettings();
       }
       try {
@@ -417,6 +534,7 @@ function createCommunicationService({
         const sms = integrations.find((item) => item.channel === "SMS");
         database.updateCommunicationGatewayStatus({
           connectionStatus: "Connected",
+          providerMode: normalizeProviderMode(status.mode ?? status.providerMode),
           whatsappStatus: whatsapp?.status || "Disabled",
           smsStatus: sms?.status || "Disabled",
           lastSuccessAt: new Date().toISOString(),
@@ -426,10 +544,11 @@ function createCommunicationService({
       } catch (error) {
         database.updateCommunicationGatewayStatus({
           connectionStatus: "Error",
+          providerMode: settings.providerMode,
           whatsappStatus: settings.whatsappStatus,
           smsStatus: settings.smsStatus,
           lastSuccessAt: settings.lastSuccessAt,
-          lastError: error instanceof Error ? error.message : "Gateway status check failed.",
+          lastError: extractSafeErrorMessage(error, "Gateway status check failed."),
         });
         return getSafeSettings();
       }
@@ -515,7 +634,13 @@ function createCommunicationService({
 
     normalizeIndianPhone,
     maskPhone,
+    extractSafeErrorMessage,
   };
 }
 
-module.exports = { createCommunicationService, normalizeIndianPhone, maskPhone };
+module.exports = {
+  createCommunicationService,
+  normalizeIndianPhone,
+  maskPhone,
+  extractSafeErrorMessage,
+};

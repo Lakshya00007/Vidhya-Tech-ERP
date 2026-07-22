@@ -53,6 +53,9 @@ const channelTabs = (channel: ExternalCommunicationChannel) =>
 const formatDateTime = (value: string | null) =>
   value ? new Date(value).toLocaleString() : 'Never'
 
+const COMMUNICATION_ERROR_FALLBACK =
+  'Communication gateway request failed.'
+
 const variableName = (definition: { name?: string; key?: string; label?: string }) =>
   definition.name || definition.key || definition.label || ''
 
@@ -133,7 +136,7 @@ export function ExternalCommunications({
       setParentsReport(parentRows)
       setError('')
     } catch (loadError) {
-      setError(getErrorMessage(loadError))
+      setError(getErrorMessage(loadError, COMMUNICATION_ERROR_FALLBACK))
     } finally {
       setIsLoading(false)
     }
@@ -236,7 +239,7 @@ export function ExternalCommunications({
       showSuccess(`Message queued. Job ${result.job.id} is ${result.job.status}.`)
       await loadData()
     } catch (sendError) {
-      showError(getErrorMessage(sendError))
+      showError(getErrorMessage(sendError, COMMUNICATION_ERROR_FALLBACK))
     } finally {
       setIsSaving(false)
     }
@@ -258,7 +261,7 @@ export function ExternalCommunications({
       setPreview(nextPreview)
       showSuccess(`Preview resolved ${nextPreview.validCount} valid recipient(s).`)
     } catch (previewError) {
-      showError(getErrorMessage(previewError))
+      showError(getErrorMessage(previewError, COMMUNICATION_ERROR_FALLBACK))
     } finally {
       setIsSaving(false)
     }
@@ -288,7 +291,7 @@ export function ExternalCommunications({
       showSuccess(`Batch ${result.batchId} queued ${result.queuedCount} recipient(s).`)
       await loadData()
     } catch (bulkError) {
-      showError(getErrorMessage(bulkError))
+      showError(getErrorMessage(bulkError, COMMUNICATION_ERROR_FALLBACK))
     } finally {
       setIsSaving(false)
     }
@@ -588,10 +591,17 @@ export function ExternalCommunications({
           </div>
           <dl className="license-detail-grid">
             <div><dt>Gateway</dt><dd>{settings?.connectionStatus || 'Unknown'}</dd></div>
+            <div><dt>Mode</dt><dd>{settings?.providerMode || 'Unknown'}</dd></div>
             <div><dt>{channel}</dt><dd>{channel === 'WhatsApp' ? settings?.whatsappStatus : settings?.smsStatus}</dd></div>
             <div><dt>Last Success</dt><dd>{formatDateTime(settings?.lastSuccessAt ?? null)}</dd></div>
             <div><dt>Token</dt><dd>{settings?.hasToken ? settings.tokenPrefix : 'Not configured'}</dd></div>
           </dl>
+          {settings?.lastError && (
+            <div className="inline-message inline-message--error">
+              <Icon name="close" size={17} />
+              <span>{getErrorMessage(settings.lastError, COMMUNICATION_ERROR_FALLBACK)}</span>
+            </div>
+          )}
           {channel === 'SMS' && (
             <div className="document-empty-state">
               <strong>DLT checklist</strong>
