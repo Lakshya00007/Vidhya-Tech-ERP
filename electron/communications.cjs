@@ -262,7 +262,19 @@ function createCommunicationService({
       throw new Error(MISSING_GATEWAY_CONFIGURATION_MESSAGE);
     }
     const gatewayUrl = normalizeGatewayUrl(settings.gatewayUrl, isDevelopment);
-    const token = decryptToken(settings, licenseService.getDeviceId());
+    let token;
+    try {
+      token = decryptToken(settings, licenseService.getDeviceId());
+    } catch {
+      try {
+        database.removeCommunicationGatewayToken();
+      } catch {
+        // Keep the original user-facing error if local cleanup fails.
+      }
+      throw new Error(
+        "Stored communication token cannot be used on this device. Reconfigure Communication Integrations.",
+      );
+    }
     return { settings, gatewayUrl, token };
   }
 
@@ -430,6 +442,7 @@ function createCommunicationService({
     const candidates = [];
     const missing = [];
     const seen = new Set();
+    let duplicateCount = 0;
 
     if (includeStudents) {
       const students = database.getStudents().filter((student) => {
@@ -445,8 +458,11 @@ function createCommunicationService({
           continue;
         }
         for (const candidate of guardianCandidates.slice(0, input.includeAllGuardians ? undefined : 1)) {
-          const key = `${candidate.type}:${candidate.entityId}:${candidate.phoneMasked}`;
-          if (seen.has(key)) continue;
+          const key = `${candidate.type}:${candidate.phoneMasked}`;
+          if (seen.has(key)) {
+            duplicateCount += 1;
+            continue;
+          }
           seen.add(key);
           candidates.push(candidate);
         }
@@ -461,8 +477,11 @@ function createCommunicationService({
       for (const employee of employees) {
         try {
           const phone = normalizeIndianPhone(employee.mobile);
-          const key = `Employee:${employee.id}:${phone.masked}`;
-          if (seen.has(key)) continue;
+          const key = `Employee:${phone.masked}`;
+          if (seen.has(key)) {
+            duplicateCount += 1;
+            continue;
+          }
           seen.add(key);
           candidates.push({
             type: "Employee",
@@ -483,7 +502,7 @@ function createCommunicationService({
       totalRecords: candidates.length + missing.length,
       validCount: candidates.length,
       missingCount: missing.length,
-      duplicateCount: 0,
+      duplicateCount,
       optedOutCount: 0,
       candidates,
       missing,

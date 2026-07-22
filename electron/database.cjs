@@ -51,6 +51,33 @@ const CERTIFICATE_TYPES = new Set([
   "Custom",
 ]);
 const ACCOUNT_TYPES = new Set(["Income", "Expense"]);
+const STORE_POS_ACCOUNT_MAPPINGS = {
+  sales_income: {
+    label: "POS Sales Income",
+    accountType: "Income",
+    candidates: ["Store Sales Income", "POS Sales Income", "Other Income"],
+  },
+  cash_income: {
+    label: "POS Cash Sales Income",
+    accountType: "Income",
+    candidates: ["POS Cash Sales Income", "Store Sales Income", "Other Income"],
+  },
+  upi_income: {
+    label: "POS UPI Sales Income",
+    accountType: "Income",
+    candidates: ["POS UPI Sales Income", "Store Sales Income", "Other Income"],
+  },
+  card_income: {
+    label: "POS Card Sales Income",
+    accountType: "Income",
+    candidates: ["POS Card Sales Income", "Store Sales Income", "Other Income"],
+  },
+  reversal_expense: {
+    label: "POS Sale Reversal Expense",
+    accountType: "Expense",
+    candidates: ["POS Sale Reversal Expense", "Store Refund Expense", "Other Expense"],
+  },
+};
 const HOMEWORK_STATUSES = new Set(["Active", "Inactive"]);
 const HOMEWORK_SUBMISSION_STATUSES = new Set([
   "Pending",
@@ -1249,6 +1276,52 @@ function markFromRow(row) {
   };
 }
 
+function examScheduleFromRow(row, entries = []) {
+  return {
+    id: row.id,
+    academicSessionId: row.academic_session_id ?? "",
+    academicSessionName: row.academic_session_name ?? "",
+    examId: row.exam_id,
+    examName: row.exam_name,
+    title: row.title ?? "",
+    startDate: row.start_date ?? "",
+    endDate: row.end_date ?? "",
+    status: row.status ?? "Draft",
+    instructions: row.instructions ?? "",
+    createdBy: row.created_by ?? "",
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at,
+    syncStatus: row.sync_status ?? "pending",
+    entryCount: Number(row.entry_count ?? entries.length ?? 0),
+    entries,
+  };
+}
+
+function examScheduleEntryFromRow(row) {
+  return {
+    id: row.id,
+    scheduleId: row.schedule_id,
+    className: row.class_name,
+    section: row.section ?? "",
+    subjectId: row.subject_id ?? "",
+    subjectName: row.subject_name,
+    examDate: row.exam_date,
+    startTime: row.start_time ?? "",
+    endTime: row.end_time ?? "",
+    room: row.room ?? "",
+    maximumMarks: Number(row.maximum_marks ?? 0),
+    passingMarks: Number(row.passing_marks ?? 0),
+    invigilatorEmployeeId: row.invigilator_employee_id ?? "",
+    invigilatorName: row.invigilator_name ?? "",
+    instructions: row.instructions ?? "",
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at,
+    syncStatus: row.sync_status ?? "pending",
+  };
+}
+
 function gradingRangeFromRow(row) {
   return {
     id: row.id,
@@ -1590,6 +1663,278 @@ function announcementFromRow(row) {
     recipientCount: Number(row.recipient_count ?? 0),
     readCount: Number(row.read_count ?? 0),
     threadId: row.thread_id ?? row.id,
+  };
+}
+
+function savedReportDefinitionFromRow(row) {
+  const parseJson = (value, fallback) => {
+    try {
+      return JSON.parse(value || JSON.stringify(fallback));
+    } catch {
+      return fallback;
+    }
+  };
+  return {
+    id: row.id,
+    name: row.name,
+    reportDomain: row.report_domain,
+    selectedColumns: parseJson(row.selected_columns, []),
+    filters: parseJson(row.filters_json, {}),
+    sort: parseJson(row.sort_json, []),
+    group: parseJson(row.group_json, []),
+    createdBy: row.created_by ?? "",
+    visibility: row.visibility ?? "Private",
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at,
+    syncStatus: row.sync_status ?? "pending",
+  };
+}
+
+function liveClassFromRow(row, attendance = []) {
+  return {
+    id: row.id,
+    academicSessionId: row.academic_session_id ?? "",
+    className: row.class_name ?? "",
+    section: row.section ?? "",
+    subjectId: row.subject_id ?? "",
+    subjectName: row.subject_name ?? "",
+    teacherEmployeeId: row.teacher_employee_id ?? "",
+    teacherName: row.teacher_name ?? "",
+    title: row.title,
+    description: row.description ?? "",
+    provider: row.provider ?? "",
+    meetingUrl: row.meeting_url,
+    meetingId: row.meeting_id ?? "",
+    startAt: row.start_at,
+    endAt: row.end_at,
+    status: row.status ?? "Draft",
+    recordingUrl: row.recording_url ?? "",
+    notes: row.notes ?? "",
+    createdBy: row.created_by ?? "",
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at,
+    syncStatus: row.sync_status ?? "pending",
+    attendance,
+  };
+}
+
+function liveClassAttendanceFromRow(row) {
+  return {
+    id: row.id,
+    liveClassId: row.live_class_id,
+    studentId: row.student_id,
+    studentName: row.student_name ?? "",
+    joinedAt: row.joined_at ?? "",
+    leftAt: row.left_at ?? "",
+    attendanceStatus: row.attendance_status ?? "",
+    remarks: row.remarks ?? "",
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    syncStatus: row.sync_status ?? "pending",
+  };
+}
+
+function storeCategoryFromRow(row) {
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description ?? "",
+    status: row.status ?? "Active",
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at,
+    syncStatus: row.sync_status ?? "pending",
+  };
+}
+
+function storeTaxRateFromRow(row) {
+  return {
+    id: row.id,
+    name: row.name,
+    rate: Number(row.rate ?? 0),
+    status: row.status ?? "Active",
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at,
+    syncStatus: row.sync_status ?? "pending",
+  };
+}
+
+function storeProductFromRow(row) {
+  return {
+    id: row.id,
+    categoryId: row.category_id ?? "",
+    categoryName: row.category_name ?? "",
+    taxRateId: row.tax_rate_id ?? "",
+    taxRateName: row.tax_rate_name ?? "",
+    taxRate: Number(row.tax_rate ?? 0),
+    sku: row.sku ?? "",
+    barcode: row.barcode ?? "",
+    name: row.name,
+    description: row.description ?? "",
+    price: Number(row.price ?? 0),
+    costPrice: Number(row.cost_price ?? 0),
+    currentStock: Number(row.current_stock ?? 0),
+    minimumStock: Number(row.minimum_stock ?? 0),
+    status: row.status ?? "Active",
+    imagePath: row.image_path ?? "",
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at,
+    syncStatus: row.sync_status ?? "pending",
+  };
+}
+
+function storeInventoryTransactionFromRow(row) {
+  return {
+    id: row.id,
+    productId: row.product_id,
+    variantId: row.variant_id ?? "",
+    transactionType: row.transaction_type,
+    quantity: Number(row.quantity ?? 0),
+    unitCost: Number(row.unit_cost ?? 0),
+    unitPrice: Number(row.unit_price ?? 0),
+    stockBefore: Number(row.stock_before ?? 0),
+    stockAfter: Number(row.stock_after ?? 0),
+    referenceType: row.reference_type ?? "",
+    referenceId: row.reference_id ?? "",
+    notes: row.notes ?? "",
+    transactionDate: row.transaction_date,
+    createdBy: row.created_by ?? "",
+    createdAt: row.created_at,
+    syncStatus: row.sync_status ?? "pending",
+    productName: row.product_name ?? "",
+    sku: row.sku ?? "",
+  };
+}
+
+function storeCustomerFromRow(row) {
+  return {
+    id: row.id,
+    customerType: row.customer_type ?? "Walk-in",
+    studentId: row.student_id ?? "",
+    admissionNo: row.admission_no ?? "",
+    name: row.name,
+    mobile: row.mobile ?? "",
+    email: row.email ?? "",
+    status: row.status ?? "Active",
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at,
+    syncStatus: row.sync_status ?? "pending",
+  };
+}
+
+function storeOrderItemFromRow(row) {
+  return {
+    id: row.id,
+    orderId: row.order_id,
+    productId: row.product_id,
+    variantId: row.variant_id ?? "",
+    sku: row.sku ?? "",
+    productName: row.product_name,
+    quantity: Number(row.quantity ?? 0),
+    unitPrice: Number(row.unit_price ?? 0),
+    discountAmount: Number(row.discount_amount ?? 0),
+    taxRate: Number(row.tax_rate ?? 0),
+    taxAmount: Number(row.tax_amount ?? 0),
+    lineTotal: Number(row.line_total ?? 0),
+    createdAt: row.created_at,
+    syncStatus: row.sync_status ?? "pending",
+  };
+}
+
+function storePaymentFromRow(row) {
+  return {
+    id: row.id,
+    orderId: row.order_id,
+    paymentMode: row.payment_mode,
+    amount: Number(row.amount ?? 0),
+    referenceNo: row.reference_no ?? "",
+    paymentDate: row.payment_date,
+    createdAt: row.created_at,
+    syncStatus: row.sync_status ?? "pending",
+  };
+}
+
+function storeOrderFromRow(row, items = [], payments = []) {
+  return {
+    id: row.id,
+    orderNo: row.order_no,
+    posSessionId: row.pos_session_id ?? "",
+    customerId: row.customer_id ?? "",
+    studentId: row.student_id ?? "",
+    customerName: row.customer_name ?? "",
+    orderDate: row.order_date,
+    subtotal: Number(row.subtotal ?? 0),
+    discountAmount: Number(row.discount_amount ?? 0),
+    taxAmount: Number(row.tax_amount ?? 0),
+    grandTotal: Number(row.grand_total ?? 0),
+    paidAmount: Number(row.paid_amount ?? 0),
+    balanceAmount: Number(row.balance_amount ?? 0),
+    status: row.status ?? "Completed",
+    reversalOfOrderId: row.reversal_of_order_id ?? "",
+    reversedAt: row.reversed_at ?? "",
+    reversedBy: row.reversed_by ?? "",
+    reversalReason: row.reversal_reason ?? "",
+    heldAt: row.held_at ?? "",
+    cancelledAt: row.cancelled_at ?? "",
+    cancelledBy: row.cancelled_by ?? "",
+    cancellationReason: row.cancellation_reason ?? "",
+    notes: row.notes ?? "",
+    createdBy: row.created_by ?? "",
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    syncStatus: row.sync_status ?? "pending",
+    items,
+    payments,
+  };
+}
+
+function storePosSessionFromRow(row) {
+  return {
+    id: row.id,
+    sessionNo: row.session_no,
+    cashierUserId: row.cashier_user_id ?? "",
+    username: row.username ?? "",
+    displayName: row.display_name ?? row.cashier_name ?? "",
+    cashierName: row.cashier_name ?? "",
+    openedAt: row.opened_at,
+    closedAt: row.closed_at ?? "",
+    openingCash: Number(row.opening_cash ?? 0),
+    closingCash: Number(row.closing_cash ?? 0),
+    expectedCash: Number(row.expected_cash ?? 0),
+    countedCash: Number(row.counted_cash ?? 0),
+    cashVariance: Number(row.cash_variance ?? 0),
+    status: row.status ?? "Open",
+    notes: row.notes ?? "",
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    syncStatus: row.sync_status ?? "pending",
+  };
+}
+
+function storePosAccountMappingFromRow(row) {
+  return {
+    id: row.id,
+    mappingKey: row.mapping_key,
+    label:
+      row.label ||
+      STORE_POS_ACCOUNT_MAPPINGS[row.mapping_key]?.label ||
+      row.mapping_key,
+    accountCategoryId: row.account_category_id ?? "",
+    accountCategoryName: row.account_category_name ?? "",
+    accountType:
+      row.account_type ||
+      STORE_POS_ACCOUNT_MAPPINGS[row.mapping_key]?.accountType ||
+      "Income",
+    status: row.status ?? "Active",
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at,
+    syncStatus: row.sync_status ?? "pending",
   };
 }
 
@@ -2904,6 +3249,47 @@ function createDatabase(databasePath) {
       FOREIGN KEY (subject_id) REFERENCES subjects(id)
     );
 
+    CREATE TABLE IF NOT EXISTS exam_schedules (
+      id TEXT PRIMARY KEY,
+      academic_session_id TEXT,
+      academic_session_name TEXT,
+      exam_id TEXT NOT NULL,
+      exam_name TEXT NOT NULL,
+      title TEXT,
+      start_date TEXT,
+      end_date TEXT,
+      status TEXT NOT NULL DEFAULT 'Draft',
+      instructions TEXT,
+      created_by TEXT,
+      created_at TEXT,
+      updated_at TEXT,
+      deleted_at TEXT,
+      sync_status TEXT DEFAULT 'pending'
+    );
+
+    CREATE TABLE IF NOT EXISTS exam_schedule_entries (
+      id TEXT PRIMARY KEY,
+      schedule_id TEXT NOT NULL,
+      class_name TEXT NOT NULL,
+      section TEXT,
+      subject_id TEXT,
+      subject_name TEXT NOT NULL,
+      exam_date TEXT NOT NULL,
+      start_time TEXT,
+      end_time TEXT,
+      room TEXT,
+      maximum_marks REAL,
+      passing_marks REAL,
+      invigilator_employee_id TEXT,
+      invigilator_name TEXT,
+      instructions TEXT,
+      created_at TEXT,
+      updated_at TEXT,
+      deleted_at TEXT,
+      sync_status TEXT DEFAULT 'pending',
+      FOREIGN KEY (schedule_id) REFERENCES exam_schedules(id)
+    );
+
     CREATE TABLE IF NOT EXISTS grading_schemes (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -3292,6 +3678,256 @@ function createDatabase(databasePath) {
       sync_status TEXT DEFAULT 'pending'
     );
 
+    CREATE TABLE IF NOT EXISTS saved_report_definitions (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      report_domain TEXT NOT NULL,
+      selected_columns TEXT NOT NULL,
+      filters_json TEXT,
+      sort_json TEXT,
+      group_json TEXT,
+      created_by TEXT,
+      visibility TEXT NOT NULL DEFAULT 'Private',
+      created_at TEXT,
+      updated_at TEXT,
+      deleted_at TEXT,
+      sync_status TEXT DEFAULT 'pending'
+    );
+
+    CREATE TABLE IF NOT EXISTS live_classes (
+      id TEXT PRIMARY KEY,
+      academic_session_id TEXT,
+      class_name TEXT,
+      section TEXT,
+      subject_id TEXT,
+      subject_name TEXT,
+      teacher_employee_id TEXT,
+      teacher_name TEXT,
+      title TEXT NOT NULL,
+      description TEXT,
+      provider TEXT,
+      meeting_url TEXT NOT NULL,
+      meeting_id TEXT,
+      start_at TEXT NOT NULL,
+      end_at TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'Draft',
+      recording_url TEXT,
+      notes TEXT,
+      created_by TEXT,
+      created_at TEXT,
+      updated_at TEXT,
+      deleted_at TEXT,
+      sync_status TEXT DEFAULT 'pending'
+    );
+
+    CREATE TABLE IF NOT EXISTS live_class_attendance (
+      id TEXT PRIMARY KEY,
+      live_class_id TEXT NOT NULL,
+      student_id TEXT NOT NULL,
+      student_name TEXT,
+      joined_at TEXT,
+      left_at TEXT,
+      attendance_status TEXT,
+      remarks TEXT,
+      created_at TEXT,
+      updated_at TEXT,
+      sync_status TEXT DEFAULT 'pending',
+      FOREIGN KEY (live_class_id) REFERENCES live_classes(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS store_categories (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT,
+      status TEXT DEFAULT 'Active',
+      created_at TEXT,
+      updated_at TEXT,
+      deleted_at TEXT,
+      sync_status TEXT DEFAULT 'pending'
+    );
+
+    CREATE TABLE IF NOT EXISTS store_tax_rates (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      rate REAL DEFAULT 0,
+      status TEXT DEFAULT 'Active',
+      created_at TEXT,
+      updated_at TEXT,
+      deleted_at TEXT,
+      sync_status TEXT DEFAULT 'pending'
+    );
+
+    CREATE TABLE IF NOT EXISTS store_products (
+      id TEXT PRIMARY KEY,
+      category_id TEXT,
+      category_name TEXT,
+      tax_rate_id TEXT,
+      tax_rate_name TEXT,
+      tax_rate REAL DEFAULT 0,
+      sku TEXT,
+      barcode TEXT,
+      name TEXT NOT NULL,
+      description TEXT,
+      price INTEGER DEFAULT 0,
+      cost_price INTEGER DEFAULT 0,
+      current_stock INTEGER DEFAULT 0,
+      minimum_stock INTEGER DEFAULT 0,
+      status TEXT DEFAULT 'Active',
+      image_path TEXT,
+      created_at TEXT,
+      updated_at TEXT,
+      deleted_at TEXT,
+      sync_status TEXT DEFAULT 'pending'
+    );
+
+    CREATE TABLE IF NOT EXISTS store_product_variants (
+      id TEXT PRIMARY KEY,
+      product_id TEXT NOT NULL,
+      size TEXT,
+      colour TEXT,
+      variant_sku TEXT,
+      barcode TEXT,
+      price INTEGER,
+      current_stock INTEGER DEFAULT 0,
+      status TEXT DEFAULT 'Active',
+      created_at TEXT,
+      updated_at TEXT,
+      deleted_at TEXT,
+      sync_status TEXT DEFAULT 'pending',
+      FOREIGN KEY (product_id) REFERENCES store_products(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS store_inventory_transactions (
+      id TEXT PRIMARY KEY,
+      product_id TEXT NOT NULL,
+      variant_id TEXT,
+      transaction_type TEXT NOT NULL,
+      quantity INTEGER NOT NULL,
+      unit_cost INTEGER DEFAULT 0,
+      unit_price INTEGER DEFAULT 0,
+      stock_before INTEGER DEFAULT 0,
+      stock_after INTEGER DEFAULT 0,
+      reference_type TEXT,
+      reference_id TEXT,
+      notes TEXT,
+      transaction_date TEXT NOT NULL,
+      created_by TEXT,
+      created_at TEXT,
+      sync_status TEXT DEFAULT 'pending'
+    );
+
+    CREATE TABLE IF NOT EXISTS store_customers (
+      id TEXT PRIMARY KEY,
+      customer_type TEXT DEFAULT 'Walk-in',
+      student_id TEXT,
+      admission_no TEXT,
+      name TEXT NOT NULL,
+      mobile TEXT,
+      email TEXT,
+      status TEXT DEFAULT 'Active',
+      created_at TEXT,
+      updated_at TEXT,
+      deleted_at TEXT,
+      sync_status TEXT DEFAULT 'pending'
+    );
+
+    CREATE TABLE IF NOT EXISTS store_pos_sessions (
+      id TEXT PRIMARY KEY,
+      session_no TEXT UNIQUE NOT NULL,
+      cashier_user_id TEXT,
+      username TEXT,
+      display_name TEXT,
+      cashier_name TEXT,
+      opened_at TEXT NOT NULL,
+      closed_at TEXT,
+      opening_cash INTEGER DEFAULT 0,
+      closing_cash INTEGER DEFAULT 0,
+      expected_cash INTEGER DEFAULT 0,
+      counted_cash INTEGER DEFAULT 0,
+      cash_variance INTEGER DEFAULT 0,
+      status TEXT DEFAULT 'Open',
+      notes TEXT,
+      created_at TEXT,
+      updated_at TEXT,
+      sync_status TEXT DEFAULT 'pending'
+    );
+
+    CREATE TABLE IF NOT EXISTS store_pos_account_mappings (
+      id TEXT PRIMARY KEY,
+      mapping_key TEXT UNIQUE NOT NULL,
+      label TEXT NOT NULL,
+      account_category_id TEXT,
+      account_category_name TEXT,
+      account_type TEXT NOT NULL DEFAULT 'Income'
+        CHECK (account_type IN ('Income', 'Expense')),
+      status TEXT DEFAULT 'Active',
+      created_at TEXT,
+      updated_at TEXT,
+      deleted_at TEXT,
+      sync_status TEXT DEFAULT 'pending',
+      FOREIGN KEY (account_category_id) REFERENCES account_categories(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS store_orders (
+      id TEXT PRIMARY KEY,
+      order_no TEXT UNIQUE NOT NULL,
+      pos_session_id TEXT,
+      customer_id TEXT,
+      student_id TEXT,
+      customer_name TEXT,
+      order_date TEXT NOT NULL,
+      subtotal INTEGER DEFAULT 0,
+      discount_amount INTEGER DEFAULT 0,
+      tax_amount INTEGER DEFAULT 0,
+      grand_total INTEGER DEFAULT 0,
+      paid_amount INTEGER DEFAULT 0,
+      balance_amount INTEGER DEFAULT 0,
+      status TEXT DEFAULT 'Completed',
+      reversal_of_order_id TEXT,
+      reversed_at TEXT,
+      reversed_by TEXT,
+      reversal_reason TEXT,
+      held_at TEXT,
+      cancelled_at TEXT,
+      cancelled_by TEXT,
+      cancellation_reason TEXT,
+      notes TEXT,
+      created_by TEXT,
+      created_at TEXT,
+      updated_at TEXT,
+      sync_status TEXT DEFAULT 'pending'
+    );
+
+    CREATE TABLE IF NOT EXISTS store_order_items (
+      id TEXT PRIMARY KEY,
+      order_id TEXT NOT NULL,
+      product_id TEXT NOT NULL,
+      variant_id TEXT,
+      sku TEXT,
+      product_name TEXT NOT NULL,
+      quantity INTEGER NOT NULL,
+      unit_price INTEGER DEFAULT 0,
+      discount_amount INTEGER DEFAULT 0,
+      tax_rate REAL DEFAULT 0,
+      tax_amount INTEGER DEFAULT 0,
+      line_total INTEGER DEFAULT 0,
+      created_at TEXT,
+      sync_status TEXT DEFAULT 'pending',
+      FOREIGN KEY (order_id) REFERENCES store_orders(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS store_payments (
+      id TEXT PRIMARY KEY,
+      order_id TEXT NOT NULL,
+      payment_mode TEXT NOT NULL,
+      amount INTEGER NOT NULL,
+      reference_no TEXT,
+      payment_date TEXT NOT NULL,
+      created_at TEXT,
+      sync_status TEXT DEFAULT 'pending',
+      FOREIGN KEY (order_id) REFERENCES store_orders(id)
+    );
+
     CREATE TABLE IF NOT EXISTS issued_certificates (
       id TEXT PRIMARY KEY,
       certificate_no TEXT UNIQUE NOT NULL,
@@ -3406,6 +4042,26 @@ function createDatabase(databasePath) {
       ON login_history(login_at DESC, success);
     CREATE INDEX IF NOT EXISTS idx_audit_logs_created
       ON audit_logs(created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_exam_schedules_exam
+      ON exam_schedules(exam_id, status, deleted_at);
+    CREATE INDEX IF NOT EXISTS idx_exam_schedule_entries_schedule
+      ON exam_schedule_entries(schedule_id, exam_date, deleted_at);
+    CREATE INDEX IF NOT EXISTS idx_live_classes_scope
+      ON live_classes(class_name, section, start_at, status, deleted_at);
+    CREATE INDEX IF NOT EXISTS idx_saved_report_definitions_domain
+      ON saved_report_definitions(report_domain, visibility, deleted_at);
+    CREATE INDEX IF NOT EXISTS idx_store_products_lookup
+      ON store_products(sku, barcode, name, deleted_at);
+    CREATE INDEX IF NOT EXISTS idx_store_inventory_product
+      ON store_inventory_transactions(product_id, variant_id, transaction_date);
+    CREATE INDEX IF NOT EXISTS idx_store_orders_date
+      ON store_orders(order_date, status);
+    CREATE INDEX IF NOT EXISTS idx_store_order_items_order
+      ON store_order_items(order_id);
+    CREATE INDEX IF NOT EXISTS idx_store_pos_sessions_status
+      ON store_pos_sessions(cashier_user_id, status, opened_at);
+    CREATE INDEX IF NOT EXISTS idx_store_pos_account_mappings_active
+      ON store_pos_account_mappings(mapping_key, status, deleted_at);
     CREATE INDEX IF NOT EXISTS idx_certificate_templates_active
       ON certificate_templates(deleted_at, status, name);
     CREATE INDEX IF NOT EXISTS idx_issued_certificates_student
@@ -3443,6 +4099,25 @@ function createDatabase(databasePath) {
   addColumnIfMissing(db, "users", "password_changed_at", "TEXT");
   addColumnIfMissing(db, "users", "failed_login_count", "INTEGER DEFAULT 0");
   addColumnIfMissing(db, "users", "locked_until", "TEXT");
+  addColumnIfMissing(db, "store_inventory_transactions", "stock_before", "INTEGER DEFAULT 0");
+  addColumnIfMissing(db, "store_inventory_transactions", "stock_after", "INTEGER DEFAULT 0");
+  [
+    ["username", "TEXT"],
+    ["display_name", "TEXT"],
+    ["expected_cash", "INTEGER DEFAULT 0"],
+    ["counted_cash", "INTEGER DEFAULT 0"],
+    ["cash_variance", "INTEGER DEFAULT 0"],
+  ].forEach(([columnName, definition]) => {
+    addColumnIfMissing(db, "store_pos_sessions", columnName, definition);
+  });
+  [
+    ["held_at", "TEXT"],
+    ["cancelled_at", "TEXT"],
+    ["cancelled_by", "TEXT"],
+    ["cancellation_reason", "TEXT"],
+  ].forEach(([columnName, definition]) => {
+    addColumnIfMissing(db, "store_orders", columnName, definition);
+  });
   [
     ["user_id", "TEXT"],
     ["entity_type", "TEXT"],
@@ -7139,6 +7814,1014 @@ function createDatabase(databasePath) {
       rankings,
       cards,
       rankingMethod: "Dense ranking by percentage, then total marks.",
+    };
+  }
+
+  const EXAM_SCHEDULE_STATUSES = new Set([
+    "Draft",
+    "Published",
+    "Completed",
+    "Cancelled",
+  ]);
+  const LIVE_CLASS_STATUSES = new Set([
+    "Draft",
+    "Scheduled",
+    "Live",
+    "Completed",
+    "Cancelled",
+  ]);
+  const REPORT_VISIBILITIES = new Set(["Private", "Shared"]);
+  const STORE_ORDER_STATUSES = new Set([
+    "Draft",
+    "Held",
+    "Completed",
+    "Cancelled",
+    "Reversed",
+  ]);
+  const INVENTORY_TRANSACTION_TYPES = new Set([
+    "Opening Stock",
+    "Purchase",
+    "Stock In",
+    "Sale",
+    "Return",
+    "Adjustment Increase",
+    "Adjustment Decrease",
+    "Damage",
+    "Sale Reversal",
+  ]);
+
+  function normalizeNamedStatus(value, allowed, fallback, label) {
+    const status = optionalText(value) || fallback;
+    if (!allowed.has(status)) {
+      throw new Error(`${label} status is invalid.`);
+    }
+    return status;
+  }
+
+  function normalizeOptionalDate(value, fieldName) {
+    const text = optionalText(value);
+    return text ? normalizeDate(text, fieldName) : "";
+  }
+
+  function normalizeOptionalTime(value, fieldName) {
+    const text = optionalText(value);
+    return text ? normalizeTime(text, fieldName) : "";
+  }
+
+  function normalizeDateTime(value, fieldName) {
+    const text = requiredText(value, fieldName);
+    const parsed = new Date(text);
+    if (Number.isNaN(parsed.getTime())) {
+      throw new Error(`${fieldName} is invalid.`);
+    }
+    return parsed.toISOString();
+  }
+
+  function assertEndAfterStart(start, end, label = "End time") {
+    if (start && end && end <= start) {
+      throw new Error(`${label} must be after start time.`);
+    }
+  }
+
+  function normalizeMoney(value, fieldName, minimum = 0) {
+    return wholeNumber(value ?? 0, fieldName, minimum);
+  }
+
+  function nextNumber(prefix, table, column, date = new Date()) {
+    const year = date.getFullYear();
+    const stem = `${prefix}-${year}-`;
+    const row = db
+      .prepare(`
+        SELECT ${column} AS value
+        FROM ${table}
+        WHERE ${column} LIKE ?
+        ORDER BY ${column} DESC
+        LIMIT 1
+      `)
+      .get(`${stem}%`);
+    const last = Number(row?.value?.slice(stem.length) ?? 0);
+    return `${stem}${String(last + 1).padStart(4, "0")}`;
+  }
+
+  function getScheduleEntriesInternal(scheduleId) {
+    return db
+      .prepare(`
+        SELECT *
+        FROM exam_schedule_entries
+        WHERE schedule_id = ?
+          AND deleted_at IS NULL
+        ORDER BY exam_date, start_time, class_name COLLATE NOCASE,
+                 section COLLATE NOCASE, subject_name COLLATE NOCASE
+      `)
+      .all(requiredText(scheduleId, "Schedule id"))
+      .map(examScheduleEntryFromRow);
+  }
+
+  function getExamScheduleInternal(id) {
+    const row = db
+      .prepare(`
+        SELECT schedule.*,
+               COUNT(entry.id) AS entry_count
+        FROM exam_schedules schedule
+        LEFT JOIN exam_schedule_entries entry
+          ON entry.schedule_id = schedule.id
+         AND entry.deleted_at IS NULL
+        WHERE schedule.id = ?
+          AND schedule.deleted_at IS NULL
+        GROUP BY schedule.id
+      `)
+      .get(requiredText(id, "Schedule id"));
+    return row
+      ? examScheduleFromRow(row, getScheduleEntriesInternal(row.id))
+      : null;
+  }
+
+  function resolveExamScheduleInput(input = {}, existing = null) {
+    const examId =
+      input.examId === undefined
+        ? existing?.exam_id
+        : requiredText(input.examId, "Exam");
+    const exam = getActiveExamById.get(examId);
+    if (!exam) throw new Error("Select an active exam.");
+    const sessionId =
+      input.academicSessionId === undefined
+        ? existing?.academic_session_id ?? ""
+        : optionalText(input.academicSessionId);
+    const session = sessionId ? getAcademicSessionRow(sessionId) : null;
+    if (sessionId && !session) throw new Error("Academic session was not found.");
+    const startDate =
+      input.startDate === undefined
+        ? existing?.start_date ?? exam.exam_date
+        : normalizeDate(input.startDate, "Start date");
+    const endDate =
+      input.endDate === undefined
+        ? existing?.end_date ?? startDate
+        : normalizeDate(input.endDate, "End date");
+    if (endDate < startDate) {
+      throw new Error("Schedule end date cannot be before start date.");
+    }
+    return {
+      exam,
+      session,
+      title:
+        input.title === undefined
+          ? existing?.title ?? exam.name
+          : optionalText(input.title) || exam.name,
+      startDate,
+      endDate,
+      status:
+        input.status === undefined
+          ? existing?.status ?? "Draft"
+          : normalizeNamedStatus(
+              input.status,
+              EXAM_SCHEDULE_STATUSES,
+              "Draft",
+              "Exam schedule",
+            ),
+      instructions:
+        input.instructions === undefined
+          ? existing?.instructions ?? ""
+          : optionalText(input.instructions),
+    };
+  }
+
+  function normalizeScheduleEntry(input, schedule) {
+    const className = requiredText(input?.className, "Class");
+    const schoolClass = getActiveClassByName.get(className);
+    if (!schoolClass || schoolClass.status !== "Active") {
+      throw new Error("Select an active class.");
+    }
+    const section = optionalText(input?.section);
+    const subjectId = optionalText(input?.subjectId);
+    const subject = subjectId ? getActiveSubjectById.get(subjectId) : null;
+    if (subjectId && (!subject || subject.status !== "Active")) {
+      throw new Error("Select an active subject.");
+    }
+    if (subject && subject.class_name !== schoolClass.name) {
+      throw new Error("Selected subject must belong to the selected class.");
+    }
+    const examDate = normalizeDate(input?.examDate, "Paper date");
+    if (examDate < schedule.startDate || examDate > schedule.endDate) {
+      throw new Error("Paper date must be inside the schedule date range.");
+    }
+    const startTime = normalizeOptionalTime(input?.startTime, "Start time");
+    const endTime = normalizeOptionalTime(input?.endTime, "End time");
+    assertEndAfterStart(startTime, endTime);
+    const maximumMarks =
+      input?.maximumMarks === undefined || input?.maximumMarks === ""
+        ? Number(subject?.max_marks ?? 0)
+        : decimalNumber(input.maximumMarks, "Maximum marks", 0);
+    const passingMarks =
+      input?.passingMarks === undefined || input?.passingMarks === ""
+        ? Number(subject?.passing_marks ?? 0)
+        : decimalNumber(input.passingMarks, "Passing marks", 0);
+    if (passingMarks > maximumMarks) {
+      throw new Error("Passing marks cannot exceed maximum marks.");
+    }
+    const invigilatorId = optionalText(input?.invigilatorEmployeeId);
+    const invigilator = invigilatorId
+      ? db
+          .prepare(`
+            SELECT *
+            FROM employees
+            WHERE id = ?
+              AND deleted_at IS NULL
+          `)
+          .get(invigilatorId)
+      : null;
+    if (invigilatorId && !invigilator) {
+      throw new Error("Invigilator employee was not found.");
+    }
+    return {
+      id: optionalText(input?.id) || crypto.randomUUID(),
+      className: schoolClass.name,
+      section,
+      subjectId: subject?.id ?? "",
+      subjectName: subject?.name ?? requiredText(input?.subjectName, "Subject"),
+      examDate,
+      startTime,
+      endTime,
+      room: optionalText(input?.room),
+      maximumMarks,
+      passingMarks,
+      invigilatorEmployeeId: invigilator?.id ?? "",
+      invigilatorName: invigilator?.name ?? optionalText(input?.invigilatorName),
+      instructions: optionalText(input?.instructions),
+    };
+  }
+
+  function timeRangesOverlap(left, right) {
+    if (left.examDate !== right.examDate) return false;
+    const leftStart = left.startTime || "00:00";
+    const leftEnd = left.endTime || "23:59";
+    const rightStart = right.startTime || "00:00";
+    const rightEnd = right.endTime || "23:59";
+    return leftStart < rightEnd && rightStart < leftEnd;
+  }
+
+  function detectScheduleConflictsForEntries(entries) {
+    const conflicts = [];
+    for (let leftIndex = 0; leftIndex < entries.length; leftIndex += 1) {
+      for (let rightIndex = leftIndex + 1; rightIndex < entries.length; rightIndex += 1) {
+        const left = entries[leftIndex];
+        const right = entries[rightIndex];
+        if (!timeRangesOverlap(left, right)) continue;
+        if (
+          left.className === right.className &&
+          (left.section || "") === (right.section || "")
+        ) {
+          conflicts.push(
+            `Class ${left.className}${left.section ? `-${left.section}` : ""} has overlapping papers on ${left.examDate}.`,
+          );
+        }
+        if (left.room && right.room && left.room === right.room) {
+          conflicts.push(`Room ${left.room} is double-booked on ${left.examDate}.`);
+        }
+        if (
+          left.invigilatorEmployeeId &&
+          right.invigilatorEmployeeId &&
+          left.invigilatorEmployeeId === right.invigilatorEmployeeId
+        ) {
+          conflicts.push(
+            `${left.invigilatorName || "Invigilator"} is double-booked on ${left.examDate}.`,
+          );
+        }
+      }
+    }
+    return Array.from(new Set(conflicts));
+  }
+
+  function queryResultRows(filter = {}) {
+    const examId = requiredText(filter.examId, "Exam");
+    const exam = getActiveExamById.get(examId);
+    if (!exam) throw new Error("Exam was not found.");
+    const className = optionalText(filter.className) || exam.class_name;
+    const section =
+      filter.section === undefined
+        ? exam.section ?? ""
+        : optionalText(filter.section);
+    const students = db
+      .prepare(`
+        SELECT *
+        FROM students
+        WHERE class_name = ?
+          AND (? = '' OR section = ?)
+          AND status = 'Active'
+          AND deleted_at IS NULL
+        ORDER BY name COLLATE NOCASE, admission_no COLLATE NOCASE
+      `)
+      .all(className, section, section)
+      .map(studentFromRow);
+    const subjects = db
+      .prepare(`
+        SELECT *
+        FROM subjects
+        WHERE class_name = ?
+          AND status = 'Active'
+          AND deleted_at IS NULL
+        ORDER BY name COLLATE NOCASE
+      `)
+      .all(className)
+      .map(subjectFromRow);
+    const marks = db
+      .prepare(`
+        SELECT *
+        FROM marks
+        WHERE exam_id = ?
+          AND class_name = ?
+          AND (? = '' OR section = ?)
+      `)
+      .all(exam.id, className, section, section)
+      .map(markFromRow);
+    const marksByStudent = new Map();
+    marks.forEach((mark) => {
+      if (!marksByStudent.has(mark.studentId)) {
+        marksByStudent.set(mark.studentId, new Map());
+      }
+      marksByStudent.get(mark.studentId).set(mark.subjectId, mark);
+    });
+    const scheme = resolveApplicableGradingScheme({
+      academicSessionId: optionalText(filter.academicSessionId),
+      className,
+    });
+    const rows = students.map((student) => {
+      const markMap = marksByStudent.get(student.id) ?? new Map();
+      const subjectMarks = subjects.map((subject) => {
+        const mark = markMap.get(subject.id);
+        const absent = /absent/i.test(mark?.remarks ?? "");
+        const status = !mark
+          ? "Pending"
+          : absent
+            ? "Absent"
+            : mark.obtainedMarks >= mark.passingMarks
+              ? "Pass"
+              : "Fail";
+        const percent = mark?.maxMarks
+          ? Math.round((mark.obtainedMarks / mark.maxMarks) * 10000) / 100
+          : 0;
+        const grade =
+          status === "Pass" || status === "Fail"
+            ? calculateGradeFromScheme(
+                scheme,
+                scheme.calculationMode === "Marks"
+                  ? mark.obtainedMarks
+                  : percent,
+              ).grade
+            : "";
+        return {
+          subjectId: subject.id,
+          subjectName: subject.name,
+          maxMarks: Number(mark?.maxMarks ?? subject.maxMarks ?? 0),
+          passingMarks: Number(mark?.passingMarks ?? subject.passingMarks ?? 0),
+          obtainedMarks: Number(mark?.obtainedMarks ?? 0),
+          grade,
+          status,
+          remarks: mark?.remarks ?? "",
+        };
+      });
+      const totalMaximum = subjectMarks.reduce((total, item) => total + item.maxMarks, 0);
+      const totalObtained = subjectMarks.reduce((total, item) => total + item.obtainedMarks, 0);
+      const percentage =
+        totalMaximum > 0
+          ? Math.round((totalObtained / totalMaximum) * 10000) / 100
+          : 0;
+      const hasAbsent = subjectMarks.some((item) => item.status === "Absent");
+      const hasPending = subjectMarks.some((item) => item.status === "Pending");
+      const hasFail = subjectMarks.some((item) => item.status === "Fail");
+      const result = hasPending ? "Incomplete" : hasAbsent ? "Absent" : hasFail ? "Fail" : "Pass";
+      const grade =
+        result === "Pass" || result === "Fail"
+          ? calculateGradeFromScheme(
+              scheme,
+              scheme.calculationMode === "Marks" ? totalObtained : percentage,
+            ).grade
+          : "";
+      return {
+        student,
+        rollNo: "",
+        admissionNo: student.admissionNo,
+        studentName: student.name,
+        className: student.className,
+        section: student.section,
+        subjectMarks,
+        totalObtained,
+        totalMaximum,
+        percentage,
+        grade,
+        result,
+        position: null,
+      };
+    });
+    const rankable = rows
+      .filter((row) => row.result !== "Incomplete" && row.result !== "Absent")
+      .sort((left, right) =>
+        right.percentage === left.percentage
+          ? right.totalObtained === left.totalObtained
+            ? left.studentName.localeCompare(right.studentName)
+            : right.totalObtained - left.totalObtained
+          : right.percentage - left.percentage,
+      );
+    let lastScore = null;
+    let denseRank = 0;
+    rankable.forEach((row) => {
+      const score = `${row.percentage}:${row.totalObtained}`;
+      if (score !== lastScore) {
+        denseRank += 1;
+        lastScore = score;
+      }
+      row.position = denseRank;
+    });
+    const appeared = rows.filter((row) => !["Incomplete", "Absent"].includes(row.result)).length;
+    const passed = rows.filter((row) => row.result === "Pass").length;
+    const failed = rows.filter((row) => row.result === "Fail").length;
+    const absent = rows.filter((row) => row.result === "Absent").length;
+    const incomplete = rows.filter((row) => row.result === "Incomplete").length;
+    const percentages = rows
+      .filter((row) => row.result !== "Incomplete")
+      .map((row) => row.percentage);
+    return {
+      exam: examFromRow(exam),
+      className,
+      section,
+      subjects,
+      rows,
+      summary: {
+        totalStudents: rows.length,
+        appeared,
+        passed,
+        failed,
+        absent,
+        incomplete,
+        highestPercentage: percentages.length ? Math.max(...percentages) : 0,
+        lowestPercentage: percentages.length ? Math.min(...percentages) : 0,
+        averagePercentage:
+          percentages.length
+            ? Math.round((percentages.reduce((sum, value) => sum + value, 0) / percentages.length) * 100) / 100
+            : 0,
+        passPercentage:
+          appeared > 0 ? Math.round((passed / appeared) * 10000) / 100 : 0,
+      },
+      rankingMethod:
+        "Dense ranking by percentage, then total marks; ties share the same position.",
+    };
+  }
+
+  function validateMeetingUrl(value) {
+    const url = requiredText(value, "Meeting URL");
+    let parsed;
+    try {
+      parsed = new URL(url);
+    } catch {
+      throw new Error("Meeting URL is invalid.");
+    }
+    if (parsed.protocol !== "https:") {
+      throw new Error("Meeting URL must be an HTTPS link.");
+    }
+    return parsed.toString();
+  }
+
+  function getStoreOrderInternal(id) {
+    const row = db
+      .prepare("SELECT * FROM store_orders WHERE id = ?")
+      .get(requiredText(id, "Order id"));
+    if (!row) return null;
+    const items = db
+      .prepare("SELECT * FROM store_order_items WHERE order_id = ? ORDER BY created_at")
+      .all(row.id)
+      .map(storeOrderItemFromRow);
+    const payments = db
+      .prepare("SELECT * FROM store_payments WHERE order_id = ? ORDER BY created_at")
+      .all(row.id)
+      .map(storePaymentFromRow);
+    return storeOrderFromRow(row, items, payments);
+  }
+
+  function paymentsSummaryForOrders(orders = []) {
+    const summary = new Map();
+    orders.forEach((order) => {
+      (order.payments ?? []).forEach((payment) => {
+        const paymentMode = payment.paymentMode || "Unknown";
+        summary.set(
+          paymentMode,
+          (summary.get(paymentMode) ?? 0) + Number(payment.amount ?? 0),
+        );
+      });
+    });
+    return [...summary.entries()].map(([paymentMode, amount]) => ({
+      paymentMode,
+      amount,
+    }));
+  }
+
+  function normalizeStorePaymentMode(value) {
+    const paymentMode = optionalText(value) || "Cash";
+    if (/upi/i.test(paymentMode)) return "UPI";
+    if (/card/i.test(paymentMode)) return "Card";
+    if (PAYMENT_MODES.has(paymentMode)) return paymentMode;
+    throw new Error("POS payment mode is invalid.");
+  }
+
+  function mappingKeyForStorePaymentMode(paymentMode) {
+    if (paymentMode === "Cash") return "cash_income";
+    if (paymentMode === "UPI") return "upi_income";
+    if (paymentMode === "Card") return "card_income";
+    return "sales_income";
+  }
+
+  function ensureStorePosAccountMappingDefaults() {
+    const timestamp = now();
+    Object.entries(STORE_POS_ACCOUNT_MAPPINGS).forEach(([mappingKey, config]) => {
+      const existing = db
+        .prepare("SELECT id FROM store_pos_account_mappings WHERE mapping_key = ?")
+        .get(mappingKey);
+      if (existing) return;
+      const category = getActiveAccountCategory(config.accountType, config.candidates);
+      db.prepare(`
+        INSERT INTO store_pos_account_mappings (
+          id, mapping_key, label, account_category_id, account_category_name,
+          account_type, status, created_at, updated_at, deleted_at, sync_status
+        ) VALUES (
+          @id, @mappingKey, @label, @accountCategoryId, @accountCategoryName,
+          @accountType, 'Active', @createdAt, @updatedAt, NULL, 'pending'
+        )
+      `).run({
+        id: crypto.randomUUID(),
+        mappingKey,
+        label: config.label,
+        accountCategoryId: category?.id ?? "",
+        accountCategoryName: category?.name ?? "",
+        accountType: config.accountType,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+    });
+  }
+
+  function resolveStorePosAccountCategory(mappingKey) {
+    ensureStorePosAccountMappingDefaults();
+    const config = STORE_POS_ACCOUNT_MAPPINGS[mappingKey];
+    if (!config) throw new Error("Store/POS account mapping is invalid.");
+    const mapping = db
+      .prepare(`
+        SELECT mapping.*, account_categories.name AS resolved_category_name
+        FROM store_pos_account_mappings mapping
+        LEFT JOIN account_categories
+          ON account_categories.id = mapping.account_category_id
+         AND account_categories.type = mapping.account_type
+         AND account_categories.status = 'Active'
+         AND account_categories.deleted_at IS NULL
+        WHERE mapping.mapping_key = ?
+          AND mapping.status = 'Active'
+          AND mapping.deleted_at IS NULL
+        LIMIT 1
+      `)
+      .get(mappingKey);
+    if (!mapping?.account_category_id || !mapping.resolved_category_name) {
+      throw new Error(`Configure Store/POS account mapping for ${config.label}.`);
+    }
+    return {
+      id: mapping.account_category_id,
+      name: mapping.resolved_category_name,
+      type: mapping.account_type,
+    };
+  }
+
+  function validateStorePaymentTotals(status, payments, grandTotal) {
+    const normalizedPayments = status === "Completed"
+      ? payments.map((payment) => ({
+          ...payment,
+          paymentMode: normalizeStorePaymentMode(payment.paymentMode),
+          amount: normalizeMoney(payment.amount, "Payment amount"),
+          paymentDate: normalizeDate(
+            payment.paymentDate ?? now().slice(0, 10),
+            "Payment date",
+          ),
+        }))
+      : [];
+    if (status !== "Completed" && payments.length > 0) {
+      throw new Error("Only completed POS sales can store payment records.");
+    }
+    const paidAmount = normalizedPayments.reduce(
+      (sum, payment) => sum + payment.amount,
+      0,
+    );
+    if (status === "Completed" && paidAmount !== grandTotal) {
+      throw new Error("Payment totals must equal the order payable amount.");
+    }
+    return { normalizedPayments, paidAmount };
+  }
+
+  function requireOpenStorePosSession(posSessionId, actor = null) {
+    const providedSessionId = optionalText(posSessionId);
+    const actorId = optionalText(actor?.id);
+    const row = providedSessionId
+      ? db
+          .prepare(`
+            SELECT *
+            FROM store_pos_sessions
+            WHERE id = ? AND status = 'Open'
+          `)
+          .get(providedSessionId)
+      : actorId
+        ? db
+            .prepare(`
+              SELECT *
+              FROM store_pos_sessions
+              WHERE cashier_user_id = ?
+                AND status = 'Open'
+              ORDER BY opened_at DESC
+              LIMIT 1
+            `)
+            .get(actorId)
+        : null;
+    if (!row) {
+      throw new Error("Open a cashier session before completing a POS sale.");
+    }
+    if (
+      row.cashier_user_id &&
+      actorId &&
+      row.cashier_user_id !== actorId &&
+      !["Owner", "Admin"].includes(actor?.role)
+    ) {
+      throw new Error("This cashier session belongs to another user.");
+    }
+    return storePosSessionFromRow(row);
+  }
+
+  function summarizeStorePosSession(sessionId) {
+    const session = db
+      .prepare("SELECT * FROM store_pos_sessions WHERE id = ?")
+      .get(requiredText(sessionId, "Cashier session id"));
+    if (!session) throw new Error("Cashier session was not found.");
+    const rows = db
+      .prepare(`
+        SELECT orders.status, payments.payment_mode, SUM(payments.amount) AS amount
+        FROM store_payments payments
+        JOIN store_orders orders ON orders.id = payments.order_id
+        WHERE orders.pos_session_id = ?
+          AND orders.status IN ('Completed', 'Reversed')
+        GROUP BY orders.status, payments.payment_mode
+      `)
+      .all(session.id);
+    const totalFor = (status, mode) =>
+      rows
+        .filter((row) => row.status === status && row.payment_mode === mode)
+        .reduce((total, row) => total + Number(row.amount ?? 0), 0);
+    const cashCollected = totalFor("Completed", "Cash") + totalFor("Reversed", "Cash");
+    const cashReversed = totalFor("Reversed", "Cash");
+    const upiCollected = totalFor("Completed", "UPI");
+    const cardCollected = totalFor("Completed", "Card");
+    const otherCollected = rows
+      .filter(
+        (row) =>
+          row.status === "Completed" &&
+          !["Cash", "UPI", "Card"].includes(row.payment_mode),
+      )
+      .reduce((total, row) => total + Number(row.amount ?? 0), 0);
+    const totalSales = rows
+      .filter((row) => row.status === "Completed")
+      .reduce((total, row) => total + Number(row.amount ?? 0), 0);
+    const totalReversed = rows
+      .filter((row) => row.status === "Reversed")
+      .reduce((total, row) => total + Number(row.amount ?? 0), 0);
+    const expectedCash = Number(session.opening_cash ?? 0) + cashCollected - cashReversed;
+    return {
+      session: storePosSessionFromRow(session),
+      openingCash: Number(session.opening_cash ?? 0),
+      cashCollected,
+      cashReversed,
+      upiCollected,
+      cardCollected,
+      otherCollected,
+      totalSales,
+      totalReversed,
+      expectedCash,
+    };
+  }
+
+  function postStoreOrderAccountingInternal(orderId, actor = null) {
+    const order = getStoreOrderInternal(orderId);
+    if (!order) throw new Error("Store order was not found.");
+    if (order.status !== "Completed") {
+      return { postedCount: 0, totalAmount: 0, transactions: [] };
+    }
+    const transactions = [];
+    order.payments.forEach((payment) => {
+      const paymentMode = normalizeStorePaymentMode(payment.paymentMode);
+      const category = resolveStorePosAccountCategory(
+        mappingKeyForStorePaymentMode(paymentMode),
+      );
+      const transaction = createLinkedAccountTransaction({
+        type: "Income",
+        category,
+        title: `POS Sale ${order.orderNo} - ${paymentMode}`,
+        amount: payment.amount,
+        paymentMode,
+        transactionDate: payment.paymentDate || order.orderDate,
+        referenceNo: order.orderNo,
+        linkedModule: "POS Sale",
+        linkedRecordId: payment.id,
+        notes: `Store/POS order ${order.orderNo}`,
+        createdBy: actor?.name ?? order.createdBy ?? "",
+      });
+      transactions.push(transaction);
+    });
+    return {
+      postedCount: transactions.length,
+      totalAmount: transactions.reduce((total, row) => total + row.amount, 0),
+      transactions,
+    };
+  }
+
+  function postStoreOrderReversalAccountingInternal(orderId, actor = null) {
+    const order = getStoreOrderInternal(orderId);
+    if (!order) throw new Error("Store order was not found.");
+    if (order.status !== "Reversed") {
+      return { postedCount: 0, totalAmount: 0, transactions: [] };
+    }
+    const category = resolveStorePosAccountCategory("reversal_expense");
+    const transactionDate = (order.reversedAt || now()).slice(0, 10);
+    const transactions = [];
+    order.payments.forEach((payment) => {
+      const paymentMode = normalizeStorePaymentMode(payment.paymentMode);
+      const transaction = createLinkedAccountTransaction({
+        type: "Expense",
+        category,
+        title: `POS Reversal ${order.orderNo} - ${paymentMode}`,
+        amount: payment.amount,
+        paymentMode,
+        transactionDate,
+        referenceNo: order.orderNo,
+        linkedModule: "POS Sale Reversal",
+        linkedRecordId: payment.id,
+        notes: `Reversal for Store/POS order ${order.orderNo}`,
+        createdBy: actor?.name ?? order.reversedBy ?? "",
+      });
+      transactions.push(transaction);
+    });
+    return {
+      postedCount: transactions.length,
+      totalAmount: transactions.reduce((total, row) => total + row.amount, 0),
+      transactions,
+    };
+  }
+
+  function applyStockChange(productId, delta, transaction = {}) {
+    const product = db
+      .prepare(`
+        SELECT *
+        FROM store_products
+        WHERE id = ?
+          AND deleted_at IS NULL
+      `)
+      .get(requiredText(productId, "Product id"));
+    if (!product || product.status !== "Active") {
+      throw new Error("Select an active store product.");
+    }
+    const nextStock = Number(product.current_stock ?? 0) + delta;
+    if (nextStock < 0) {
+      throw new Error(`Insufficient stock for ${product.name}.`);
+    }
+    const timestamp = now();
+    db.prepare(`
+      UPDATE store_products
+      SET current_stock = ?, updated_at = ?, sync_status = 'pending'
+      WHERE id = ?
+    `).run(nextStock, timestamp, product.id);
+    const transactionType = requiredText(transaction.transactionType, "Inventory transaction type");
+    if (!INVENTORY_TRANSACTION_TYPES.has(transactionType)) {
+      throw new Error("Inventory transaction type is invalid.");
+    }
+    db.prepare(`
+      INSERT INTO store_inventory_transactions (
+        id, product_id, variant_id, transaction_type, quantity, unit_cost,
+        unit_price, stock_before, stock_after, reference_type, reference_id,
+        notes, transaction_date, created_by, created_at, sync_status
+      ) VALUES (
+        @id, @productId, @variantId, @transactionType, @quantity, @unitCost,
+        @unitPrice, @stockBefore, @stockAfter, @referenceType, @referenceId,
+        @notes, @transactionDate, @createdBy, @createdAt, 'pending'
+      )
+    `).run({
+      id: crypto.randomUUID(),
+      productId: product.id,
+      variantId: optionalText(transaction.variantId),
+      transactionType,
+      quantity: delta,
+      unitCost: Number(product.cost_price ?? 0),
+      unitPrice: Number(product.price ?? 0),
+      stockBefore: Number(product.current_stock ?? 0),
+      stockAfter: nextStock,
+      referenceType: optionalText(transaction.referenceType),
+      referenceId: optionalText(transaction.referenceId),
+      notes: optionalText(transaction.notes),
+      transactionDate: normalizeDate(transaction.transactionDate ?? now().slice(0, 10), "Transaction date"),
+      createdBy: optionalText(transaction.createdBy),
+      createdAt: timestamp,
+    });
+    return nextStock;
+  }
+
+  const CUSTOM_REPORT_DOMAINS = {
+    Students: {
+      roles: ["Owner", "Admin", "Teacher", "Viewer"],
+      base: "students",
+      where: "deleted_at IS NULL",
+      columns: {
+        admissionNo: ["Admission No", "admission_no"],
+        name: ["Student Name", "name"],
+        className: ["Class", "class_name"],
+        section: ["Section", "section"],
+        status: ["Status", "status"],
+        mobile: ["Mobile", "mobile"],
+      },
+    },
+    "Families and Guardians": {
+      roles: ["Owner", "Admin", "Teacher", "Viewer", "Accountant"],
+      base: "guardians",
+      where: "deleted_at IS NULL",
+      columns: {
+        fullName: ["Guardian", "full_name"],
+        relation: ["Relation", "relation"],
+        mobile: ["Mobile", "mobile"],
+        email: ["Email", "email"],
+        occupation: ["Occupation", "occupation"],
+        status: ["Status", "status"],
+      },
+    },
+    Employees: {
+      roles: ["Owner", "Admin"],
+      base: "employees",
+      where: "deleted_at IS NULL",
+      columns: {
+        employeeNo: ["Employee No", "employee_no"],
+        name: ["Employee", "name"],
+        department: ["Department", "department"],
+        designation: ["Designation", "designation"],
+        status: ["Status", "status"],
+      },
+    },
+    "Fee Payments": {
+      roles: ["Owner", "Admin", "Accountant"],
+      base: "fee_payments",
+      where: "status <> 'Reversed'",
+      columns: {
+        receiptNo: ["Receipt No", "receipt_no"],
+        studentName: ["Student", "student_name"],
+        className: ["Class", "class_name"],
+        paymentDate: ["Payment Date", "payment_date"],
+        paymentMode: ["Mode", "payment_mode"],
+        amount: ["Amount", "amount"],
+      },
+    },
+    Accounts: {
+      roles: ["Owner", "Admin", "Accountant"],
+      base: "account_transactions",
+      where: "deleted_at IS NULL",
+      columns: {
+        transactionDate: ["Date", "transaction_date"],
+        type: ["Type", "type"],
+        categoryName: ["Category", "category_name"],
+        amount: ["Amount", "amount"],
+        paymentMode: ["Mode", "payment_mode"],
+      },
+    },
+    "Student Attendance": {
+      roles: ["Owner", "Admin", "Teacher", "Viewer"],
+      base: "attendance",
+      where: "1 = 1",
+      columns: {
+        attendanceDate: ["Date", "attendance_date"],
+        studentName: ["Student", "student_name"],
+        className: ["Class", "class_name"],
+        section: ["Section", "section"],
+        status: ["Status", "status"],
+      },
+    },
+    "Employee Attendance": {
+      roles: ["Owner", "Admin", "Accountant"],
+      base: "employee_attendance",
+      where: "deleted_at IS NULL",
+      columns: {
+        attendanceDate: ["Date", "attendance_date"],
+        employeeName: ["Employee", "employee_name"],
+        department: ["Department", "department"],
+        status: ["Status", "status"],
+      },
+    },
+    "Exams and Results": {
+      roles: ["Owner", "Admin", "Teacher", "Viewer"],
+      base: "marks",
+      where: "1 = 1",
+      columns: {
+        examName: ["Exam", "exam_name"],
+        studentName: ["Student", "student_name"],
+        className: ["Class", "class_name"],
+        subjectName: ["Subject", "subject_name"],
+        obtainedMarks: ["Obtained", "obtained_marks"],
+        maxMarks: ["Maximum", "max_marks"],
+      },
+    },
+    "Report Cards": {
+      roles: ["Owner", "Admin", "Teacher", "Viewer"],
+      base: "student_report_cards",
+      where: "deleted_at IS NULL",
+      columns: {
+        reportCardNo: ["Report Card No", "report_card_no"],
+        studentName: ["Student", "student_name"],
+        examName: ["Exam", "exam_name"],
+        percentage: ["Percentage", "percentage"],
+        overallGrade: ["Grade", "overall_grade"],
+        resultStatus: ["Result", "result_status"],
+      },
+    },
+    "Salary and Payroll": {
+      roles: ["Owner", "Admin", "Accountant"],
+      base: "salary_payments",
+      where: "deleted_at IS NULL",
+      columns: {
+        salaryNo: ["Salary No", "salary_no"],
+        employeeName: ["Employee", "employee_name"],
+        salaryMonth: ["Month", "salary_month"],
+        netSalary: ["Net Salary", "net_salary"],
+        status: ["Status", "status"],
+      },
+    },
+    "Messages and Announcements": {
+      roles: ["Owner", "Admin"],
+      base: "announcements",
+      where: "deleted_at IS NULL",
+      columns: {
+        title: ["Title", "title"],
+        audienceType: ["Audience", "audience_type"],
+        priority: ["Priority", "priority"],
+        status: ["Status", "status"],
+        createdAt: ["Created", "created_at"],
+      },
+    },
+  };
+
+  function getCustomReportDomain(domainName) {
+    const domain = CUSTOM_REPORT_DOMAINS[requiredText(domainName, "Report domain")];
+    if (!domain) {
+      throw new Error("Report domain is not approved.");
+    }
+    return domain;
+  }
+
+  function previewCustomReportInternal(input = {}, actor = null) {
+    const domainName = requiredText(input.reportDomain, "Report domain");
+    const domain = getCustomReportDomain(domainName);
+    if (actor?.role && !domain.roles.includes(actor.role)) {
+      throw new Error("You do not have permission to use this report domain.");
+    }
+    const selectedColumns = Array.isArray(input.selectedColumns)
+      ? input.selectedColumns
+      : [];
+    if (selectedColumns.length === 0) {
+      throw new Error("Select at least one report column.");
+    }
+    selectedColumns.forEach((column) => {
+      if (!domain.columns[column]) {
+        throw new Error("A selected report column is not approved.");
+      }
+    });
+    const filters = input.filters && typeof input.filters === "object" ? input.filters : {};
+    const params = {};
+    const filterSql = Object.entries(filters)
+      .filter(([, value]) => optionalText(value))
+      .map(([key, value], index) => {
+        const column = domain.columns[key];
+        if (!column) throw new Error("A selected report filter is not approved.");
+        const param = `filter${index}`;
+        params[param] = `%${optionalText(value)}%`;
+        return `CAST(${column[1]} AS TEXT) LIKE @${param}`;
+      });
+    const sortItems = Array.isArray(input.sort) ? input.sort : [];
+    const orderBy = sortItems
+      .map((sort) => {
+        const column = domain.columns[sort?.column];
+        if (!column) throw new Error("Report sort column is not approved.");
+        return `${column[1]} ${String(sort.direction).toUpperCase() === "DESC" ? "DESC" : "ASC"}`;
+      })
+      .join(", ");
+    const sql = `
+      SELECT ${selectedColumns.map((key) => `${domain.columns[key][1]} AS "${key}"`).join(", ")}
+      FROM ${domain.base}
+      WHERE ${domain.where}
+        ${filterSql.length ? `AND ${filterSql.join(" AND ")}` : ""}
+      ${orderBy ? `ORDER BY ${orderBy}` : ""}
+      LIMIT 500
+    `;
+    const rows = db.prepare(sql).all(params);
+    return {
+      domain: domainName,
+      columns: selectedColumns.map((key) => ({
+        key,
+        label: domain.columns[key][0],
+      })),
+      rows,
+      generatedAt: now(),
     };
   }
 
@@ -21323,6 +23006,1570 @@ function createDatabase(databasePath) {
       return { success: result.changes === 1 };
     },
 
+    getExamSchedules(filter = {}) {
+      const rows = db
+        .prepare(`
+          SELECT schedule.*,
+                 COUNT(entry.id) AS entry_count
+          FROM exam_schedules schedule
+          LEFT JOIN exam_schedule_entries entry
+            ON entry.schedule_id = schedule.id
+           AND entry.deleted_at IS NULL
+          WHERE schedule.deleted_at IS NULL
+            AND (@examId = '' OR schedule.exam_id = @examId)
+            AND (@sessionId = '' OR schedule.academic_session_id = @sessionId)
+            AND (@status = '' OR schedule.status = @status)
+          GROUP BY schedule.id
+          ORDER BY schedule.start_date DESC, schedule.exam_name COLLATE NOCASE
+        `)
+        .all({
+          examId: optionalText(filter.examId),
+          sessionId: optionalText(filter.academicSessionId),
+          status: optionalText(filter.status),
+        });
+      return rows.map((row) => examScheduleFromRow(row));
+    },
+
+    getExamSchedule(id) {
+      return getExamScheduleInternal(id);
+    },
+
+    createExamSchedule(input = {}) {
+      const values = resolveExamScheduleInput(input);
+      const id = crypto.randomUUID();
+      const timestamp = now();
+      db.prepare(`
+        INSERT INTO exam_schedules (
+          id, academic_session_id, academic_session_name, exam_id, exam_name,
+          title, start_date, end_date, status, instructions, created_by,
+          created_at, updated_at, deleted_at, sync_status
+        ) VALUES (
+          @id, @academicSessionId, @academicSessionName, @examId, @examName,
+          @title, @startDate, @endDate, @status, @instructions, @createdBy,
+          @createdAt, @updatedAt, NULL, 'pending'
+        )
+      `).run({
+        id,
+        academicSessionId: values.session?.id ?? "",
+        academicSessionName: values.session?.session_name ?? "",
+        examId: values.exam.id,
+        examName: values.exam.name,
+        title: values.title,
+        startDate: values.startDate,
+        endDate: values.endDate,
+        status: values.status,
+        instructions: values.instructions,
+        createdBy: optionalText(input.createdBy),
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+      insertAuditLog(input.auditUser, "Exam schedule created", "Exams", `Created schedule for ${values.exam.name}.`);
+      return getExamScheduleInternal(id);
+    },
+
+    updateExamSchedule(id, input = {}) {
+      const existing = db
+        .prepare("SELECT * FROM exam_schedules WHERE id = ? AND deleted_at IS NULL")
+        .get(requiredText(id, "Schedule id"));
+      if (!existing) throw new Error("Exam schedule was not found.");
+      const values = resolveExamScheduleInput(input, existing);
+      const timestamp = now();
+      db.prepare(`
+        UPDATE exam_schedules
+        SET academic_session_id = @academicSessionId,
+            academic_session_name = @academicSessionName,
+            exam_id = @examId,
+            exam_name = @examName,
+            title = @title,
+            start_date = @startDate,
+            end_date = @endDate,
+            status = @status,
+            instructions = @instructions,
+            updated_at = @updatedAt,
+            sync_status = 'pending'
+        WHERE id = @id AND deleted_at IS NULL
+      `).run({
+        id: existing.id,
+        academicSessionId: values.session?.id ?? "",
+        academicSessionName: values.session?.session_name ?? "",
+        examId: values.exam.id,
+        examName: values.exam.name,
+        title: values.title,
+        startDate: values.startDate,
+        endDate: values.endDate,
+        status: values.status,
+        instructions: values.instructions,
+        updatedAt: timestamp,
+      });
+      insertAuditLog(input.auditUser, "Exam schedule updated", "Exams", `Updated schedule ${existing.id}.`);
+      return getExamScheduleInternal(existing.id);
+    },
+
+    deleteExamSchedule(id, auditUser = null) {
+      const timestamp = now();
+      const result = db
+        .prepare(`
+          UPDATE exam_schedules
+          SET deleted_at = ?, updated_at = ?, sync_status = 'pending'
+          WHERE id = ? AND deleted_at IS NULL
+        `)
+        .run(timestamp, timestamp, requiredText(id, "Schedule id"));
+      insertAuditLog(auditUser, "Exam schedule deleted", "Exams", "Soft-deleted an exam schedule.");
+      return { success: result.changes === 1 };
+    },
+
+    setExamScheduleStatus(id, status, auditUser = null) {
+      const nextStatus = normalizeNamedStatus(status, EXAM_SCHEDULE_STATUSES, "Draft", "Exam schedule");
+      const timestamp = now();
+      const result = db
+        .prepare(`
+          UPDATE exam_schedules
+          SET status = ?, updated_at = ?, sync_status = 'pending'
+          WHERE id = ? AND deleted_at IS NULL
+        `)
+        .run(nextStatus, timestamp, requiredText(id, "Schedule id"));
+      insertAuditLog(auditUser, `Exam schedule ${nextStatus.toLowerCase()}`, "Exams", `Status set to ${nextStatus}.`);
+      return getExamScheduleInternal(id) ?? { success: result.changes === 1 };
+    },
+
+    publishExamSchedule(id, auditUser = null) {
+      return this.setExamScheduleStatus(id, "Published", auditUser);
+    },
+
+    cancelExamSchedule(id, auditUser = null) {
+      return this.setExamScheduleStatus(id, "Cancelled", auditUser);
+    },
+
+    completeExamSchedule(id, auditUser = null) {
+      return this.setExamScheduleStatus(id, "Completed", auditUser);
+    },
+
+    getExamScheduleEntries(scheduleId) {
+      return getScheduleEntriesInternal(scheduleId);
+    },
+
+    saveExamScheduleEntries(scheduleId, entries = [], auditUser = null) {
+      if (!Array.isArray(entries)) {
+        throw new Error("Schedule entries must be an array.");
+      }
+      const schedule = getExamScheduleInternal(scheduleId);
+      if (!schedule) throw new Error("Exam schedule was not found.");
+      const normalized = entries.map((entry) => normalizeScheduleEntry(entry, schedule));
+      const conflicts = detectScheduleConflictsForEntries(normalized);
+      if (conflicts.length > 0) {
+        throw new Error(conflicts[0]);
+      }
+      const timestamp = now();
+      db.transaction(() => {
+        db.prepare(`
+          UPDATE exam_schedule_entries
+          SET deleted_at = ?, updated_at = ?, sync_status = 'pending'
+          WHERE schedule_id = ? AND deleted_at IS NULL
+        `).run(timestamp, timestamp, schedule.id);
+        const insert = db.prepare(`
+          INSERT INTO exam_schedule_entries (
+            id, schedule_id, class_name, section, subject_id, subject_name,
+            exam_date, start_time, end_time, room, maximum_marks,
+            passing_marks, invigilator_employee_id, invigilator_name,
+            instructions, created_at, updated_at, deleted_at, sync_status
+          ) VALUES (
+            @id, @scheduleId, @className, @section, @subjectId, @subjectName,
+            @examDate, @startTime, @endTime, @room, @maximumMarks,
+            @passingMarks, @invigilatorEmployeeId, @invigilatorName,
+            @instructions, @createdAt, @updatedAt, NULL, 'pending'
+          )
+        `);
+        normalized.forEach((entry) => {
+          insert.run({
+            ...entry,
+            scheduleId: schedule.id,
+            createdAt: timestamp,
+            updatedAt: timestamp,
+          });
+        });
+      })();
+      insertAuditLog(auditUser, "Exam schedule entries saved", "Exams", `Saved ${normalized.length} paper row(s).`);
+      return getScheduleEntriesInternal(schedule.id);
+    },
+
+    detectExamScheduleConflicts(input = {}) {
+      const schedule = input.scheduleId
+        ? getExamScheduleInternal(input.scheduleId)
+        : resolveExamScheduleInput(input);
+      const entries = Array.isArray(input.entries)
+        ? input.entries.map((entry) => normalizeScheduleEntry(entry, schedule))
+        : getScheduleEntriesInternal(schedule.id);
+      return {
+        conflicts: detectScheduleConflictsForEntries(entries),
+      };
+    },
+
+    getDateSheet(filter = {}) {
+      const rows = db
+        .prepare(`
+          SELECT entry.*, schedule.exam_name, schedule.academic_session_name,
+                 schedule.title AS schedule_title, schedule.instructions AS schedule_instructions,
+                 schedule.status AS schedule_status
+          FROM exam_schedule_entries entry
+          JOIN exam_schedules schedule ON schedule.id = entry.schedule_id
+          WHERE entry.deleted_at IS NULL
+            AND schedule.deleted_at IS NULL
+            AND schedule.status = 'Published'
+            AND (@examId = '' OR schedule.exam_id = @examId)
+            AND (@className = '' OR entry.class_name = @className)
+            AND (@section = '' OR COALESCE(entry.section, '') = @section)
+          ORDER BY entry.exam_date, entry.start_time, entry.class_name, entry.section
+        `)
+        .all({
+          examId: optionalText(filter.examId),
+          className: optionalText(filter.className),
+          section: optionalText(filter.section),
+        });
+      const entries = rows.map((row) => ({
+        ...examScheduleEntryFromRow(row),
+        examName: row.exam_name,
+        academicSessionName: row.academic_session_name ?? "",
+        scheduleTitle: row.schedule_title ?? "",
+        scheduleInstructions: row.schedule_instructions ?? "",
+        scheduleStatus: row.schedule_status,
+      }));
+      return {
+        exam: entries[0]?.examName ? { name: entries[0].examName } : null,
+        entries,
+      };
+    },
+
+    getResultSheet(filter = {}) {
+      return queryResultRows(filter);
+    },
+
+    getBlankAwardList(filter = {}) {
+      const examId = requiredText(filter.examId, "Exam");
+      const subjectId = requiredText(filter.subjectId, "Subject");
+      const exam = getActiveExamById.get(examId);
+      const subject = getActiveSubjectById.get(subjectId);
+      if (!exam || !subject) throw new Error("Select an active exam and subject.");
+      const section = optionalText(filter.section) || exam.section || "";
+      const students = db
+        .prepare(`
+          SELECT *
+          FROM students
+          WHERE class_name = ?
+            AND (? = '' OR section = ?)
+            AND status = 'Active'
+            AND deleted_at IS NULL
+          ORDER BY name COLLATE NOCASE, admission_no COLLATE NOCASE
+        `)
+        .all(exam.class_name, section, section)
+        .map(studentFromRow);
+      return {
+        exam: examFromRow(exam),
+        subject: subjectFromRow(subject),
+        className: exam.class_name,
+        section,
+        rows: students.map((student, index) => ({
+          serialNo: index + 1,
+          rollNo: "",
+          admissionNo: student.admissionNo,
+          studentId: student.id,
+          studentName: student.name,
+          maximumMarks: subject.max_marks,
+          remarks: "",
+        })),
+      };
+    },
+
+    getStudentProgressReport(filter = {}) {
+      const className = optionalText(filter.className);
+      const section = optionalText(filter.section);
+      const studentId = optionalText(filter.studentId);
+      const examRows = this.getExams().filter((exam) =>
+        (!className || exam.className === className) &&
+        (!section || !exam.section || exam.section === section),
+      );
+      if (studentId) {
+        const student = studentFromRow(getStudentRowRequired(studentId));
+        const examResults = examRows
+          .filter((exam) => exam.className === student.className)
+          .map((exam) => {
+            const result = queryResultRows({
+              examId: exam.id,
+              className: student.className,
+              section: student.section,
+              academicSessionId: filter.academicSessionId,
+            }).rows.find((row) => row.student.id === student.id);
+            return {
+              exam,
+              percentage: result?.percentage ?? null,
+              result: result?.result ?? "No Data",
+              grade: result?.grade ?? "",
+            };
+          });
+        const attendanceRows = db
+          .prepare("SELECT * FROM attendance WHERE student_id = ? ORDER BY attendance_date")
+          .all(student.id)
+          .map(attendanceFromRow);
+        const present = attendanceRows.filter((row) => row.status === "Present").length;
+        const attendancePercentage =
+          attendanceRows.length > 0 ? Math.round((present / attendanceRows.length) * 10000) / 100 : null;
+        return {
+          mode: "individual",
+          student,
+          examResults,
+          attendance: {
+            workingDays: attendanceRows.length,
+            presentDays: present,
+            percentage: attendancePercentage,
+          },
+          classTests: db
+            .prepare(`
+              SELECT tests.test_name, tests.subject_name, tests.test_date,
+                     marks.marks_obtained, marks.result_status, marks.remarks
+              FROM class_test_marks marks
+              JOIN class_tests tests ON tests.id = marks.test_id
+              WHERE marks.student_id = ?
+              ORDER BY tests.test_date DESC
+            `)
+            .all(student.id),
+          reportCards: this.getStudentReportCards({ studentId: student.id }),
+          note: "Progress is calculated from saved ERP records only.",
+        };
+      }
+      const students = db
+        .prepare(`
+          SELECT *
+          FROM students
+          WHERE (@className = '' OR class_name = @className)
+            AND (@section = '' OR section = @section)
+            AND status = 'Active'
+            AND deleted_at IS NULL
+          ORDER BY class_name, section, name COLLATE NOCASE
+        `)
+        .all({ className, section })
+        .map(studentFromRow);
+      const sortedExams = [...examRows].sort((left, right) =>
+        left.examDate.localeCompare(right.examDate),
+      );
+      const previousExam = sortedExams.at(-2);
+      const currentExam = sortedExams.at(-1);
+      const percentageFor = (student, exam) => {
+        if (!exam) return null;
+        const result = queryResultRows({
+          examId: exam.id,
+          className: student.className,
+          section: student.section,
+          academicSessionId: filter.academicSessionId,
+        }).rows.find((row) => row.student.id === student.id);
+        return result?.percentage ?? null;
+      };
+      return {
+        mode: "class",
+        previousExam,
+        currentExam,
+        rows: students.map((student) => {
+          const previous = percentageFor(student, previousExam);
+          const current = percentageFor(student, currentExam);
+          const change =
+            previous === null || current === null ? null : Math.round((current - previous) * 100) / 100;
+          const indicator =
+            change === null
+              ? "No Data"
+              : change > 2
+                ? "Improving"
+                : change < -2
+                  ? "Needs Attention"
+                  : "Stable";
+          return {
+            student,
+            previousPercentage: previous,
+            currentPercentage: current,
+            percentageChange: change,
+            indicator,
+          };
+        }),
+      };
+    },
+
+    getCustomReportDomains() {
+      return Object.entries(CUSTOM_REPORT_DOMAINS).map(([name, domain]) => ({
+        name,
+        columns: Object.entries(domain.columns).map(([key, value]) => ({
+          key,
+          label: value[0],
+        })),
+        roles: domain.roles,
+      }));
+    },
+
+    previewCustomReport(input = {}, actor = null) {
+      return previewCustomReportInternal(input, actor);
+    },
+
+    getSavedReportDefinitions(actor = null) {
+      return db
+        .prepare(`
+          SELECT *
+          FROM saved_report_definitions
+          WHERE deleted_at IS NULL
+            AND (visibility = 'Shared' OR created_by = @createdBy OR @isAdmin = 1)
+          ORDER BY updated_at DESC, name COLLATE NOCASE
+        `)
+        .all({
+          createdBy: actor?.name ?? "",
+          isAdmin: ["Owner", "Admin"].includes(actor?.role) ? 1 : 0,
+        })
+        .map(savedReportDefinitionFromRow);
+    },
+
+    saveReportDefinition(input = {}, actor = null) {
+      const domain = getCustomReportDomain(input.reportDomain);
+      if (actor?.role && !domain.roles.includes(actor.role)) {
+        throw new Error("You do not have permission to save this report domain.");
+      }
+      const visibility = normalizeNamedStatus(
+        input.visibility,
+        REPORT_VISIBILITIES,
+        "Private",
+        "Report visibility",
+      );
+      if (visibility === "Shared" && !["Owner", "Admin"].includes(actor?.role)) {
+        throw new Error("Only Owner/Admin can create shared reports.");
+      }
+      previewCustomReportInternal(input, actor);
+      const timestamp = now();
+      const id = optionalText(input.id) || crypto.randomUUID();
+      db.prepare(`
+        INSERT INTO saved_report_definitions (
+          id, name, report_domain, selected_columns, filters_json, sort_json,
+          group_json, created_by, visibility, created_at, updated_at,
+          deleted_at, sync_status
+        ) VALUES (
+          @id, @name, @reportDomain, @selectedColumns, @filtersJson, @sortJson,
+          @groupJson, @createdBy, @visibility, @createdAt, @updatedAt,
+          NULL, 'pending'
+        )
+        ON CONFLICT(id) DO UPDATE SET
+          name = excluded.name,
+          report_domain = excluded.report_domain,
+          selected_columns = excluded.selected_columns,
+          filters_json = excluded.filters_json,
+          sort_json = excluded.sort_json,
+          group_json = excluded.group_json,
+          visibility = excluded.visibility,
+          updated_at = excluded.updated_at,
+          sync_status = 'pending'
+      `).run({
+        id,
+        name: requiredText(input.name, "Report name"),
+        reportDomain: input.reportDomain,
+        selectedColumns: JSON.stringify(input.selectedColumns ?? []),
+        filtersJson: JSON.stringify(input.filters ?? {}),
+        sortJson: JSON.stringify(input.sort ?? []),
+        groupJson: JSON.stringify(input.group ?? []),
+        createdBy: actor?.name ?? optionalText(input.createdBy),
+        visibility,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+      insertAuditLog(actor, "Saved report definition", "Reports", `Saved report "${input.name}".`);
+      return savedReportDefinitionFromRow(
+        db.prepare("SELECT * FROM saved_report_definitions WHERE id = ?").get(id),
+      );
+    },
+
+    deleteReportDefinition(id, actor = null) {
+      const timestamp = now();
+      const result = db
+        .prepare(`
+          UPDATE saved_report_definitions
+          SET deleted_at = ?, updated_at = ?, sync_status = 'pending'
+          WHERE id = ? AND deleted_at IS NULL
+        `)
+        .run(timestamp, timestamp, requiredText(id, "Report definition id"));
+      insertAuditLog(actor, "Deleted report definition", "Reports", "Soft-deleted a custom report definition.");
+      return { success: result.changes === 1 };
+    },
+
+    getLiveClasses(filter = {}) {
+      return db
+        .prepare(`
+          SELECT *
+          FROM live_classes
+          WHERE deleted_at IS NULL
+            AND (@className = '' OR class_name = @className)
+            AND (@section = '' OR COALESCE(section, '') = @section)
+            AND (@status = '' OR status = @status)
+          ORDER BY start_at DESC
+        `)
+        .all({
+          className: optionalText(filter.className),
+          section: optionalText(filter.section),
+          status: optionalText(filter.status),
+        })
+        .map(liveClassFromRow);
+    },
+
+    getLiveClass(id) {
+      const row = db
+        .prepare("SELECT * FROM live_classes WHERE id = ? AND deleted_at IS NULL")
+        .get(requiredText(id, "Live class id"));
+      if (!row) return null;
+      const attendance = db
+        .prepare("SELECT * FROM live_class_attendance WHERE live_class_id = ? ORDER BY student_name")
+        .all(row.id)
+        .map(liveClassAttendanceFromRow);
+      return liveClassFromRow(row, attendance);
+    },
+
+    createLiveClass(input = {}) {
+      const startAt = normalizeDateTime(input.startAt, "Start time");
+      const endAt = normalizeDateTime(input.endAt, "End time");
+      if (endAt <= startAt) throw new Error("End time must be after start time.");
+      const teacherId = optionalText(input.teacherEmployeeId);
+      const teacher = teacherId
+        ? db.prepare("SELECT * FROM employees WHERE id = ? AND deleted_at IS NULL").get(teacherId)
+        : null;
+      const subjectId = optionalText(input.subjectId);
+      const subject = subjectId ? getActiveSubjectById.get(subjectId) : null;
+      const timestamp = now();
+      const id = crypto.randomUUID();
+      db.prepare(`
+        INSERT INTO live_classes (
+          id, academic_session_id, class_name, section, subject_id, subject_name,
+          teacher_employee_id, teacher_name, title, description, provider,
+          meeting_url, meeting_id, start_at, end_at, status, recording_url,
+          notes, created_by, created_at, updated_at, deleted_at, sync_status
+        ) VALUES (
+          @id, @academicSessionId, @className, @section, @subjectId, @subjectName,
+          @teacherEmployeeId, @teacherName, @title, @description, @provider,
+          @meetingUrl, @meetingId, @startAt, @endAt, @status, @recordingUrl,
+          @notes, @createdBy, @createdAt, @updatedAt, NULL, 'pending'
+        )
+      `).run({
+        id,
+        academicSessionId: optionalText(input.academicSessionId),
+        className: optionalText(input.className),
+        section: optionalText(input.section),
+        subjectId: subject?.id ?? "",
+        subjectName: subject?.name ?? optionalText(input.subjectName),
+        teacherEmployeeId: teacher?.id ?? "",
+        teacherName: teacher?.name ?? optionalText(input.teacherName),
+        title: requiredText(input.title, "Live class title"),
+        description: optionalText(input.description),
+        provider: optionalText(input.provider) || "Other",
+        meetingUrl: validateMeetingUrl(input.meetingUrl),
+        meetingId: optionalText(input.meetingId),
+        startAt,
+        endAt,
+        status: normalizeNamedStatus(input.status, LIVE_CLASS_STATUSES, "Draft", "Live class"),
+        recordingUrl: input.recordingUrl ? validateMeetingUrl(input.recordingUrl) : "",
+        notes: optionalText(input.notes),
+        createdBy: optionalText(input.createdBy),
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+      insertAuditLog(input.auditUser, "Live class created", "Live Class", `Created "${input.title}".`);
+      return this.getLiveClass(id);
+    },
+
+    updateLiveClass(id, input = {}) {
+      const existing = db
+        .prepare("SELECT * FROM live_classes WHERE id = ? AND deleted_at IS NULL")
+        .get(requiredText(id, "Live class id"));
+      if (!existing) throw new Error("Live class was not found.");
+      const next = {
+        ...liveClassFromRow(existing),
+        ...input,
+      };
+      const startAt =
+        input.startAt === undefined ? existing.start_at : normalizeDateTime(input.startAt, "Start time");
+      const endAt =
+        input.endAt === undefined ? existing.end_at : normalizeDateTime(input.endAt, "End time");
+      if (endAt <= startAt) throw new Error("End time must be after start time.");
+      const timestamp = now();
+      db.prepare(`
+        UPDATE live_classes
+        SET class_name = @className,
+            section = @section,
+            subject_id = @subjectId,
+            subject_name = @subjectName,
+            teacher_employee_id = @teacherEmployeeId,
+            teacher_name = @teacherName,
+            title = @title,
+            description = @description,
+            provider = @provider,
+            meeting_url = @meetingUrl,
+            meeting_id = @meetingId,
+            start_at = @startAt,
+            end_at = @endAt,
+            status = @status,
+            recording_url = @recordingUrl,
+            notes = @notes,
+            updated_at = @updatedAt,
+            sync_status = 'pending'
+        WHERE id = @id AND deleted_at IS NULL
+      `).run({
+        id: existing.id,
+        className: optionalText(next.className),
+        section: optionalText(next.section),
+        subjectId: optionalText(next.subjectId),
+        subjectName: optionalText(next.subjectName),
+        teacherEmployeeId: optionalText(next.teacherEmployeeId),
+        teacherName: optionalText(next.teacherName),
+        title: requiredText(next.title, "Live class title"),
+        description: optionalText(next.description),
+        provider: optionalText(next.provider) || "Other",
+        meetingUrl: validateMeetingUrl(next.meetingUrl),
+        meetingId: optionalText(next.meetingId),
+        startAt,
+        endAt,
+        status: normalizeNamedStatus(next.status, LIVE_CLASS_STATUSES, existing.status, "Live class"),
+        recordingUrl: next.recordingUrl ? validateMeetingUrl(next.recordingUrl) : "",
+        notes: optionalText(next.notes),
+        updatedAt: timestamp,
+      });
+      insertAuditLog(input.auditUser, "Live class updated", "Live Class", `Updated "${next.title}".`);
+      return this.getLiveClass(existing.id);
+    },
+
+    setLiveClassStatus(id, status, auditUser = null) {
+      const nextStatus = normalizeNamedStatus(status, LIVE_CLASS_STATUSES, "Draft", "Live class");
+      const timestamp = now();
+      db.prepare(`
+        UPDATE live_classes
+        SET status = ?, updated_at = ?, sync_status = 'pending'
+        WHERE id = ? AND deleted_at IS NULL
+      `).run(nextStatus, timestamp, requiredText(id, "Live class id"));
+      insertAuditLog(auditUser, `Live class ${nextStatus.toLowerCase()}`, "Live Class", `Status set to ${nextStatus}.`);
+      return this.getLiveClass(id);
+    },
+
+    saveLiveClassAttendance(liveClassId, records = [], auditUser = null) {
+      if (!Array.isArray(records)) throw new Error("Attendance records must be an array.");
+      const liveClass = this.getLiveClass(liveClassId);
+      if (!liveClass) throw new Error("Live class was not found.");
+      const timestamp = now();
+      db.transaction(() => {
+        records.forEach((input) => {
+          const student = getStudentRowRequired(input.studentId);
+          db.prepare(`
+            INSERT INTO live_class_attendance (
+              id, live_class_id, student_id, student_name, joined_at, left_at,
+              attendance_status, remarks, created_at, updated_at, sync_status
+            ) VALUES (
+              @id, @liveClassId, @studentId, @studentName, @joinedAt, @leftAt,
+              @attendanceStatus, @remarks, @createdAt, @updatedAt, 'pending'
+            )
+            ON CONFLICT(id) DO UPDATE SET
+              joined_at = excluded.joined_at,
+              left_at = excluded.left_at,
+              attendance_status = excluded.attendance_status,
+              remarks = excluded.remarks,
+              updated_at = excluded.updated_at,
+              sync_status = 'pending'
+          `).run({
+            id: optionalText(input.id) || crypto.randomUUID(),
+            liveClassId: liveClass.id,
+            studentId: student.id,
+            studentName: student.name,
+            joinedAt: optionalText(input.joinedAt),
+            leftAt: optionalText(input.leftAt),
+            attendanceStatus: optionalText(input.attendanceStatus) || "Present",
+            remarks: optionalText(input.remarks),
+            createdAt: timestamp,
+            updatedAt: timestamp,
+          });
+        });
+      })();
+      insertAuditLog(auditUser, "Live class attendance updated", "Live Class", `Updated ${records.length} attendance row(s).`);
+      return this.getLiveClass(liveClass.id);
+    },
+
+    getStoreCategories() {
+      return db
+        .prepare("SELECT * FROM store_categories WHERE deleted_at IS NULL ORDER BY name COLLATE NOCASE")
+        .all()
+        .map(storeCategoryFromRow);
+    },
+
+    saveStoreCategory(input = {}) {
+      const timestamp = now();
+      const id = optionalText(input.id) || crypto.randomUUID();
+      db.prepare(`
+        INSERT INTO store_categories (
+          id, name, description, status, created_at, updated_at, deleted_at, sync_status
+        ) VALUES (
+          @id, @name, @description, @status, @createdAt, @updatedAt, NULL, 'pending'
+        )
+        ON CONFLICT(id) DO UPDATE SET
+          name = excluded.name,
+          description = excluded.description,
+          status = excluded.status,
+          updated_at = excluded.updated_at,
+          sync_status = 'pending'
+      `).run({
+        id,
+        name: requiredText(input.name, "Category name"),
+        description: optionalText(input.description),
+        status: masterStatus(input.status),
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+      return storeCategoryFromRow(db.prepare("SELECT * FROM store_categories WHERE id = ?").get(id));
+    },
+
+    getStoreTaxRates() {
+      return db
+        .prepare("SELECT * FROM store_tax_rates WHERE deleted_at IS NULL ORDER BY name COLLATE NOCASE")
+        .all()
+        .map(storeTaxRateFromRow);
+    },
+
+    saveStoreTaxRate(input = {}) {
+      const timestamp = now();
+      const id = optionalText(input.id) || crypto.randomUUID();
+      db.prepare(`
+        INSERT INTO store_tax_rates (
+          id, name, rate, status, created_at, updated_at, deleted_at, sync_status
+        ) VALUES (
+          @id, @name, @rate, @status, @createdAt, @updatedAt, NULL, 'pending'
+        )
+        ON CONFLICT(id) DO UPDATE SET
+          name = excluded.name,
+          rate = excluded.rate,
+          status = excluded.status,
+          updated_at = excluded.updated_at,
+          sync_status = 'pending'
+      `).run({
+        id,
+        name: requiredText(input.name, "Tax rate name"),
+        rate: decimalNumber(input.rate ?? 0, "Tax rate", 0),
+        status: masterStatus(input.status),
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+      return storeTaxRateFromRow(db.prepare("SELECT * FROM store_tax_rates WHERE id = ?").get(id));
+    },
+
+    getStoreProducts(filter = {}) {
+      const query = `%${optionalText(filter.search)}%`;
+      return db
+        .prepare(`
+          SELECT *
+          FROM store_products
+          WHERE deleted_at IS NULL
+            AND (@search = '%%' OR name LIKE @search OR sku LIKE @search OR barcode LIKE @search)
+          ORDER BY name COLLATE NOCASE
+        `)
+        .all({ search: query })
+        .map(storeProductFromRow);
+    },
+
+    saveStoreProduct(input = {}) {
+      const categoryId = optionalText(input.categoryId);
+      const category = categoryId
+        ? db.prepare("SELECT * FROM store_categories WHERE id = ? AND deleted_at IS NULL").get(categoryId)
+        : null;
+      const taxRateId = optionalText(input.taxRateId);
+      const taxRate = taxRateId
+        ? db.prepare("SELECT * FROM store_tax_rates WHERE id = ? AND deleted_at IS NULL").get(taxRateId)
+        : null;
+      const timestamp = now();
+      const id = optionalText(input.id) || crypto.randomUUID();
+      const sku = optionalText(input.sku);
+      const barcode = optionalText(input.barcode);
+      if (
+        sku &&
+        db
+          .prepare(`
+            SELECT id
+            FROM store_products
+            WHERE sku = ? AND id <> ? AND deleted_at IS NULL
+          `)
+          .get(sku, id)
+      ) {
+        throw new Error("Product SKU is already in use.");
+      }
+      if (
+        barcode &&
+        db
+          .prepare(`
+            SELECT id
+            FROM store_products
+            WHERE barcode = ? AND id <> ? AND deleted_at IS NULL
+          `)
+          .get(barcode, id)
+      ) {
+        throw new Error("Product barcode is already in use.");
+      }
+      db.prepare(`
+        INSERT INTO store_products (
+          id, category_id, category_name, tax_rate_id, tax_rate_name, tax_rate,
+          sku, barcode, name, description, price, cost_price, current_stock,
+          minimum_stock, status, image_path, created_at, updated_at,
+          deleted_at, sync_status
+        ) VALUES (
+          @id, @categoryId, @categoryName, @taxRateId, @taxRateName, @taxRate,
+          @sku, @barcode, @name, @description, @price, @costPrice, @currentStock,
+          @minimumStock, @status, @imagePath, @createdAt, @updatedAt,
+          NULL, 'pending'
+        )
+        ON CONFLICT(id) DO UPDATE SET
+          category_id = excluded.category_id,
+          category_name = excluded.category_name,
+          tax_rate_id = excluded.tax_rate_id,
+          tax_rate_name = excluded.tax_rate_name,
+          tax_rate = excluded.tax_rate,
+          sku = excluded.sku,
+          barcode = excluded.barcode,
+          name = excluded.name,
+          description = excluded.description,
+          price = excluded.price,
+          cost_price = excluded.cost_price,
+          minimum_stock = excluded.minimum_stock,
+          status = excluded.status,
+          image_path = excluded.image_path,
+          updated_at = excluded.updated_at,
+          sync_status = 'pending'
+      `).run({
+        id,
+        categoryId: category?.id ?? "",
+        categoryName: category?.name ?? optionalText(input.categoryName),
+        taxRateId: taxRate?.id ?? "",
+        taxRateName: taxRate?.name ?? "",
+        taxRate: Number(taxRate?.rate ?? input.taxRate ?? 0),
+        sku,
+        barcode,
+        name: requiredText(input.name, "Product name"),
+        description: optionalText(input.description),
+        price: normalizeMoney(input.price, "Price"),
+        costPrice: normalizeMoney(input.costPrice, "Cost price"),
+        currentStock: normalizeMoney(input.currentStock, "Current stock"),
+        minimumStock: normalizeMoney(input.minimumStock, "Minimum stock"),
+        status: masterStatus(input.status),
+        imagePath: optionalText(input.imagePath),
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+      return storeProductFromRow(db.prepare("SELECT * FROM store_products WHERE id = ?").get(id));
+    },
+
+    createStoreInventoryTransaction(input = {}, actor = null) {
+      const quantity = wholeNumber(input.quantity, "Quantity", 1);
+      const type = requiredText(input.transactionType, "Transaction type");
+      if (!INVENTORY_TRANSACTION_TYPES.has(type) || type === "Sale" || type === "Sale Reversal") {
+        throw new Error("Use POS sale and reversal workflows for sale stock movements.");
+      }
+      const sign = ["Adjustment Decrease", "Damage"].includes(type) ? -1 : 1;
+      applyStockChange(input.productId, sign * quantity, {
+        transactionType: type,
+        notes: input.notes,
+        transactionDate: input.transactionDate,
+        createdBy: actor?.name ?? "",
+      });
+      insertAuditLog(actor, "Store stock transaction", "Store", `${type} ${quantity} item(s).`);
+      return this.getStoreProducts({}).find((product) => product.id === input.productId);
+    },
+
+    getStoreInventoryLedger(filter = {}) {
+      return db
+        .prepare(`
+          SELECT tx.*, product.name AS product_name, product.sku
+          FROM store_inventory_transactions tx
+          JOIN store_products product ON product.id = tx.product_id
+          WHERE (@productId = '' OR tx.product_id = @productId)
+          ORDER BY tx.transaction_date DESC, tx.created_at DESC
+        `)
+        .all({ productId: optionalText(filter.productId) })
+        .map(storeInventoryTransactionFromRow);
+    },
+
+    getStoreOrders(filter = {}) {
+      const rows = db
+        .prepare(`
+          SELECT *
+          FROM store_orders
+          WHERE (@status = '' OR status = @status)
+          ORDER BY order_date DESC, created_at DESC
+        `)
+        .all({ status: optionalText(filter.status) });
+      return rows.map((row) => getStoreOrderInternal(row.id));
+    },
+
+    createStoreOrder(input = {}, actor = null) {
+      const items = Array.isArray(input.items) ? input.items : [];
+      const payments = Array.isArray(input.payments) ? input.payments : [];
+      if (items.length === 0) throw new Error("Add at least one product to the sale.");
+      const status = normalizeNamedStatus(input.status, STORE_ORDER_STATUSES, "Completed", "Store order");
+      const session =
+        status === "Completed"
+          ? requireOpenStorePosSession(input.posSessionId, actor)
+          : null;
+      let createdId = "";
+      db.transaction(() => {
+        const timestamp = now();
+        const normalizedItems = items.map((item) => {
+          const product = db
+            .prepare("SELECT * FROM store_products WHERE id = ? AND deleted_at IS NULL")
+            .get(requiredText(item.productId, "Product"));
+          if (!product || product.status !== "Active") {
+            throw new Error("Select an active product.");
+          }
+          const quantity = wholeNumber(item.quantity, "Quantity", 1);
+          const unitPrice = normalizeMoney(item.unitPrice ?? product.price, "Unit price");
+          const discountAmount = normalizeMoney(item.discountAmount ?? 0, "Item discount");
+          const gross = quantity * unitPrice;
+          if (discountAmount > gross) throw new Error("Item discount cannot exceed line amount.");
+          const taxRate = Number(product.tax_rate ?? 0);
+          const taxable = gross - discountAmount;
+          const taxAmount = Math.round((taxable * taxRate) / 100);
+          return {
+            product,
+            quantity,
+            unitPrice,
+            discountAmount,
+            taxRate,
+            taxAmount,
+            lineTotal: taxable + taxAmount,
+          };
+        });
+        const subtotal = normalizedItems.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+        const itemDiscount = normalizedItems.reduce((sum, item) => sum + item.discountAmount, 0);
+        const discountAmount = itemDiscount + normalizeMoney(input.discountAmount ?? 0, "Overall discount");
+        const taxAmount = normalizedItems.reduce((sum, item) => sum + item.taxAmount, 0);
+        const grandTotal = subtotal - discountAmount + taxAmount;
+        if (grandTotal < 0) throw new Error("Order total cannot be negative.");
+        const { normalizedPayments, paidAmount } = validateStorePaymentTotals(
+          status,
+          payments,
+          grandTotal,
+        );
+        const id = crypto.randomUUID();
+        createdId = id;
+        db.prepare(`
+          INSERT INTO store_orders (
+            id, order_no, pos_session_id, customer_id, student_id, customer_name,
+            order_date, subtotal, discount_amount, tax_amount, grand_total,
+            paid_amount, balance_amount, status, notes, created_by, created_at,
+            updated_at, held_at, sync_status
+          ) VALUES (
+            @id, @orderNo, @posSessionId, @customerId, @studentId, @customerName,
+            @orderDate, @subtotal, @discountAmount, @taxAmount, @grandTotal,
+            @paidAmount, @balanceAmount, @status, @notes, @createdBy, @createdAt,
+            @updatedAt, @heldAt, 'pending'
+          )
+        `).run({
+          id,
+          orderNo: nextNumber("POS", "store_orders", "order_no"),
+          posSessionId: session?.id ?? optionalText(input.posSessionId),
+          customerId: optionalText(input.customerId),
+          studentId: optionalText(input.studentId),
+          customerName: optionalText(input.customerName) || "Walk-in Customer",
+          orderDate: normalizeDate(input.orderDate ?? now().slice(0, 10), "Order date"),
+          subtotal,
+          discountAmount,
+          taxAmount,
+          grandTotal,
+          paidAmount,
+          balanceAmount: grandTotal - paidAmount,
+          status,
+          notes: optionalText(input.notes),
+          createdBy: actor?.name ?? "",
+          createdAt: timestamp,
+          updatedAt: timestamp,
+          heldAt: status === "Held" ? timestamp : null,
+        });
+        const insertItem = db.prepare(`
+          INSERT INTO store_order_items (
+            id, order_id, product_id, variant_id, sku, product_name, quantity,
+            unit_price, discount_amount, tax_rate, tax_amount, line_total,
+            created_at, sync_status
+          ) VALUES (
+            @id, @orderId, @productId, '', @sku, @productName, @quantity,
+            @unitPrice, @discountAmount, @taxRate, @taxAmount, @lineTotal,
+            @createdAt, 'pending'
+          )
+        `);
+        normalizedItems.forEach((item) => {
+          insertItem.run({
+            id: crypto.randomUUID(),
+            orderId: id,
+            productId: item.product.id,
+            sku: item.product.sku ?? "",
+            productName: item.product.name,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            discountAmount: item.discountAmount,
+            taxRate: item.taxRate,
+            taxAmount: item.taxAmount,
+            lineTotal: item.lineTotal,
+            createdAt: timestamp,
+          });
+          if (status === "Completed") {
+            applyStockChange(item.product.id, -item.quantity, {
+              transactionType: "Sale",
+              referenceType: "Store Order",
+              referenceId: id,
+              transactionDate: input.orderDate ?? now().slice(0, 10),
+              createdBy: actor?.name ?? "",
+            });
+          }
+        });
+        const insertPayment = db.prepare(`
+          INSERT INTO store_payments (
+            id, order_id, payment_mode, amount, reference_no, payment_date,
+            created_at, sync_status
+          ) VALUES (
+            @id, @orderId, @paymentMode, @amount, @referenceNo, @paymentDate,
+            @createdAt, 'pending'
+          )
+        `);
+        normalizedPayments.forEach((payment) => {
+          insertPayment.run({
+            id: crypto.randomUUID(),
+            orderId: id,
+            paymentMode: payment.paymentMode,
+            amount: payment.amount,
+            referenceNo: optionalText(payment.referenceNo),
+            paymentDate: payment.paymentDate,
+            createdAt: timestamp,
+          });
+        });
+        if (status === "Completed") {
+          const accounting = postStoreOrderAccountingInternal(id, actor);
+          insertAuditLog(
+            actor,
+            "POS accounting entry posted",
+            "Store",
+            `Posted ${accounting.postedCount} account transaction(s) for sale ${id}.`,
+          );
+        }
+      })();
+      insertAuditLog(
+        actor,
+        status === "Held" ? "Held order created" : "POS sale completed",
+        "Store",
+        `${status === "Held" ? "Held order" : "Created sale"} ${createdId}.`,
+      );
+      return getStoreOrderInternal(createdId);
+    },
+
+    reverseStoreOrder(id, reason, actor = null) {
+      const order = getStoreOrderInternal(id);
+      if (!order) throw new Error("Store order was not found.");
+      if (order.status !== "Completed") {
+        throw new Error("Only completed sales can be reversed.");
+      }
+      if (order.reversedAt) {
+        throw new Error("This sale has already been reversed.");
+      }
+      const reversalReason = requiredText(reason, "Reversal reason");
+      const timestamp = now();
+      db.transaction(() => {
+        order.items.forEach((item) => {
+          applyStockChange(item.productId, item.quantity, {
+            transactionType: "Sale Reversal",
+            referenceType: "Store Order",
+            referenceId: order.id,
+            notes: reversalReason,
+            transactionDate: timestamp.slice(0, 10),
+            createdBy: actor?.name ?? "",
+          });
+        });
+        db.prepare(`
+          UPDATE store_orders
+          SET status = 'Reversed',
+              reversed_at = @reversedAt,
+              reversed_by = @reversedBy,
+              reversal_reason = @reason,
+              updated_at = @updatedAt,
+              sync_status = 'pending'
+          WHERE id = @id AND status = 'Completed' AND reversed_at IS NULL
+        `).run({
+          id: order.id,
+          reversedAt: timestamp,
+          reversedBy: actor?.name ?? "",
+          reason: reversalReason,
+            updatedAt: timestamp,
+        });
+        const accounting = postStoreOrderReversalAccountingInternal(order.id, actor);
+        insertAuditLog(
+          actor,
+          "POS accounting reversal posted",
+          "Store",
+          `Posted ${accounting.postedCount} reversing account transaction(s) for ${order.orderNo}.`,
+        );
+      })();
+      insertAuditLog(actor, "POS sale reversed", "Store", `Reversed ${order.orderNo}.`);
+      return getStoreOrderInternal(order.id);
+    },
+
+    getStoreAccountMappings() {
+      ensureStorePosAccountMappingDefaults();
+      return db
+        .prepare(`
+          SELECT *
+          FROM store_pos_account_mappings
+          WHERE deleted_at IS NULL
+          ORDER BY
+            CASE mapping_key
+              WHEN 'sales_income' THEN 1
+              WHEN 'cash_income' THEN 2
+              WHEN 'upi_income' THEN 3
+              WHEN 'card_income' THEN 4
+              WHEN 'reversal_expense' THEN 5
+              ELSE 99
+            END
+        `)
+        .all()
+        .map(storePosAccountMappingFromRow);
+    },
+
+    saveStoreAccountMapping(input = {}, actor = null) {
+      const mappingKey = requiredText(input.mappingKey, "Mapping");
+      const config = STORE_POS_ACCOUNT_MAPPINGS[mappingKey];
+      if (!config) throw new Error("Store/POS account mapping is invalid.");
+      const categoryId = requiredText(input.accountCategoryId, "Account category");
+      const category = db
+        .prepare(`
+          SELECT *
+          FROM account_categories
+          WHERE id = ?
+            AND type = ?
+            AND status = 'Active'
+            AND deleted_at IS NULL
+        `)
+        .get(categoryId, config.accountType);
+      if (!category) {
+        throw new Error(`Select an active ${config.accountType.toLowerCase()} category.`);
+      }
+      const timestamp = now();
+      const existing = db
+        .prepare("SELECT id FROM store_pos_account_mappings WHERE mapping_key = ?")
+        .get(mappingKey);
+      const id = existing?.id ?? crypto.randomUUID();
+      db.prepare(`
+        INSERT INTO store_pos_account_mappings (
+          id, mapping_key, label, account_category_id, account_category_name,
+          account_type, status, created_at, updated_at, deleted_at, sync_status
+        ) VALUES (
+          @id, @mappingKey, @label, @accountCategoryId, @accountCategoryName,
+          @accountType, @status, @createdAt, @updatedAt, NULL, 'pending'
+        )
+        ON CONFLICT(mapping_key) DO UPDATE SET
+          label = excluded.label,
+          account_category_id = excluded.account_category_id,
+          account_category_name = excluded.account_category_name,
+          account_type = excluded.account_type,
+          status = excluded.status,
+          updated_at = excluded.updated_at,
+          deleted_at = NULL,
+          sync_status = 'pending'
+      `).run({
+        id,
+        mappingKey,
+        label: config.label,
+        accountCategoryId: category.id,
+        accountCategoryName: category.name,
+        accountType: config.accountType,
+        status: masterStatus(input.status),
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+      insertAuditLog(
+        actor,
+        "POS account mapping changed",
+        "Store",
+        `Updated ${config.label}.`,
+      );
+      return this.getStoreAccountMappings().find(
+        (mapping) => mapping.mappingKey === mappingKey,
+      );
+    },
+
+    openStorePosSession(input = {}, actor = null) {
+      const actorId = requiredText(actor?.id, "Cashier user");
+      const duplicate = db
+        .prepare(`
+          SELECT id
+          FROM store_pos_sessions
+          WHERE cashier_user_id = ?
+            AND status = 'Open'
+          LIMIT 1
+        `)
+        .get(actorId);
+      if (duplicate) {
+        throw new Error("This cashier already has an open POS session.");
+      }
+      const timestamp = now();
+      const id = crypto.randomUUID();
+      db.prepare(`
+        INSERT INTO store_pos_sessions (
+          id, session_no, cashier_user_id, username, display_name, cashier_name,
+          opened_at, opening_cash, closing_cash, expected_cash, counted_cash,
+          cash_variance, status, notes, created_at, updated_at, sync_status
+        ) VALUES (
+          @id, @sessionNo, @cashierUserId, @username, @displayName, @cashierName,
+          @openedAt, @openingCash, 0, 0, 0, 0, 'Open', @notes,
+          @createdAt, @updatedAt, 'pending'
+        )
+      `).run({
+        id,
+        sessionNo: nextNumber("CS", "store_pos_sessions", "session_no"),
+        cashierUserId: actorId,
+        username: optionalText(actor?.username),
+        displayName: optionalText(actor?.name),
+        cashierName: optionalText(actor?.name),
+        openedAt: timestamp,
+        openingCash: normalizeMoney(input.openingCash ?? 0, "Opening cash"),
+        notes: optionalText(input.notes),
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+      insertAuditLog(actor, "Cashier session opened", "Store", `Opened session ${id}.`);
+      return this.getStorePosSessionSummary(id);
+    },
+
+    getCurrentStorePosSession(actor = null) {
+      const actorId = optionalText(actor?.id);
+      if (!actorId) return null;
+      const row = db
+        .prepare(`
+          SELECT *
+          FROM store_pos_sessions
+          WHERE cashier_user_id = ?
+            AND status = 'Open'
+          ORDER BY opened_at DESC
+          LIMIT 1
+        `)
+        .get(actorId);
+      return row ? this.getStorePosSessionSummary(row.id) : null;
+    },
+
+    getStorePosSessions(filter = {}, actor = null) {
+      const status = optionalText(filter.status);
+      if (status && !["Open", "Closed"].includes(status)) {
+        throw new Error("Cashier session status is invalid.");
+      }
+      const userId =
+        !["Owner", "Admin"].includes(actor?.role) && actor?.id
+          ? actor.id
+          : optionalText(filter.userId);
+      return db
+        .prepare(`
+          SELECT *
+          FROM store_pos_sessions
+          WHERE (@status = '' OR status = @status)
+            AND (@userId = '' OR cashier_user_id = @userId)
+          ORDER BY opened_at DESC
+        `)
+        .all({ status, userId: optionalText(userId) })
+        .map((row) => this.getStorePosSessionSummary(row.id));
+    },
+
+    getStorePosSessionSummary(id) {
+      return summarizeStorePosSession(id);
+    },
+
+    closeStorePosSession(id, input = {}, actor = null) {
+      const session = db
+        .prepare("SELECT * FROM store_pos_sessions WHERE id = ?")
+        .get(requiredText(id, "Cashier session id"));
+      if (!session) throw new Error("Cashier session was not found.");
+      if (session.status !== "Open") {
+        throw new Error("Closed cashier sessions cannot be changed.");
+      }
+      if (
+        session.cashier_user_id !== actor?.id &&
+        !["Owner", "Admin"].includes(actor?.role)
+      ) {
+        throw new Error("You can close only your own cashier session.");
+      }
+      const summary = summarizeStorePosSession(session.id);
+      const countedCash = normalizeMoney(input.countedCash ?? 0, "Counted cash");
+      const timestamp = now();
+      db.prepare(`
+        UPDATE store_pos_sessions
+        SET closed_at = @closedAt,
+            closing_cash = @countedCash,
+            expected_cash = @expectedCash,
+            counted_cash = @countedCash,
+            cash_variance = @cashVariance,
+            status = 'Closed',
+            notes = @notes,
+            updated_at = @updatedAt,
+            sync_status = 'pending'
+        WHERE id = @id AND status = 'Open'
+      `).run({
+        id: session.id,
+        closedAt: timestamp,
+        countedCash,
+        expectedCash: summary.expectedCash,
+        cashVariance: countedCash - summary.expectedCash,
+        notes: optionalText(input.notes),
+        updatedAt: timestamp,
+      });
+      insertAuditLog(
+        actor,
+        "Cashier session closed",
+        "Store",
+        `Closed session ${session.session_no}.`,
+      );
+      return this.getStorePosSessionSummary(session.id);
+    },
+
+    resumeHeldStoreOrder(id, input = {}, actor = null) {
+      const existing = getStoreOrderInternal(id);
+      if (!existing) throw new Error("Held order was not found.");
+      if (!["Held", "Draft"].includes(existing.status)) {
+        throw new Error("Only held POS orders can be resumed.");
+      }
+      const items = Array.isArray(input.items) && input.items.length > 0
+        ? input.items
+        : existing.items;
+      const payments = Array.isArray(input.payments) ? input.payments : [];
+      const session = requireOpenStorePosSession(input.posSessionId, actor);
+      let completedOrder = null;
+      db.transaction(() => {
+        const timestamp = now();
+        const normalizedItems = items.map((item) => {
+          const product = db
+            .prepare("SELECT * FROM store_products WHERE id = ? AND deleted_at IS NULL")
+            .get(requiredText(item.productId, "Product"));
+          if (!product || product.status !== "Active") {
+            throw new Error("Select an active product.");
+          }
+          const quantity = wholeNumber(item.quantity, "Quantity", 1);
+          const unitPrice = normalizeMoney(item.unitPrice ?? product.price, "Unit price");
+          const discountAmount = normalizeMoney(item.discountAmount ?? 0, "Item discount");
+          const gross = quantity * unitPrice;
+          if (discountAmount > gross) throw new Error("Item discount cannot exceed line amount.");
+          const taxRate = Number(product.tax_rate ?? 0);
+          const taxable = gross - discountAmount;
+          const taxAmount = Math.round((taxable * taxRate) / 100);
+          return {
+            product,
+            quantity,
+            unitPrice,
+            discountAmount,
+            taxRate,
+            taxAmount,
+            lineTotal: taxable + taxAmount,
+          };
+        });
+        const subtotal = normalizedItems.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+        const itemDiscount = normalizedItems.reduce((sum, item) => sum + item.discountAmount, 0);
+        const previousOverallDiscount = Math.max(
+          0,
+          Number(existing.discountAmount ?? 0) - itemDiscount,
+        );
+        const discountAmount =
+          itemDiscount +
+          normalizeMoney(
+            input.discountAmount ?? previousOverallDiscount,
+            "Overall discount",
+          );
+        const taxAmount = normalizedItems.reduce((sum, item) => sum + item.taxAmount, 0);
+        const grandTotal = subtotal - discountAmount + taxAmount;
+        if (grandTotal < 0) throw new Error("Order total cannot be negative.");
+        const { normalizedPayments, paidAmount } = validateStorePaymentTotals(
+          "Completed",
+          payments,
+          grandTotal,
+        );
+        db.prepare("DELETE FROM store_order_items WHERE order_id = ?").run(existing.id);
+        db.prepare("DELETE FROM store_payments WHERE order_id = ?").run(existing.id);
+        db.prepare(`
+          UPDATE store_orders
+          SET pos_session_id = @posSessionId,
+              customer_id = @customerId,
+              student_id = @studentId,
+              customer_name = @customerName,
+              order_date = @orderDate,
+              subtotal = @subtotal,
+              discount_amount = @discountAmount,
+              tax_amount = @taxAmount,
+              grand_total = @grandTotal,
+              paid_amount = @paidAmount,
+              balance_amount = @balanceAmount,
+              status = 'Completed',
+              notes = @notes,
+              updated_at = @updatedAt,
+              sync_status = 'pending'
+          WHERE id = @id AND status IN ('Held', 'Draft')
+        `).run({
+          id: existing.id,
+          posSessionId: session.id,
+          customerId: optionalText(input.customerId) || existing.customerId,
+          studentId: optionalText(input.studentId) || existing.studentId,
+          customerName: optionalText(input.customerName) || existing.customerName || "Walk-in Customer",
+          orderDate: normalizeDate(input.orderDate ?? now().slice(0, 10), "Order date"),
+          subtotal,
+          discountAmount,
+          taxAmount,
+          grandTotal,
+          paidAmount,
+          balanceAmount: grandTotal - paidAmount,
+          notes: optionalText(input.notes) || existing.notes,
+          updatedAt: timestamp,
+        });
+        const insertItem = db.prepare(`
+          INSERT INTO store_order_items (
+            id, order_id, product_id, variant_id, sku, product_name, quantity,
+            unit_price, discount_amount, tax_rate, tax_amount, line_total,
+            created_at, sync_status
+          ) VALUES (
+            @id, @orderId, @productId, '', @sku, @productName, @quantity,
+            @unitPrice, @discountAmount, @taxRate, @taxAmount, @lineTotal,
+            @createdAt, 'pending'
+          )
+        `);
+        normalizedItems.forEach((item) => {
+          insertItem.run({
+            id: crypto.randomUUID(),
+            orderId: existing.id,
+            productId: item.product.id,
+            sku: item.product.sku ?? "",
+            productName: item.product.name,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            discountAmount: item.discountAmount,
+            taxRate: item.taxRate,
+            taxAmount: item.taxAmount,
+            lineTotal: item.lineTotal,
+            createdAt: timestamp,
+          });
+          applyStockChange(item.product.id, -item.quantity, {
+            transactionType: "Sale",
+            referenceType: "Store Order",
+            referenceId: existing.id,
+            transactionDate: input.orderDate ?? now().slice(0, 10),
+            createdBy: actor?.name ?? "",
+          });
+        });
+        const insertPayment = db.prepare(`
+          INSERT INTO store_payments (
+            id, order_id, payment_mode, amount, reference_no, payment_date,
+            created_at, sync_status
+          ) VALUES (
+            @id, @orderId, @paymentMode, @amount, @referenceNo, @paymentDate,
+            @createdAt, 'pending'
+          )
+        `);
+        normalizedPayments.forEach((payment) => {
+          insertPayment.run({
+            id: crypto.randomUUID(),
+            orderId: existing.id,
+            paymentMode: payment.paymentMode,
+            amount: payment.amount,
+            referenceNo: optionalText(payment.referenceNo),
+            paymentDate: payment.paymentDate,
+            createdAt: timestamp,
+          });
+        });
+        completedOrder = getStoreOrderInternal(existing.id);
+        const accounting = postStoreOrderAccountingInternal(existing.id, actor);
+        insertAuditLog(
+          actor,
+          "Held order resumed",
+          "Store",
+          `Resumed held order ${existing.orderNo}.`,
+        );
+        insertAuditLog(
+          actor,
+          "POS accounting entry posted",
+          "Store",
+          `Posted ${accounting.postedCount} account transaction(s) for resumed sale ${existing.orderNo}.`,
+        );
+      })();
+      return completedOrder ?? getStoreOrderInternal(existing.id);
+    },
+
+    cancelHeldStoreOrder(id, reason, actor = null) {
+      const order = getStoreOrderInternal(id);
+      if (!order) throw new Error("Held order was not found.");
+      if (!["Held", "Draft"].includes(order.status)) {
+        throw new Error("Only held POS orders can be cancelled.");
+      }
+      const cancellationReason = requiredText(reason, "Cancellation reason");
+      const timestamp = now();
+      db.prepare(`
+        UPDATE store_orders
+        SET status = 'Cancelled',
+            cancelled_at = @cancelledAt,
+            cancelled_by = @cancelledBy,
+            cancellation_reason = @reason,
+            updated_at = @updatedAt,
+            sync_status = 'pending'
+        WHERE id = @id AND status IN ('Held', 'Draft')
+      `).run({
+        id: order.id,
+        cancelledAt: timestamp,
+        cancelledBy: actor?.name ?? "",
+        reason: cancellationReason,
+        updatedAt: timestamp,
+      });
+      insertAuditLog(actor, "Held order cancelled", "Store", `Cancelled ${order.orderNo}.`);
+      return getStoreOrderInternal(order.id);
+    },
+
+    postStoreOrderAccounting(id, actor = null) {
+      const result = postStoreOrderAccountingInternal(id, actor);
+      insertAuditLog(
+        actor,
+        "POS accounting entry posted",
+        "Store",
+        `Posted ${result.postedCount} account transaction(s) for POS order ${id}.`,
+      );
+      return result;
+    },
+
+    getStoreReports(filter = {}) {
+      const startDate = normalizeOptionalDate(filter.startDate, "Start date") || "0000-01-01";
+      const endDate = normalizeOptionalDate(filter.endDate, "End date") || "9999-12-31";
+      const orders = db
+        .prepare(`
+          SELECT *
+          FROM store_orders
+          WHERE order_date BETWEEN ? AND ?
+            AND status = 'Completed'
+          ORDER BY order_date DESC
+        `)
+        .all(startDate, endDate)
+        .map((row) => getStoreOrderInternal(row.id));
+      const productRows = db
+        .prepare(`
+          SELECT item.product_id, item.product_name,
+                 SUM(item.quantity) AS quantity,
+                 SUM(item.line_total) AS amount
+          FROM store_order_items item
+          JOIN store_orders orders ON orders.id = item.order_id
+          WHERE orders.order_date BETWEEN ? AND ?
+            AND orders.status = 'Completed'
+          GROUP BY item.product_id, item.product_name
+          ORDER BY amount DESC
+        `)
+        .all(startDate, endDate);
+      const lowStock = this.getStoreProducts({}).filter(
+        (product) => product.currentStock <= product.minimumStock,
+      );
+      return {
+        dailySales: orders,
+        productSales: productRows.map((row) => ({
+          productId: row.product_id,
+          productName: row.product_name,
+          quantity: Number(row.quantity ?? 0),
+          amount: Number(row.amount ?? 0),
+        })),
+        paymentSummary: paymentsSummaryForOrders(orders),
+        lowStock,
+        stockValuation: this.getStoreProducts({}).reduce(
+          (total, product) => total + product.currentStock * product.costPrice,
+          0,
+        ),
+      };
+    },
+
     createAuditLog(user, action, module, details = "") {
       return insertAuditLog(user, action, module, details);
     },
@@ -21341,6 +24588,10 @@ function createDatabase(databasePath) {
         `)
         .all(safeLimit)
         .map(auditLogFromRow);
+    },
+
+    getDatabaseUserVersion() {
+      return Number(db.pragma("user_version", { simple: true }) ?? 0);
     },
 
     backupTo(destinationPath) {

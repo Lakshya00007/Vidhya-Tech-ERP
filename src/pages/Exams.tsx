@@ -3,6 +3,8 @@ import { Icon, type IconName } from '../components/Icon'
 import { getErpApi, getErrorMessage } from '../lib/erpApi'
 import type {
   ClassItem,
+  AcademicSession,
+  Employee,
   Exam,
   SchoolSettings,
   SectionItem,
@@ -13,15 +15,33 @@ import { ExamsSetupTab } from './exams/ExamsSetupTab'
 import { MarksEntryTab } from './exams/MarksEntryTab'
 import { MarksheetTab } from './exams/MarksheetTab'
 import { SubjectsTab } from './exams/SubjectsTab'
+import {
+  BlankAwardListTab,
+  DateSheetTab,
+  ExamScheduleTab,
+  ResultSheetTab,
+} from './exams/ExamOperationalTabs'
 import type { ExamNotice } from './exams/types'
 
-export type ExamTab = 'subjects' | 'exams' | 'marks' | 'marksheet'
+export type ExamTab =
+  | 'subjects'
+  | 'exams'
+  | 'marks'
+  | 'marksheet'
+  | 'schedule'
+  | 'date-sheet'
+  | 'result-sheet'
+  | 'blank-award-list'
 
 const tabs: { id: ExamTab; label: string; icon: IconName }[] = [
   { id: 'subjects', label: 'Subjects', icon: 'exams' },
   { id: 'exams', label: 'Exams', icon: 'calendar' },
+  { id: 'schedule', label: 'Exam Schedule', icon: 'calendar' },
+  { id: 'date-sheet', label: 'Date Sheet', icon: 'reports' },
   { id: 'marks', label: 'Marks Entry', icon: 'edit' },
   { id: 'marksheet', label: 'Marksheet', icon: 'reports' },
+  { id: 'result-sheet', label: 'Result Sheet', icon: 'reports' },
+  { id: 'blank-award-list', label: 'Blank Award List', icon: 'print' },
 ]
 
 const fallbackSettings: SchoolSettings = {
@@ -45,6 +65,8 @@ export function Exams({ initialTab = 'subjects' }: ExamsProps) {
   const [classes, setClasses] = useState<ClassItem[]>([])
   const [sections, setSections] = useState<SectionItem[]>([])
   const [students, setStudents] = useState<Student[]>([])
+  const [academicSessions, setAcademicSessions] = useState<AcademicSession[]>([])
+  const [employees, setEmployees] = useState<Employee[]>([])
   const [subjects, setSubjects] = useState<Subject[]>([])
   const [exams, setExams] = useState<Exam[]>([])
   const [settings, setSettings] = useState<SchoolSettings>(fallbackSettings)
@@ -63,6 +85,8 @@ export function Exams({ initialTab = 'subjects' }: ExamsProps) {
           api.getStudents(),
           api.getSubjects(),
           api.getExams(),
+          api.getAcademicSessions(),
+          api.getEmployees(),
           api.getSchoolSettings(),
         ])
       })
@@ -73,6 +97,8 @@ export function Exams({ initialTab = 'subjects' }: ExamsProps) {
           studentRows,
           subjectRows,
           examRows,
+          sessionRows,
+          employeeRows,
           schoolSettings,
         ]) => {
           if (!isCurrent) return
@@ -81,6 +107,8 @@ export function Exams({ initialTab = 'subjects' }: ExamsProps) {
           setStudents(studentRows)
           setSubjects(subjectRows)
           setExams(examRows)
+          setAcademicSessions(sessionRows)
+          setEmployees(employeeRows)
           setSettings(schoolSettings)
         },
       )
@@ -181,6 +209,54 @@ export function Exams({ initialTab = 'subjects' }: ExamsProps) {
               exams={exams}
               settings={settings}
               students={students}
+              onNotice={setNotice}
+            />
+          )}
+          {activeTab === 'schedule' && (
+            <ExamScheduleTab
+              academicSessions={academicSessions}
+              classes={classes}
+              employees={employees}
+              exams={exams}
+              sections={sections}
+              settings={settings}
+              subjects={subjects}
+              onNotice={setNotice}
+            />
+          )}
+          {activeTab === 'date-sheet' && (
+            <DateSheetTab
+              academicSessions={academicSessions}
+              classes={classes}
+              employees={employees}
+              exams={exams}
+              sections={sections}
+              settings={settings}
+              subjects={subjects}
+              onNotice={setNotice}
+            />
+          )}
+          {activeTab === 'result-sheet' && (
+            <ResultSheetTab
+              academicSessions={academicSessions}
+              classes={classes}
+              employees={employees}
+              exams={exams}
+              sections={sections}
+              settings={settings}
+              subjects={subjects}
+              onNotice={setNotice}
+            />
+          )}
+          {activeTab === 'blank-award-list' && (
+            <BlankAwardListTab
+              academicSessions={academicSessions}
+              classes={classes}
+              employees={employees}
+              exams={exams}
+              sections={sections}
+              settings={settings}
+              subjects={subjects}
               onNotice={setNotice}
             />
           )}

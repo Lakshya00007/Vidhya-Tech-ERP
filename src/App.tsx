@@ -36,6 +36,7 @@ import {
 import { Fees, type FeesView } from './pages/Fees'
 import { ManageFamilies } from './pages/ManageFamilies'
 import { MessageCenter, type MessageCenterTab } from './pages/MessageCenter'
+import { LiveClass, type LiveClassView } from './pages/LiveClass'
 import { Login } from './pages/Login'
 import { QuestionPaper } from './pages/QuestionPaper'
 import { LicenseActivation } from './pages/LicenseActivation'
@@ -48,6 +49,7 @@ import { Students, type StudentListStatusFilter } from './pages/Students'
 import { StudentLoginManagement } from './pages/StudentLoginManagement'
 import { StudentPortal } from './pages/StudentPortal'
 import { StudentDocuments } from './pages/StudentDocuments'
+import { Store, type StoreView } from './pages/Store'
 import { TemporaryPasswordChange } from './pages/TemporaryPasswordChange'
 import { Timetable } from './pages/Timetable'
 import type {
@@ -371,6 +373,22 @@ function App() {
             currentUser={currentUser}
             initialTab={(activeView || 'inbox') as MessageCenterTab}
             key={`message-center-${activeView}-${navigationRevision}`}
+          />
+        )
+      case 'live-class':
+        return (
+          <LiveClass
+            currentUser={currentUser}
+            initialView={(activeView || 'schedule') as LiveClassView}
+            key={`live-class-${activeView}-${navigationRevision}`}
+          />
+        )
+      case 'store':
+        return (
+          <Store
+            currentUser={currentUser}
+            initialView={(activeView || 'dashboard') as StoreView}
+            key={`store-${activeView}-${navigationRevision}`}
           />
         )
       case 'external-communications': {

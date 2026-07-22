@@ -8,8 +8,13 @@ const { app, BrowserWindow } = require("electron");
 const {
   applyPendingDatabaseRestore,
   createBackupService,
+  createFullBackupArchive,
+  extractFullBackupArchive,
   getRestorePaths,
+  inspectBackupArchive,
   validateDatabaseFile,
+  validateFullBackupArchive,
+  _test: backupTestHelpers,
 } = require("./backup.cjs");
 const { createAuthService } = require("./auth.cjs");
 const {
@@ -632,6 +637,56 @@ app.whenReady().then(async () => {
           "deleteReportCard",
           "getClassResultSummary",
           "getResultPositions"
+        ].every((method) => typeof window.erpApi[method] === "function");
+        const releaseModuleApiAvailable = [
+          "getExamSchedules",
+          "getExamSchedule",
+          "createExamSchedule",
+          "updateExamSchedule",
+          "deleteExamSchedule",
+          "publishExamSchedule",
+          "cancelExamSchedule",
+          "completeExamSchedule",
+          "getExamScheduleEntries",
+          "saveExamScheduleEntries",
+          "detectExamScheduleConflicts",
+          "getDateSheet",
+          "getResultSheet",
+          "getBlankAwardList",
+          "getStudentProgressReport",
+          "getCustomReportDomains",
+          "previewCustomReport",
+          "getSavedReportDefinitions",
+          "saveReportDefinition",
+          "deleteReportDefinition",
+          "getLiveClasses",
+          "getLiveClass",
+          "createLiveClass",
+          "updateLiveClass",
+          "setLiveClassStatus",
+          "saveLiveClassAttendance",
+          "previewLiveClassNotification",
+          "notifyLiveClassRecipients",
+          "getStoreCategories",
+          "saveStoreCategory",
+          "getStoreTaxRates",
+          "saveStoreTaxRate",
+          "getStoreProducts",
+          "saveStoreProduct",
+          "getStoreAccountMappings",
+          "saveStoreAccountMapping",
+          "createStoreInventoryTransaction",
+          "getStoreInventoryLedger",
+          "getStoreOrders",
+          "createStoreOrder",
+          "resumeHeldStoreOrder",
+          "cancelHeldStoreOrder",
+          "reverseStoreOrder",
+          "getCurrentStorePosSession",
+          "getStorePosSessions",
+          "openStorePosSession",
+          "closeStorePosSession",
+          "getStoreReports"
         ].every((method) => typeof window.erpApi[method] === "function");
         const licenseApiAvailable = [
           "getDeviceId",
@@ -2658,6 +2713,7 @@ app.whenReady().then(async () => {
           academicSessionsApiAvailable,
           feeInvoiceApiAvailable,
           reportCardApiAvailable,
+          releaseModuleApiAvailable,
           messageApiAvailable,
           communicationApiAvailable,
           settingsPreferencesApiAvailable,
@@ -3469,6 +3525,10 @@ app.whenReady().then(async () => {
       "Marks grading and report card APIs were not exposed by the preload bridge.",
     );
     assert(
+      bridgeResult.releaseModuleApiAvailable,
+      "Release module APIs were not exposed by the preload bridge.",
+    );
+    assert(
       bridgeResult.messageApiAvailable,
       "Message Center APIs were not exposed by the preload bridge.",
     );
@@ -3969,6 +4029,534 @@ app.whenReady().then(async () => {
         bridgeResult.leftStudentInactive,
       "Academic session promotion, history, carry-forward, closure, status, report, or rollback behavior failed.",
     );
+    const smokeActor = {
+      id: "smoke-owner",
+      username: "smoke_owner",
+      name: "Smoke Test Owner",
+      role: "Owner",
+    };
+    const releaseEmployee = database.createEmployee({
+      employeeNo: "EMP-RELEASE-SMOKE",
+      name: "Release Smoke Teacher",
+      designation: "Teacher",
+      department: "Academics",
+      status: "Active",
+    });
+    const schedule = database.createExamSchedule(
+      {
+        examId: bridgeResult.examId,
+        title: "Smoke Exam Schedule",
+        startDate: "2026-07-20",
+        endDate: "2026-07-22",
+      },
+      smokeActor,
+    );
+    const savedScheduleEntries = database.saveExamScheduleEntries(
+      schedule.id,
+      [
+        {
+          className: "10",
+          section: "A",
+          subjectId: bridgeResult.subjectId,
+          examDate: "2026-07-20",
+          startTime: "09:00",
+          endTime: "10:00",
+          room: "101",
+          maximumMarks: 100,
+          passingMarks: 33,
+          invigilatorEmployeeId: releaseEmployee.id,
+        },
+      ],
+      smokeActor,
+    );
+    const scheduleConflict = database.detectExamScheduleConflicts({
+      scheduleId: schedule.id,
+      entries: [
+        savedScheduleEntries[0],
+        {
+          className: "10",
+          section: "A",
+          subjectId: bridgeResult.subjectId,
+          examDate: "2026-07-20",
+          startTime: "09:30",
+          endTime: "10:30",
+          room: "101",
+          maximumMarks: 100,
+          passingMarks: 33,
+          invigilatorEmployeeId: releaseEmployee.id,
+        },
+      ],
+    });
+    database.publishExamSchedule(schedule.id, smokeActor);
+    const dateSheet = database.getDateSheet({
+      examId: bridgeResult.examId,
+      className: "10",
+      section: "A",
+    });
+    const resultSheet = database.getResultSheet({
+      examId: bridgeResult.examId,
+      className: "10",
+      section: "A",
+    });
+    const awardList = database.getBlankAwardList({
+      examId: bridgeResult.examId,
+      className: "10",
+      section: "A",
+      subjectId: bridgeResult.subjectId,
+    });
+    const progressReport = database.getStudentProgressReport({
+      className: "10",
+      section: "A",
+    });
+    const customReportPreview = database.previewCustomReport(
+      {
+        reportDomain: "Students",
+        selectedColumns: ["admissionNo", "name", "className"],
+        filters: { className: "10" },
+      },
+      smokeActor,
+    );
+    let invalidLiveClassUrlRejected = false;
+    try {
+      database.createLiveClass({
+        title: "Invalid Live Class",
+        meetingUrl: "http://example.test/meeting",
+        startAt: "2026-07-20T09:00:00.000Z",
+        endAt: "2026-07-20T10:00:00.000Z",
+      });
+    } catch {
+      invalidLiveClassUrlRejected = true;
+    }
+    const liveClass = database.createLiveClass({
+      title: "Smoke Live Class",
+      className: "10",
+      section: "A",
+      subjectId: bridgeResult.subjectId,
+      teacherEmployeeId: releaseEmployee.id,
+      provider: "Google Meet",
+      meetingUrl: "https://meet.google.com/smoke-test",
+      startAt: "2026-07-20T09:00:00.000Z",
+      endAt: "2026-07-20T10:00:00.000Z",
+      status: "Scheduled",
+      auditUser: smokeActor,
+    });
+    const liveClassWithAttendance = database.saveLiveClassAttendance(
+      liveClass.id,
+      [
+        {
+          studentId: bridgeResult.studentId,
+          attendanceStatus: "Present",
+          remarks: "Joined",
+        },
+      ],
+      smokeActor,
+    );
+    database.createStudent({
+      admissionNo: "LIVE-DUP-001",
+      name: "Live Duplicate Phone One",
+      className: "10",
+      section: "A",
+      guardianName: "Live Guardian",
+      mobile: "9000001001",
+      status: "Active",
+      admissionDate: "2026-07-01",
+    });
+    database.createStudent({
+      admissionNo: "LIVE-DUP-002",
+      name: "Live Duplicate Phone Two",
+      className: "10",
+      section: "A",
+      guardianName: "Live Guardian",
+      mobile: "9000001001",
+      status: "Active",
+      admissionDate: "2026-07-01",
+    });
+    database.createStudent({
+      admissionNo: "LIVE-MISSING-001",
+      name: "Live Missing Phone",
+      className: "10",
+      section: "A",
+      guardianName: "Missing Phone Guardian",
+      mobile: "",
+      status: "Active",
+      admissionDate: "2026-07-01",
+    });
+    const liveNotificationRequests = [];
+    const liveNotificationServer = http.createServer((request, response) => {
+      let body = "";
+      request.on("data", (chunk) => {
+        body += chunk.toString("utf8");
+      });
+      request.on("end", () => {
+        const parsed = body ? JSON.parse(body) : {};
+        liveNotificationRequests.push({
+          url: request.url,
+          body: parsed,
+        });
+        response.writeHead(200, { "content-type": "application/json" });
+        response.end(
+          JSON.stringify({
+            batchId: `mock-live-${liveNotificationRequests.length}`,
+            totalRecipients: parsed.recipients?.length ?? 0,
+            queuedCount: parsed.recipients?.length ?? 0,
+            excluded: [],
+          }),
+        );
+      });
+    });
+    await new Promise((resolve) =>
+      liveNotificationServer.listen(0, "127.0.0.1", resolve),
+    );
+    const liveNotificationAddress = liveNotificationServer.address();
+    communicationService.configureCommunicationGateway({
+      gatewayUrl: `http://127.0.0.1:${liveNotificationAddress.port}`,
+      deviceToken: "live-class-notification-secret",
+    });
+    const liveRecipientPreview =
+      communicationService.getExternalRecipientPreview(smokeActor, {
+        audienceType: "Class students",
+        className: "10",
+        section: "A",
+      });
+    const whatsappLiveNotification =
+      await communicationService.sendExternalBatch(smokeActor, {
+        channel: "WhatsApp",
+        templateId: "mock-whatsapp-live-class",
+        title: "Live Class: Smoke Live Class",
+        audienceType: "Live Class",
+        recipients: liveRecipientPreview.candidates,
+        variables: {
+          class_name: "10",
+          subject_name: "Smoke Subject",
+          meeting_url: liveClass.meetingUrl,
+        },
+      });
+    const smsLiveNotification =
+      await communicationService.sendExternalBatch(smokeActor, {
+        channel: "SMS",
+        templateId: "mock-sms-live-class",
+        title: "Live Class: Smoke Live Class",
+        audienceType: "Live Class",
+        recipients: liveRecipientPreview.candidates,
+        variables: {
+          class_name: "10",
+          subject_name: "Smoke Subject",
+          meeting_url: liveClass.meetingUrl,
+        },
+      });
+    await new Promise((resolve) => liveNotificationServer.close(resolve));
+    const storeCategory = database.saveStoreCategory({
+      name: "Smoke Store Category",
+      status: "Active",
+    });
+    const storeProduct = database.saveStoreProduct({
+      categoryId: storeCategory.id,
+      sku: "SMOKE-POS-001",
+      name: "Smoke Product",
+      price: 100,
+      costPrice: 60,
+      minimumStock: 1,
+      status: "Active",
+    });
+    database.createStoreInventoryTransaction(
+      {
+        productId: storeProduct.id,
+        transactionType: "Opening Stock",
+        quantity: 5,
+        transactionDate: "2026-07-20",
+      },
+      smokeActor,
+    );
+    const accountMappings = database.getStoreAccountMappings();
+    const mappingReady = ["sales_income", "cash_income", "upi_income", "card_income", "reversal_expense"].every(
+      (key) => accountMappings.some((mapping) => mapping.mappingKey === key && mapping.accountCategoryId),
+    );
+    let completedSaleRequiresSession = false;
+    try {
+      database.createStoreOrder(
+        {
+          customerName: "No Session Customer",
+          orderDate: "2026-07-20",
+          status: "Completed",
+          items: [{ productId: storeProduct.id, quantity: 1, unitPrice: 100 }],
+          payments: [{ paymentMode: "Cash", amount: 100, paymentDate: "2026-07-20" }],
+        },
+        { id: "cashier-without-session", name: "No Session", role: "Accountant" },
+      );
+    } catch {
+      completedSaleRequiresSession = true;
+    }
+    const posSession = database.openStorePosSession(
+      { openingCash: 100, notes: "Smoke opening cash" },
+      smokeActor,
+    );
+    let duplicateSessionRejected = false;
+    try {
+      database.openStorePosSession({ openingCash: 0 }, smokeActor);
+    } catch {
+      duplicateSessionRejected = true;
+    }
+    const storeOrder = database.createStoreOrder(
+      {
+        customerName: "Smoke Customer",
+        posSessionId: posSession.session.id,
+        orderDate: "2026-07-20",
+        status: "Completed",
+        items: [
+          {
+            productId: storeProduct.id,
+            quantity: 2,
+            unitPrice: 100,
+            discountAmount: 0,
+          },
+        ],
+        payments: [
+          {
+            paymentMode: "Cash",
+            amount: 200,
+            paymentDate: "2026-07-20",
+          },
+        ],
+      },
+      smokeActor,
+    );
+    const stockAfterSale = database
+      .getStoreProducts({})
+      .find((item) => item.id === storeProduct.id)?.currentStock;
+    const accountTransactionsAfterSale = database.getAccountTransactions();
+    const saleAccountCount = accountTransactionsAfterSale.filter(
+      (transaction) =>
+        transaction.linkedModule === "POS Sale" &&
+        transaction.referenceNo === storeOrder.orderNo,
+    ).length;
+    database.postStoreOrderAccounting(storeOrder.id, smokeActor);
+    const saleAccountCountAfterRetry = database.getAccountTransactions().filter(
+      (transaction) =>
+        transaction.linkedModule === "POS Sale" &&
+        transaction.referenceNo === storeOrder.orderNo,
+    ).length;
+    let negativeStockRejected = false;
+    try {
+      database.createStoreOrder(
+        {
+          customerName: "Smoke Customer",
+          posSessionId: posSession.session.id,
+          orderDate: "2026-07-20",
+          status: "Completed",
+          items: [
+            {
+              productId: storeProduct.id,
+              quantity: 99,
+              unitPrice: 100,
+            },
+          ],
+          payments: [
+            {
+              paymentMode: "Cash",
+              amount: 9900,
+              paymentDate: "2026-07-20",
+            },
+          ],
+        },
+        smokeActor,
+      );
+    } catch {
+      negativeStockRejected = true;
+    }
+    const heldOrder = database.createStoreOrder(
+      {
+        customerName: "Held Smoke Customer",
+        orderDate: "2026-07-20",
+        status: "Held",
+        items: [{ productId: storeProduct.id, quantity: 1, unitPrice: 100 }],
+        payments: [],
+      },
+      smokeActor,
+    );
+    const stockAfterHold = database
+      .getStoreProducts({})
+      .find((item) => item.id === storeProduct.id)?.currentStock;
+    const accountCountAfterHold = database.getAccountTransactions().filter(
+      (transaction) => transaction.linkedModule === "POS Sale",
+    ).length;
+    const resumedOrder = database.resumeHeldStoreOrder(
+      heldOrder.id,
+      {
+        customerName: "Held Smoke Customer",
+        posSessionId: posSession.session.id,
+        orderDate: "2026-07-20",
+        items: heldOrder.items,
+        payments: [{ paymentMode: "Cash", amount: 100, paymentDate: "2026-07-20" }],
+      },
+      smokeActor,
+    );
+    let completedOrderResumeRejected = false;
+    try {
+      database.resumeHeldStoreOrder(
+        resumedOrder.id,
+        {
+          posSessionId: posSession.session.id,
+          items: resumedOrder.items,
+          payments: [{ paymentMode: "Cash", amount: 100, paymentDate: "2026-07-20" }],
+        },
+        smokeActor,
+      );
+    } catch {
+      completedOrderResumeRejected = true;
+    }
+    const heldToCancel = database.createStoreOrder(
+      {
+        customerName: "Cancel Held",
+        orderDate: "2026-07-20",
+        status: "Held",
+        items: [{ productId: storeProduct.id, quantity: 1, unitPrice: 100 }],
+        payments: [],
+      },
+      smokeActor,
+    );
+    database.cancelHeldStoreOrder(heldToCancel.id, "Smoke held cancel", smokeActor);
+    const stockAfterCancelHeld = database
+      .getStoreProducts({})
+      .find((item) => item.id === storeProduct.id)?.currentStock;
+    const upiOrder = database.createStoreOrder(
+      {
+        customerName: "UPI Customer",
+        posSessionId: posSession.session.id,
+        orderDate: "2026-07-20",
+        status: "Completed",
+        items: [{ productId: storeProduct.id, quantity: 1, unitPrice: 100 }],
+        payments: [{ paymentMode: "Manual UPI", amount: 100, paymentDate: "2026-07-20" }],
+      },
+      smokeActor,
+    );
+    const splitOrder = database.createStoreOrder(
+      {
+        customerName: "Split Customer",
+        posSessionId: posSession.session.id,
+        orderDate: "2026-07-20",
+        status: "Completed",
+        items: [{ productId: storeProduct.id, quantity: 1, unitPrice: 100 }],
+        payments: [
+          { paymentMode: "Cash", amount: 40, paymentDate: "2026-07-20" },
+          { paymentMode: "Manual UPI", amount: 60, paymentDate: "2026-07-20" },
+        ],
+      },
+      smokeActor,
+    );
+    const upiAccountPosted = database.getAccountTransactions().some(
+      (transaction) =>
+        transaction.linkedModule === "POS Sale" &&
+        transaction.referenceNo === upiOrder.orderNo &&
+        transaction.paymentMode === "UPI" &&
+        transaction.amount === 100,
+    );
+    const splitAccountTotal = database
+      .getAccountTransactions()
+      .filter(
+        (transaction) =>
+          transaction.linkedModule === "POS Sale" &&
+          transaction.referenceNo === splitOrder.orderNo,
+      )
+      .reduce((total, transaction) => total + transaction.amount, 0);
+    database.reverseStoreOrder(storeOrder.id, "Smoke reversal", smokeActor);
+    const stockAfterReversal = database
+      .getStoreProducts({})
+      .find((item) => item.id === storeProduct.id)?.currentStock;
+    const reversalAccountCount = database.getAccountTransactions().filter(
+      (transaction) =>
+        transaction.linkedModule === "POS Sale Reversal" &&
+        transaction.referenceNo === storeOrder.orderNo,
+    ).length;
+    let repeatedReversalRejected = false;
+    try {
+      database.reverseStoreOrder(
+        storeOrder.id,
+        "Repeat smoke reversal",
+        smokeActor,
+      );
+    } catch {
+      repeatedReversalRejected = true;
+    }
+    const posAccountNet = database
+      .getAccountTransactions()
+      .filter((transaction) =>
+        ["POS Sale", "POS Sale Reversal"].includes(transaction.linkedModule),
+      )
+      .reduce(
+        (total, transaction) =>
+          total +
+          (transaction.type === "Income" ? transaction.amount : -transaction.amount),
+        0,
+      );
+    const closedSession = database.closeStorePosSession(
+      posSession.session.id,
+      { countedCash: 240, notes: "Smoke counted cash" },
+      smokeActor,
+    );
+    let closedSessionSaleRejected = false;
+    try {
+      database.createStoreOrder(
+        {
+          customerName: "Closed Session Customer",
+          posSessionId: closedSession.session.id,
+          orderDate: "2026-07-20",
+          status: "Completed",
+          items: [{ productId: storeProduct.id, quantity: 1, unitPrice: 100 }],
+          payments: [{ paymentMode: "Cash", amount: 100, paymentDate: "2026-07-20" }],
+        },
+        smokeActor,
+      );
+    } catch {
+      closedSessionSaleRejected = true;
+    }
+    assert(
+      savedScheduleEntries.length === 1 &&
+        scheduleConflict.conflicts.length >= 1 &&
+        dateSheet.entries.length === 1 &&
+        resultSheet.rows.length >= 1 &&
+        awardList.rows.length >= 1 &&
+        progressReport.rows.length >= 1 &&
+        customReportPreview.rows.length >= 1,
+      "Exam schedule, date sheet, result sheet, award list, progress or custom report regression failed.",
+    );
+    assert(
+      invalidLiveClassUrlRejected &&
+        liveClass.status === "Scheduled" &&
+        liveClassWithAttendance.attendance.length === 1 &&
+        liveRecipientPreview.validCount >= 1 &&
+        liveRecipientPreview.duplicateCount >= 1 &&
+        liveRecipientPreview.missingCount >= 1 &&
+        liveNotificationRequests.length === 2 &&
+        whatsappLiveNotification.queuedCount === liveRecipientPreview.validCount &&
+        smsLiveNotification.queuedCount === liveRecipientPreview.validCount,
+      "Live class URL validation, creation, attendance, notification recipient or mock queue regression failed.",
+    );
+    assert(
+      storeOrder.orderNo.startsWith("POS-") &&
+        mappingReady &&
+        completedSaleRequiresSession &&
+        duplicateSessionRejected &&
+        stockAfterSale === 3 &&
+        saleAccountCount === 1 &&
+        saleAccountCountAfterRetry === 1 &&
+        negativeStockRejected &&
+        stockAfterHold === 3 &&
+        accountCountAfterHold === saleAccountCountAfterRetry &&
+        resumedOrder.status === "Completed" &&
+        completedOrderResumeRejected &&
+        stockAfterCancelHeld === 2 &&
+        upiAccountPosted &&
+        splitAccountTotal === 100 &&
+        stockAfterReversal === 2 &&
+        reversalAccountCount === 1 &&
+        repeatedReversalRejected &&
+        posAccountNet === 300 &&
+        closedSession.session.expectedCash === 240 &&
+        closedSession.session.cashVariance === 0 &&
+        closedSessionSaleRejected,
+      "Store/POS accounting, hold/resume, session, stock or reversal regression failed.",
+    );
+    database.deleteEmployee(releaseEmployee.id);
     const smokeClass = database
       .getClasses()
       .find((item) => item.name === "10");
@@ -4290,11 +4878,334 @@ app.whenReady().then(async () => {
       "Successful license update modified ERP school data.",
     );
 
+    const managedStoreAssetDirectory = path.join(
+      temporaryDirectory,
+      "store-products",
+    );
+    fs.mkdirSync(managedStoreAssetDirectory, { recursive: true });
+    const managedStoreAssetPath = path.join(
+      managedStoreAssetDirectory,
+      "smoke-product.txt",
+    );
+    fs.writeFileSync(managedStoreAssetPath, "original store image", "utf8");
+
     const backupPath = path.join(temporaryDirectory, "smoke-backup.db");
     validateDatabaseFile(databasePath);
     await database.backupTo(backupPath);
     validateDatabaseFile(backupPath);
     assert(fs.existsSync(backupPath), "Database backup was not created.");
+    const legacyInspection = inspectBackupArchive(backupPath);
+    assert(
+      legacyInspection.type === "legacy-database",
+      "Legacy database backup compatibility inspection failed.",
+    );
+    const reportUtilsSource = fs.readFileSync(
+      path.join(__dirname, "../src/lib/reportUtils.ts"),
+      "utf8",
+    );
+    assert(
+      reportUtilsSource.includes("/^[=+\\-@]/"),
+      "CSV export formula-injection neutralization is missing.",
+    );
+
+    const fullBackupPath = path.join(temporaryDirectory, "smoke-full-backup.zip");
+    const fullBackupArchive = createFullBackupArchive({
+      archivePath: fullBackupPath,
+      databaseBackupPath: backupPath,
+      databasePath,
+      userDataPath: temporaryDirectory,
+      appVersion: "smoke-test",
+      schemaVersion: database.getDatabaseUserVersion(),
+      schoolSettings: database.getSchoolSettings(),
+    });
+    assert(
+      fs.existsSync(fullBackupPath) &&
+        fullBackupArchive.manifest.totalFileCount === 1 &&
+        fullBackupArchive.manifest.includedFileCategories.some(
+          (category) => category.directory === "store-products",
+        ),
+      "Full backup archive did not include managed asset metadata.",
+    );
+    const fullInspection = inspectBackupArchive(fullBackupPath, {
+      currentSchoolName: "Different Smoke School",
+    });
+    assert(
+      fullInspection.type === "full-archive" &&
+        fullInspection.warningMessages.length === 1,
+      "Full backup archive inspection did not report the wrong-school warning.",
+    );
+    const extractedBackupDirectory = path.join(
+      temporaryDirectory,
+      "full-backup-extract",
+    );
+    extractFullBackupArchive(fullBackupPath, extractedBackupDirectory);
+    assert(
+      fs.existsSync(
+        path.join(extractedBackupDirectory, "backup", "database", "school-erp.db"),
+      ) &&
+        fs.readFileSync(
+          path.join(
+            extractedBackupDirectory,
+            "backup",
+            "files",
+            "store-products",
+            "smoke-product.txt",
+          ),
+          "utf8",
+        ) === "original store image",
+      "Full backup archive extraction did not preserve database and assets.",
+    );
+
+    const expectBackupFailure = (callback, expectedText, label) => {
+      let message = "";
+      try {
+        callback();
+      } catch (error) {
+        message = error instanceof Error ? error.message : String(error);
+      }
+      assert(
+        message.includes(expectedText),
+        `${label}: expected "${expectedText}", got "${message}".`,
+      );
+    };
+    const invalidZipPath = path.join(temporaryDirectory, "invalid.zip");
+    fs.writeFileSync(invalidZipPath, "not a zip archive", "utf8");
+    expectBackupFailure(
+      () => validateFullBackupArchive(invalidZipPath),
+      "invalid",
+      "Invalid ZIP was not rejected",
+    );
+    const missingManifestZip = path.join(
+      temporaryDirectory,
+      "missing-manifest.zip",
+    );
+    backupTestHelpers.writeZipArchive(missingManifestZip, [
+      { archivePath: "backup/database/school-erp.db", filePath: backupPath },
+    ]);
+    expectBackupFailure(
+      () => validateFullBackupArchive(missingManifestZip),
+      "manifest",
+      "Missing manifest archive was not rejected",
+    );
+    const minimalManifest = {
+      format: "vidhya-school-erp-full-backup",
+      formatVersion: 1,
+      schoolIdentity: { schoolName: "Persistence Test School" },
+      includedFileCategories: [],
+      database: {
+        filename: "school-erp.db",
+        archivePath: "backup/database/school-erp.db",
+      },
+    };
+    const minimalManifestBuffer = Buffer.from(
+      JSON.stringify(minimalManifest),
+      "utf8",
+    );
+    const minimalManifestHash = crypto
+      .createHash("sha256")
+      .update(minimalManifestBuffer)
+      .digest("hex");
+    const missingDatabaseZip = path.join(
+      temporaryDirectory,
+      "missing-database.zip",
+    );
+    backupTestHelpers.writeZipArchive(missingDatabaseZip, [
+      { archivePath: "backup/manifest.json", data: minimalManifestBuffer },
+      {
+        archivePath: "backup/checksums.json",
+        data: Buffer.from(
+          JSON.stringify({
+            algorithm: "SHA-256",
+            entries: {
+              "backup/database/school-erp.db": "missing",
+              "backup/manifest.json": minimalManifestHash,
+            },
+          }),
+          "utf8",
+        ),
+      },
+    ]);
+    expectBackupFailure(
+      () => validateFullBackupArchive(missingDatabaseZip),
+      "missing a checksummed file",
+      "Missing database archive was not rejected",
+    );
+    const checksumMismatchZip = path.join(
+      temporaryDirectory,
+      "checksum-mismatch.zip",
+    );
+    backupTestHelpers.writeZipArchive(checksumMismatchZip, [
+      { archivePath: "backup/database/school-erp.db", filePath: backupPath },
+      { archivePath: "backup/manifest.json", data: minimalManifestBuffer },
+      {
+        archivePath: "backup/checksums.json",
+        data: Buffer.from(
+          JSON.stringify({
+            algorithm: "SHA-256",
+            entries: {
+              "backup/database/school-erp.db": "wrong",
+              "backup/manifest.json": minimalManifestHash,
+            },
+          }),
+          "utf8",
+        ),
+      },
+    ]);
+    expectBackupFailure(
+      () => validateFullBackupArchive(checksumMismatchZip),
+      "checksum validation failed",
+      "Checksum mismatch archive was not rejected",
+    );
+    const assetMismatchManifest = {
+      ...minimalManifest,
+      includedFileCategories: [
+        {
+          id: "store-products",
+          directory: "store-products",
+          archivePath: "backup/files/store-products",
+          fileCount: 1,
+          totalBytes: 5,
+        },
+      ],
+    };
+    const assetMismatchManifestBuffer = Buffer.from(
+      JSON.stringify(assetMismatchManifest),
+      "utf8",
+    );
+    const assetMismatchZip = path.join(
+      temporaryDirectory,
+      "asset-checksum-mismatch.zip",
+    );
+    backupTestHelpers.writeZipArchive(assetMismatchZip, [
+      { archivePath: "backup/database/school-erp.db", filePath: backupPath },
+      { archivePath: "backup/manifest.json", data: assetMismatchManifestBuffer },
+      {
+        archivePath: "backup/files/store-products/bad.txt",
+        data: Buffer.from("asset", "utf8"),
+      },
+      {
+        archivePath: "backup/checksums.json",
+        data: Buffer.from(
+          JSON.stringify({
+            algorithm: "SHA-256",
+            entries: {
+              "backup/database/school-erp.db": crypto
+                .createHash("sha256")
+                .update(fs.readFileSync(backupPath))
+                .digest("hex"),
+              "backup/manifest.json": crypto
+                .createHash("sha256")
+                .update(assetMismatchManifestBuffer)
+                .digest("hex"),
+              "backup/files/store-products/bad.txt": "wrong",
+            },
+          }),
+          "utf8",
+        ),
+      },
+    ]);
+    expectBackupFailure(
+      () => validateFullBackupArchive(assetMismatchZip),
+      "checksum validation failed",
+      "Asset checksum mismatch archive was not rejected",
+    );
+    const corruptDatabaseBuffer = Buffer.from("not sqlite", "utf8");
+    const corruptDatabaseZip = path.join(
+      temporaryDirectory,
+      "corrupt-database.zip",
+    );
+    backupTestHelpers.writeZipArchive(corruptDatabaseZip, [
+      {
+        archivePath: "backup/database/school-erp.db",
+        data: corruptDatabaseBuffer,
+      },
+      { archivePath: "backup/manifest.json", data: minimalManifestBuffer },
+      {
+        archivePath: "backup/checksums.json",
+        data: Buffer.from(
+          JSON.stringify({
+            algorithm: "SHA-256",
+            entries: {
+              "backup/database/school-erp.db": crypto
+                .createHash("sha256")
+                .update(corruptDatabaseBuffer)
+                .digest("hex"),
+              "backup/manifest.json": minimalManifestHash,
+            },
+          }),
+          "utf8",
+        ),
+      },
+    ]);
+    expectBackupFailure(
+      () => validateFullBackupArchive(corruptDatabaseZip),
+      "valid SQLite database",
+      "Corrupt SQLite archive was not rejected",
+    );
+    const traversalZip = path.join(temporaryDirectory, "traversal.zip");
+    backupTestHelpers.writeZipArchive(
+      traversalZip,
+      [{ archivePath: "../evil.txt", data: Buffer.from("x") }],
+      { skipPathValidation: true },
+    );
+    expectBackupFailure(
+      () => validateFullBackupArchive(traversalZip),
+      "path traversal",
+      "Path traversal archive was not rejected",
+    );
+    const absolutePathZip = path.join(temporaryDirectory, "absolute-path.zip");
+    backupTestHelpers.writeZipArchive(
+      absolutePathZip,
+      [{ archivePath: "/tmp/evil.txt", data: Buffer.from("x") }],
+      { skipPathValidation: true },
+    );
+    expectBackupFailure(
+      () => validateFullBackupArchive(absolutePathZip),
+      "path traversal",
+      "Absolute archive path was not rejected",
+    );
+    const symlinkZip = path.join(temporaryDirectory, "symlink.zip");
+    backupTestHelpers.writeZipArchive(symlinkZip, [
+      {
+        archivePath: "backup/files/store-products/link",
+        data: Buffer.from("target"),
+        externalAttributes: 0o120777 * 0x10000,
+      },
+    ]);
+    expectBackupFailure(
+      () => validateFullBackupArchive(symlinkZip),
+      "symlink",
+      "Symlink archive was not rejected",
+    );
+    const futureManifestBuffer = Buffer.from(
+      JSON.stringify({ ...minimalManifest, formatVersion: 99 }),
+      "utf8",
+    );
+    const futureZip = path.join(temporaryDirectory, "future-version.zip");
+    backupTestHelpers.writeZipArchive(futureZip, [
+      { archivePath: "backup/manifest.json", data: futureManifestBuffer },
+      {
+        archivePath: "backup/checksums.json",
+        data: Buffer.from(
+          JSON.stringify({
+            algorithm: "SHA-256",
+            entries: {
+              "backup/manifest.json": crypto
+                .createHash("sha256")
+                .update(futureManifestBuffer)
+                .digest("hex"),
+            },
+          }),
+          "utf8",
+        ),
+      },
+    ]);
+    expectBackupFailure(
+      () => validateFullBackupArchive(futureZip),
+      "newer unsupported version",
+      "Future backup version was not rejected",
+    );
+
     const restorePaths = getRestorePaths(databasePath);
     assert(
       restorePaths.pendingPath ===
@@ -4334,11 +5245,82 @@ app.whenReady().then(async () => {
         "LIC-SMOKE-WONDER-001",
       "License activation did not persist through backup and restore.",
     );
-    assert(database.getStudents().length === 5, "Students did not persist.");
+    const restoredStudents = database.getStudents();
+    assert(
+      restoredStudents.length >= 5 &&
+        restoredStudents.some((student) => student.id === bridgeResult.studentId) &&
+        restoredStudents.some((student) => student.admissionNo === "LIVE-DUP-001"),
+      "Students did not persist.",
+    );
     assert(
       database.getSchoolSettings().schoolName === "Persistence Test School",
       "School settings did not persist.",
     );
+    fs.writeFileSync(
+      managedStoreAssetPath,
+      "current asset before failed restore",
+      "utf8",
+    );
+    extractFullBackupArchive(fullBackupPath, restorePaths.pendingDirectory);
+    fs.writeFileSync(
+      path.join(
+        restorePaths.pendingDirectory,
+        "backup",
+        "database",
+        "school-erp.db",
+      ),
+      "corrupt staged database",
+      "utf8",
+    );
+    database.close();
+    let failedRestoreMessage = "";
+    try {
+      applyPendingDatabaseRestore(databasePath);
+    } catch (error) {
+      failedRestoreMessage =
+        error instanceof Error ? error.message : String(error);
+    }
+    assert(
+      (failedRestoreMessage.includes("valid SQLite database") ||
+        failedRestoreMessage.includes("checksum validation failed")) &&
+        fs.readFileSync(managedStoreAssetPath, "utf8") ===
+          "current asset before failed restore" &&
+        !fs.existsSync(restorePaths.pendingDirectory),
+      "Failed restore did not preserve current data and clear the bad staged restore.",
+    );
+    database = createDatabase(databasePath);
+    assert(
+      database.getSchoolSettings().schoolName === "Persistence Test School",
+      "Failed restore modified the current database.",
+    );
+    fs.writeFileSync(managedStoreAssetPath, "mutated store image", "utf8");
+    extractFullBackupArchive(fullBackupPath, restorePaths.pendingDirectory);
+    assert(
+      backupService.getDatabaseInfo().restorePending,
+      "Database information did not report the staged full archive restore.",
+    );
+    database.close();
+    const fullRestoreResult = applyPendingDatabaseRestore(databasePath);
+    assert(
+      fullRestoreResult.restored &&
+        fullRestoreResult.type === "full-archive" &&
+        fullRestoreResult.safetyBackupPath &&
+        fs.existsSync(fullRestoreResult.safetyBackupPath),
+      "Pending full archive restore was not applied with a safety backup.",
+    );
+    inspectBackupArchive(fullRestoreResult.safetyBackupPath);
+    assert(
+      !fs.existsSync(restorePaths.pendingDirectory) &&
+        !fs.existsSync(restorePaths.metadataPath) &&
+        !fs.existsSync(restorePaths.restoreTempPath),
+      "Full archive staged restore files were not cleaned after restore.",
+    );
+    assert(
+      fs.readFileSync(managedStoreAssetPath, "utf8") ===
+        "original store image",
+      "Full archive restore did not roll managed assets back to the backup state.",
+    );
+    database = createDatabase(databasePath);
     const restoredOwnerUser = database.getUserById(bridgeResult.ownerId);
     const restoredDirectMessageReport = database.getMessageDeliveryReport(
       restoredOwnerUser,
@@ -4579,19 +5561,28 @@ app.whenReady().then(async () => {
         database.getSalaryPayments()[0].netSalary === 49500,
       "Salary payment did not persist.",
     );
+    const restoredAccountTransactions = database.getAccountTransactions();
+    const restoredPosAccountNet = restoredAccountTransactions
+      .filter((transaction) =>
+        ["POS Sale", "POS Sale Reversal"].includes(transaction.linkedModule),
+      )
+      .reduce(
+        (total, transaction) =>
+          total +
+          (transaction.type === "Income" ? transaction.amount : -transaction.amount),
+        0,
+      );
     assert(
-      database.getAccountTransactions().length === 7 &&
-        database
-          .getAccountTransactions()
-          .some(
-            (transaction) =>
-              transaction.id === bridgeResult.manualExpenseId &&
-              transaction.type === "Expense",
-          ) &&
-        database
-          .getAccountTransactions()
-          .filter((transaction) => transaction.linkedModule === "Fees")
-          .length === 4,
+      restoredAccountTransactions.length >= 7 &&
+        restoredAccountTransactions.some(
+          (transaction) =>
+            transaction.id === bridgeResult.manualExpenseId &&
+            transaction.type === "Expense",
+        ) &&
+        restoredAccountTransactions.filter(
+          (transaction) => transaction.linkedModule === "Fees",
+        ).length === 4 &&
+        restoredPosAccountNet === 300,
       "Account transactions did not persist.",
     );
     assert(

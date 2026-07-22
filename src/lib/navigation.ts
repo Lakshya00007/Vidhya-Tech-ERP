@@ -11,8 +11,6 @@ export interface ErpMenuItem {
   label: string
   description?: string
   target?: NavigationTarget
-  locked?: boolean
-  feature?: string
   availability?: 'missing' | 'online'
   roles?: PermissionRole[]
 }
@@ -76,23 +74,6 @@ const gradingReaders: PermissionRole[] = [
   'Accountant',
   'Teacher',
 ]
-
-const placeholder = (id: string, label: string, options?: Partial<ErpMenuItem>) => ({
-  id,
-  label,
-  availability: 'missing' as const,
-  ...options,
-})
-
-const onlineIntegration = (
-  id: string,
-  label: string,
-  options?: Partial<ErpMenuItem>,
-) =>
-  placeholder(id, label, {
-    availability: 'online',
-    ...options,
-  })
 
 export const erpNavigation: ErpMenuGroup[] = [
   {
@@ -286,16 +267,21 @@ export const erpNavigation: ErpMenuGroup[] = [
   },
   {
     id: 'store-pos',
-    label: 'Online Store & POS',
+    label: 'School Store & POS',
     icon: 'wallet',
     roles: finance,
     items: [
-      onlineIntegration('store-analytics', 'Store Analytics', { locked: true, feature: 'store-pos' }),
-      onlineIntegration('product-categories', 'Product Categories', { locked: true, feature: 'store-pos' }),
-      onlineIntegration('product-tax', 'Product Tax', { locked: true, feature: 'store-pos' }),
-      onlineIntegration('products', 'Products', { locked: true, feature: 'store-pos' }),
-      onlineIntegration('new-order', 'New Order', { locked: true, feature: 'store-pos' }),
-      onlineIntegration('all-orders', 'All Orders', { locked: true, feature: 'store-pos' }),
+      { id: 'store-analytics', label: 'Store Analytics', target: { page: 'store', view: 'dashboard' } },
+      { id: 'product-categories', label: 'Product Categories', target: { page: 'store', view: 'categories' } },
+      { id: 'product-tax', label: 'Product Tax', target: { page: 'store', view: 'tax' } },
+      { id: 'products', label: 'Products', target: { page: 'store', view: 'products' } },
+      { id: 'inventory', label: 'Inventory', target: { page: 'store', view: 'inventory' } },
+      { id: 'new-order', label: 'Point of Sale', target: { page: 'store', view: 'pos' } },
+      { id: 'held-orders', label: 'Held Orders', target: { page: 'store', view: 'held' } },
+      { id: 'all-orders', label: 'Sales History', target: { page: 'store', view: 'orders' } },
+      { id: 'cashier-sessions', label: 'Cashier Sessions', target: { page: 'store', view: 'sessions' } },
+      { id: 'store-reports', label: 'Store Reports', target: { page: 'store', view: 'reports' } },
+      { id: 'pos-account-mapping', label: 'Account Mapping', target: { page: 'store', view: 'account-mapping' } },
     ],
   },
   {
@@ -335,9 +321,9 @@ export const erpNavigation: ErpMenuGroup[] = [
     id: 'live-class',
     label: 'Live Class',
     icon: 'school',
-    roles: academic,
+    roles: ['Owner', 'Admin', 'Teacher', 'Viewer', 'Student'],
     items: [
-      onlineIntegration('live-class-services', 'Live Class', { locked: true, feature: 'live-class' }),
+      { id: 'live-class-services', label: 'Live Class', target: { page: 'live-class', view: 'schedule' }, roles: ['Owner', 'Admin', 'Teacher', 'Viewer', 'Student'] },
     ],
   },
   {
@@ -360,10 +346,10 @@ export const erpNavigation: ErpMenuGroup[] = [
       { id: 'create-exam', label: 'Create New Exam', target: { page: 'exams', view: 'exams' } },
       { id: 'exam-marks', label: 'Add / Update Exam Marks', target: { page: 'exams', view: 'marks' } },
       { id: 'result-card', label: 'Result Card', target: { page: 'exams', view: 'marksheet' } },
-      placeholder('result-sheet', 'Result Sheet', { locked: true, feature: 'exam-advanced' }),
-      placeholder('exam-schedule', 'Exam Schedule', { locked: true, feature: 'exam-advanced' }),
-      placeholder('date-sheet', 'Date Sheet', { locked: true, feature: 'exam-advanced' }),
-      placeholder('blank-award-list', 'Blank Award List', { locked: true, feature: 'exam-advanced' }),
+      { id: 'exam-schedule', label: 'Exam Schedule', target: { page: 'exams', view: 'schedule' } },
+      { id: 'date-sheet', label: 'Date Sheet', target: { page: 'exams', view: 'date-sheet' } },
+      { id: 'result-sheet', label: 'Result Sheet', target: { page: 'exams', view: 'result-sheet' } },
+      { id: 'blank-award-list', label: 'Blank Award List', target: { page: 'exams', view: 'blank-award-list' } },
     ],
   },
   {
@@ -388,11 +374,11 @@ export const erpNavigation: ErpMenuGroup[] = [
       { id: 'students-monthly-attendance', label: 'Students Monthly Attendance Report', target: { page: 'reports', view: 'attendance' }, roles: studentReaders },
       { id: 'staff-monthly-attendance', label: 'Staff Monthly Attendance Report', target: { page: 'attendance', view: 'employee-monthly' }, roles: finance },
       { id: 'fee-collection-report', label: 'Fee Collection Report', target: { page: 'reports', view: 'monthly' }, roles: finance },
-      placeholder('student-progress-report', 'Student Progress Report', { locked: true, feature: 'advanced-reports', roles: studentReaders }),
+      { id: 'student-progress-report', label: 'Student Progress Report', target: { page: 'reports', view: 'progress' }, roles: studentReaders },
       { id: 'accounts-report', label: 'Accounts Report', target: { page: 'accounts', view: 'report' }, roles: finance },
       { id: 'session-report', label: 'Session Report', target: { page: 'academic-sessions', view: 'report' }, roles: finance },
       { id: 'promotion-report', label: 'Promotion Report', target: { page: 'academic-sessions', view: 'history' }, roles: finance },
-      placeholder('customised-reports', 'Customised Reports', { locked: true, feature: 'advanced-reports', roles: owners }),
+      { id: 'customised-reports', label: 'Customised Reports', target: { page: 'reports', view: 'custom' }, roles: reportReaders },
     ],
   },
   {

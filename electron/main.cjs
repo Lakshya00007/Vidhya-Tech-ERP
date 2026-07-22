@@ -1,5 +1,6 @@
 const path = require("node:path");
 const os = require("node:os");
+const fs = require("node:fs");
 const { app, BrowserWindow } = require("electron");
 const {
   applyPendingDatabaseRestore,
@@ -14,15 +15,24 @@ const {
   createLicenseService,
 } = require("./license.cjs");
 
+const isDevelopment = !app.isPackaged;
 const existingUserDataPath = path.join(
   app.getPath("appData"),
   "School ERP Desktop",
 );
+const testUserDataPath = process.env.VIDHYA_ERP_TEST_USER_DATA_DIR?.trim();
 app.setName("Vidhya School ERP");
-app.setPath("userData", existingUserDataPath);
+if (isDevelopment && testUserDataPath) {
+  if (!path.isAbsolute(testUserDataPath)) {
+    throw new Error("VIDHYA_ERP_TEST_USER_DATA_DIR must be an absolute path.");
+  }
+  fs.mkdirSync(testUserDataPath, { recursive: true });
+  app.setPath("userData", testUserDataPath);
+} else {
+  app.setPath("userData", existingUserDataPath);
+}
 
 let database;
-const isDevelopment = !app.isPackaged;
 
 async function createWindow() {
   const win = new BrowserWindow({

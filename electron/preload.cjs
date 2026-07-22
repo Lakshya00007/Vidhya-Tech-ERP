@@ -624,6 +624,95 @@ contextBridge.exposeInMainWorld("erpApi", {
     ipcRenderer.invoke("report-cards:class-summary", filter),
   getResultPositions: (filter) =>
     ipcRenderer.invoke("report-cards:positions", filter),
+  getExamSchedules: (filter) =>
+    ipcRenderer.invoke("exam-schedules:get-all", filter),
+  getExamSchedule: (id) =>
+    ipcRenderer.invoke("exam-schedules:get-by-id", id),
+  createExamSchedule: (input) =>
+    ipcRenderer.invoke("exam-schedules:create", input),
+  updateExamSchedule: (id, input) =>
+    ipcRenderer.invoke("exam-schedules:update", id, input),
+  deleteExamSchedule: (id) =>
+    ipcRenderer.invoke("exam-schedules:delete", id),
+  publishExamSchedule: (id) =>
+    ipcRenderer.invoke("exam-schedules:publish", id),
+  cancelExamSchedule: (id) =>
+    ipcRenderer.invoke("exam-schedules:cancel", id),
+  completeExamSchedule: (id) =>
+    ipcRenderer.invoke("exam-schedules:complete", id),
+  getExamScheduleEntries: (scheduleId) =>
+    ipcRenderer.invoke("exam-schedules:entries:get", scheduleId),
+  saveExamScheduleEntries: (scheduleId, entries) =>
+    ipcRenderer.invoke("exam-schedules:entries:save", scheduleId, entries),
+  detectExamScheduleConflicts: (input) =>
+    ipcRenderer.invoke("exam-schedules:conflicts", input),
+  getDateSheet: (filter) => ipcRenderer.invoke("date-sheet:get", filter),
+  getResultSheet: (filter) => ipcRenderer.invoke("result-sheet:get", filter),
+  getBlankAwardList: (filter) =>
+    ipcRenderer.invoke("blank-award-list:get", filter),
+  getStudentProgressReport: (filter) =>
+    ipcRenderer.invoke("reports:student-progress", filter),
+  getCustomReportDomains: () =>
+    ipcRenderer.invoke("reports:custom-domains"),
+  previewCustomReport: (input) =>
+    ipcRenderer.invoke("reports:custom-preview", input),
+  getSavedReportDefinitions: (filter) =>
+    ipcRenderer.invoke("reports:saved-definitions:get", filter),
+  saveReportDefinition: (input) =>
+    ipcRenderer.invoke("reports:saved-definitions:save", input),
+  deleteReportDefinition: (id) =>
+    ipcRenderer.invoke("reports:saved-definitions:delete", id),
+  getLiveClasses: (filter) =>
+    ipcRenderer.invoke("live-classes:get-all", filter),
+  getLiveClass: (id) => ipcRenderer.invoke("live-classes:get-by-id", id),
+  createLiveClass: (input) =>
+    ipcRenderer.invoke("live-classes:create", input),
+  updateLiveClass: (id, input) =>
+    ipcRenderer.invoke("live-classes:update", id, input),
+  setLiveClassStatus: (id, status) =>
+    ipcRenderer.invoke("live-classes:set-status", id, status),
+  saveLiveClassAttendance: (liveClassId, records) =>
+    ipcRenderer.invoke("live-classes:attendance:save", liveClassId, records),
+  previewLiveClassNotification: (liveClassId, input) =>
+    ipcRenderer.invoke("live-classes:notification-preview", liveClassId, input),
+  notifyLiveClassRecipients: (liveClassId, input) =>
+    ipcRenderer.invoke("live-classes:notify", liveClassId, input),
+  getStoreCategories: () =>
+    ipcRenderer.invoke("store:categories:get-all"),
+  saveStoreCategory: (input) =>
+    ipcRenderer.invoke("store:categories:save", input),
+  getStoreTaxRates: () => ipcRenderer.invoke("store:tax-rates:get-all"),
+  saveStoreTaxRate: (input) =>
+    ipcRenderer.invoke("store:tax-rates:save", input),
+  getStoreProducts: (filter) =>
+    ipcRenderer.invoke("store:products:get-all", filter),
+  saveStoreProduct: (input) =>
+    ipcRenderer.invoke("store:products:save", input),
+  getStoreAccountMappings: () =>
+    ipcRenderer.invoke("store:account-mappings:get"),
+  saveStoreAccountMapping: (input) =>
+    ipcRenderer.invoke("store:account-mappings:save", input),
+  createStoreInventoryTransaction: (input) =>
+    ipcRenderer.invoke("store:inventory:create-transaction", input),
+  getStoreInventoryLedger: (filter) =>
+    ipcRenderer.invoke("store:inventory:ledger", filter),
+  getStoreOrders: (filter) => ipcRenderer.invoke("store:orders:get-all", filter),
+  createStoreOrder: (input) => ipcRenderer.invoke("store:orders:create", input),
+  resumeHeldStoreOrder: (id, input) =>
+    ipcRenderer.invoke("store:orders:resume-held", id, input),
+  cancelHeldStoreOrder: (id, reason) =>
+    ipcRenderer.invoke("store:orders:cancel-held", id, reason),
+  reverseStoreOrder: (id, reason) =>
+    ipcRenderer.invoke("store:orders:reverse", id, reason),
+  getCurrentStorePosSession: () =>
+    ipcRenderer.invoke("store:sessions:get-current"),
+  getStorePosSessions: (filter) =>
+    ipcRenderer.invoke("store:sessions:get-all", filter),
+  openStorePosSession: (input) =>
+    ipcRenderer.invoke("store:sessions:open", input),
+  closeStorePosSession: (id, input) =>
+    ipcRenderer.invoke("store:sessions:close", id, input),
+  getStoreReports: (filter) => ipcRenderer.invoke("store:reports:get", filter),
 
   getCertificateTemplates: () =>
     ipcRenderer.invoke("certificates:templates:get-all"),

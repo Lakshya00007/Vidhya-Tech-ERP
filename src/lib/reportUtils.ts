@@ -2,7 +2,11 @@ export type CsvValue = string | number | null | undefined
 
 const escapeCsvValue = (value: CsvValue) => {
   const text = value == null ? '' : String(value)
-  return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text
+  const safeText =
+    typeof value === 'string' && /^[=+\-@]/.test(text) ? `'${text}` : text
+  return /[",\r\n]/.test(safeText)
+    ? `"${safeText.replaceAll('"', '""')}"`
+    : safeText
 }
 
 export function exportCsv(

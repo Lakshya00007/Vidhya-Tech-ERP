@@ -210,8 +210,8 @@ export function BackupRestoreSettings({
               <Icon name="download" size={21} />
             </span>
             <div>
-              <strong>Create Database Backup</strong>
-              <p>Save a complete copy of the current database to a safe location.</p>
+              <strong>Create Full ERP Backup</strong>
+              <p>Save a portable ZIP archive with the database and managed local files.</p>
             </div>
             <button
               className="primary-button"
@@ -229,8 +229,8 @@ export function BackupRestoreSettings({
                 <Icon name="clock" size={21} />
               </span>
               <div>
-                <strong>Restore Database Backup</strong>
-                <p>Select a valid School ERP .db backup and apply it on restart.</p>
+                <strong>Restore ERP Backup</strong>
+                <p>Select a valid ERP ZIP archive or legacy .db backup and apply it on restart.</p>
               </div>
               <button
                 className="secondary-button"

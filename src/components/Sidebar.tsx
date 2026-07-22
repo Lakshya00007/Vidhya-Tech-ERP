@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react'
-import { hasLicenseFeature } from '../lib/license'
 import { translateText } from '../lib/i18n'
 import {
   canSeeNavigationEntry,
@@ -38,18 +37,18 @@ const getPlaceholderStatus = (item: ErpMenuItem) =>
 
 export function Sidebar({
   activeNavigationId,
-  licenseStatus,
+  licenseStatus: _licenseStatus,
   language,
   onLogout,
   onNavigate,
   onPlaceholder,
   role,
 }: SidebarProps) {
+  void _licenseStatus
   const [query, setQuery] = useState('')
   const [expanded, setExpanded] = useState<Set<string>>(
     () => new Set(['general-settings']),
   )
-  const [lockedItem, setLockedItem] = useState<ErpMenuItem | null>(null)
 
   const roleNavigation = useMemo(
     () =>
@@ -100,13 +99,6 @@ export function Sidebar({
   const openItem = (group: ErpMenuGroup, item: ErpMenuItem) => {
     if (item.id === 'logout') {
       onLogout()
-      return
-    }
-
-    const isLocked =
-      item.locked && !hasLicenseFeature(licenseStatus, item.feature ?? item.id)
-    if (isLocked) {
-      setLockedItem(item)
       return
     }
 
@@ -211,12 +203,6 @@ export function Sidebar({
                 {isExpanded && (
                   <div className="nav-submenu">
                     {group.items?.map((item) => {
-                      const isLocked =
-                        item.locked &&
-                        !hasLicenseFeature(
-                          licenseStatus,
-                          item.feature ?? item.id,
-                        )
                       const isPlaceholder = !item.target && item.id !== 'logout'
                       const status = getPlaceholderStatus(item)
                       return (
@@ -224,10 +210,6 @@ export function Sidebar({
                           className={`nav-subitem${
                             activeNavigationId === item.id
                               ? ' nav-subitem--active'
-                              : ''
-                          }${
-                            isLocked || isPlaceholder
-                              ? ' nav-subitem--locked'
                               : ''
                           }`}
                           key={item.id}
@@ -238,13 +220,7 @@ export function Sidebar({
                           <span className="nav-subitem__label">
                             {translateText(item.label, language)}
                           </span>
-                          {isLocked && (
-                            <span className="nav-pro-badge">
-                              <Icon name="lock" size={10} />
-                              Pro
-                            </span>
-                          )}
-                          {!isLocked && isPlaceholder && (
+                          {isPlaceholder && (
                             <span
                               className={`nav-status-badge nav-status-badge--${status}`}
                             >
@@ -280,47 +256,6 @@ export function Sidebar({
           <p>Local desktop ERP system</p>
         </div>
       </aside>
-
-      {lockedItem && (
-        <div
-          className="pro-modal-backdrop"
-          onMouseDown={() => setLockedItem(null)}
-          role="presentation"
-        >
-          <section
-            aria-labelledby="pro-modal-title"
-            aria-modal="true"
-            className="pro-modal"
-            onMouseDown={(event) => event.stopPropagation()}
-            role="dialog"
-          >
-            <button
-              aria-label="Close"
-              className="pro-modal__close"
-              onClick={() => setLockedItem(null)}
-              type="button"
-            >
-              <Icon name="close" size={17} />
-            </button>
-            <span className="pro-modal__icon">
-              <Icon name="lock" size={24} />
-            </span>
-            <span className="pro-modal__eyebrow">Vidhya School ERP Pro</span>
-            <h2 id="pro-modal-title">{lockedItem.label}</h2>
-            <p>
-              This feature is available in Pro/Advanced plan. Contact Vidhya
-              Tech to enable it.
-            </p>
-            <button
-              className="primary-button"
-              onClick={() => setLockedItem(null)}
-              type="button"
-            >
-              Understood
-            </button>
-          </section>
-        </div>
-      )}
     </>
   )
 }

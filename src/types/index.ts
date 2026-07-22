@@ -21,6 +21,8 @@ export type PageId =
   | 'employee-login-management'
   | 'message-center'
   | 'external-communications'
+  | 'live-class'
+  | 'store'
   | 'student-portal'
   | 'employee-portal'
   | 'placeholder'
@@ -3152,6 +3154,8 @@ export interface DatabaseActionResult {
   canceled?: boolean
   message: string
   path?: string
+  manifestPath?: string
+  checksum?: string
   safetyBackupPath?: string
   requiresRestart?: boolean
 }

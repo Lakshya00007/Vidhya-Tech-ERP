@@ -256,6 +256,20 @@ const channels = [
   "marks:get-by-student-exam",
   "marks:save-bulk",
   "marks:update",
+  "exam-schedules:get-all",
+  "exam-schedules:get-by-id",
+  "exam-schedules:create",
+  "exam-schedules:update",
+  "exam-schedules:delete",
+  "exam-schedules:publish",
+  "exam-schedules:cancel",
+  "exam-schedules:complete",
+  "exam-schedules:entries:get",
+  "exam-schedules:entries:save",
+  "exam-schedules:conflicts",
+  "date-sheet:get",
+  "result-sheet:get",
+  "blank-award-list:get",
   "grading-schemes:get-all",
   "grading-schemes:get-by-id",
   "grading-schemes:create",
@@ -276,6 +290,40 @@ const channels = [
   "report-cards:delete",
   "report-cards:class-summary",
   "report-cards:positions",
+  "reports:student-progress",
+  "reports:custom-domains",
+  "reports:custom-preview",
+  "reports:saved-definitions:get",
+  "reports:saved-definitions:save",
+  "reports:saved-definitions:delete",
+  "live-classes:get-all",
+  "live-classes:get-by-id",
+  "live-classes:create",
+  "live-classes:update",
+  "live-classes:set-status",
+  "live-classes:attendance:save",
+  "live-classes:notification-preview",
+  "live-classes:notify",
+  "store:categories:get-all",
+  "store:categories:save",
+  "store:tax-rates:get-all",
+  "store:tax-rates:save",
+  "store:products:get-all",
+  "store:products:save",
+  "store:account-mappings:get",
+  "store:account-mappings:save",
+  "store:inventory:create-transaction",
+  "store:inventory:ledger",
+  "store:orders:get-all",
+  "store:orders:create",
+  "store:orders:resume-held",
+  "store:orders:cancel-held",
+  "store:orders:reverse",
+  "store:sessions:get-current",
+  "store:sessions:get-all",
+  "store:sessions:open",
+  "store:sessions:close",
+  "store:reports:get",
   "certificates:templates:get-all",
   "certificates:templates:create",
   "certificates:templates:update",
@@ -317,6 +365,53 @@ function registerIpcHandlers(
     requireValidLicense();
     requireAuthenticated();
     return handler(event, ...args);
+  };
+  const getCurrentEmployeeForScope = () => {
+    const portalData = authService?.getCurrentEmployeePortalData();
+    if (!portalData?.employee?.id) {
+      throw new Error("A linked employee account is required for this action.");
+    }
+    return portalData.employee;
+  };
+  const assertTeacherOwnsLiveClass = (actor, liveClass) => {
+    if (actor?.role !== "Teacher") return null;
+    const employee = getCurrentEmployeeForScope();
+    if (!liveClass || liveClass.teacherEmployeeId !== employee.id) {
+      throw new Error("You are not authorized to manage this live class.");
+    }
+    return employee;
+  };
+  const buildLiveClassNotificationPayload = (actor, liveClassId, input = {}) => {
+    if (!communicationService) {
+      throw new Error("Communication gateway is not configured in this desktop build.");
+    }
+    const liveClass = database.getLiveClass(liveClassId);
+    if (!liveClass) throw new Error("Live class was not found.");
+    assertTeacherOwnsLiveClass(actor, liveClass);
+    if (liveClass.status === "Cancelled") {
+      throw new Error("Cancelled live classes cannot be notified.");
+    }
+    if (!liveClass.className) {
+      throw new Error("Select a class before notifying students or parents.");
+    }
+    const preview = communicationService.getExternalRecipientPreview(actor, {
+      audienceType: "Class students",
+      className: liveClass.className,
+      section: liveClass.section,
+      includeAllGuardians: Boolean(input.includeAllGuardians),
+    });
+    const variables = {
+      student_name: "{{student_name}}",
+      class_name: liveClass.className || "",
+      subject_name: liveClass.subjectName || "",
+      teacher_name: liveClass.teacherName || "",
+      class_date: liveClass.startAt ? String(liveClass.startAt).slice(0, 10) : "",
+      start_time: liveClass.startAt ? String(liveClass.startAt).slice(11, 16) : "",
+      end_time: liveClass.endAt ? String(liveClass.endAt).slice(11, 16) : "",
+      meeting_url: liveClass.meetingUrl || "",
+      school_name: database.getSchoolSettings().schoolName || "",
+    };
+    return { liveClass, preview, variables };
   };
 
   if (licenseService) {
@@ -2879,6 +2974,132 @@ function registerIpcHandlers(
   );
 
   ipcMain.handle(
+    "exam-schedules:get-all",
+    authenticated((_event, filter) => {
+      requireRoles(["Owner", "Admin", "Teacher", "Viewer"]);
+      return database.getExamSchedules(filter);
+    }),
+  );
+  ipcMain.handle(
+    "exam-schedules:get-by-id",
+    authenticated((_event, id) => {
+      requireRoles(["Owner", "Admin", "Teacher", "Viewer"]);
+      return database.getExamSchedule(id);
+    }),
+  );
+  ipcMain.handle(
+    "exam-schedules:create",
+    authenticated((_event, input) => {
+      const actor = requireRoles(["Owner", "Admin", "Teacher"]);
+      return database.createExamSchedule(input, actor);
+    }),
+  );
+  ipcMain.handle(
+    "exam-schedules:update",
+    authenticated((_event, id, input) => {
+      const actor = requireRoles(["Owner", "Admin", "Teacher"]);
+      return database.updateExamSchedule(id, input, actor);
+    }),
+  );
+  ipcMain.handle(
+    "exam-schedules:delete",
+    authenticated((_event, id) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      return database.deleteExamSchedule(id, actor);
+    }),
+  );
+  ipcMain.handle(
+    "exam-schedules:publish",
+    authenticated((_event, id) => {
+      const actor = requireRoles(["Owner", "Admin", "Teacher"]);
+      return database.publishExamSchedule(id, actor);
+    }),
+  );
+  ipcMain.handle(
+    "exam-schedules:cancel",
+    authenticated((_event, id) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      return database.cancelExamSchedule(id, actor);
+    }),
+  );
+  ipcMain.handle(
+    "exam-schedules:complete",
+    authenticated((_event, id) => {
+      const actor = requireRoles(["Owner", "Admin", "Teacher"]);
+      return database.completeExamSchedule(id, actor);
+    }),
+  );
+  ipcMain.handle(
+    "exam-schedules:entries:get",
+    authenticated((_event, scheduleId) => {
+      requireRoles(["Owner", "Admin", "Teacher", "Viewer"]);
+      return database.getExamScheduleEntries(scheduleId);
+    }),
+  );
+  ipcMain.handle(
+    "exam-schedules:entries:save",
+    authenticated((_event, scheduleId, entries) => {
+      const actor = requireRoles(["Owner", "Admin", "Teacher"]);
+      return database.saveExamScheduleEntries(scheduleId, entries, actor);
+    }),
+  );
+  ipcMain.handle(
+    "exam-schedules:conflicts",
+    authenticated((_event, input) => {
+      requireRoles(["Owner", "Admin", "Teacher"]);
+      return database.detectExamScheduleConflicts(input);
+    }),
+  );
+  ipcMain.handle(
+    "date-sheet:get",
+    authenticated((_event, filter) => {
+      const actor = requireRoles(["Owner", "Admin", "Teacher", "Viewer", "Student"]);
+      let scopedFilter = filter;
+      if (actor?.role === "Student" || actor?.accountType === "Student") {
+        const portalData = authService.getCurrentStudentPortalData();
+        scopedFilter = {
+          ...filter,
+          className: portalData.student.className,
+          section: portalData.student.section,
+        };
+      }
+      const result = database.getDateSheet(scopedFilter);
+      authService?.audit(
+        "Date sheet generated",
+        "Exams",
+        "Generated a date sheet view.",
+      );
+      return result;
+    }),
+  );
+  ipcMain.handle(
+    "result-sheet:get",
+    authenticated((_event, filter) => {
+      requireRoles(["Owner", "Admin", "Teacher", "Viewer"]);
+      const result = database.getResultSheet(filter);
+      authService?.audit(
+        "Result sheet generated",
+        "Exams",
+        "Generated a result sheet view.",
+      );
+      return result;
+    }),
+  );
+  ipcMain.handle(
+    "blank-award-list:get",
+    authenticated((_event, filter) => {
+      requireRoles(["Owner", "Admin", "Teacher"]);
+      const result = database.getBlankAwardList(filter);
+      authService?.audit(
+        "Blank award list generated",
+        "Exams",
+        "Generated a blank award list.",
+      );
+      return result;
+    }),
+  );
+
+  ipcMain.handle(
     "grading-schemes:get-all",
     authenticated(() => {
       requireRoles(["Owner", "Admin", "Teacher", "Accountant", "Viewer"]);
@@ -3018,6 +3239,381 @@ function registerIpcHandlers(
     authenticated((_event, filter) => {
       requireRoles(["Owner", "Admin", "Teacher", "Accountant", "Viewer"]);
       return database.getResultPositions(filter);
+    }),
+  );
+
+  ipcMain.handle(
+    "reports:student-progress",
+    authenticated((_event, filter) => {
+      requireRoles(["Owner", "Admin", "Teacher", "Viewer"]);
+      const result = database.getStudentProgressReport(filter);
+      authService?.audit(
+        "Student progress report generated",
+        "Reports",
+        "Generated a student progress report.",
+      );
+      return result;
+    }),
+  );
+  ipcMain.handle(
+    "reports:custom-domains",
+    authenticated(() => {
+      requireRoles(["Owner", "Admin", "Accountant", "Teacher", "Viewer"]);
+      return database.getCustomReportDomains();
+    }),
+  );
+  ipcMain.handle(
+    "reports:custom-preview",
+    authenticated((_event, input) => {
+      const actor = requireRoles(["Owner", "Admin", "Accountant", "Teacher", "Viewer"]);
+      return database.previewCustomReport(input, actor);
+    }),
+  );
+  ipcMain.handle(
+    "reports:saved-definitions:get",
+    authenticated(() => {
+      const actor = requireRoles(["Owner", "Admin", "Accountant", "Teacher", "Viewer"]);
+      return database.getSavedReportDefinitions(actor);
+    }),
+  );
+  ipcMain.handle(
+    "reports:saved-definitions:save",
+    authenticated((_event, input) => {
+      const actor = requireRoles(["Owner", "Admin", "Accountant", "Teacher"]);
+      return database.saveReportDefinition(input, actor);
+    }),
+  );
+  ipcMain.handle(
+    "reports:saved-definitions:delete",
+    authenticated((_event, id) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      return database.deleteReportDefinition(id, actor);
+    }),
+  );
+
+  ipcMain.handle(
+    "live-classes:get-all",
+    authenticated((_event, filter) => {
+      const actor = requireRoles(["Owner", "Admin", "Teacher", "Viewer", "Student"]);
+      if (actor?.role === "Student" || actor?.accountType === "Student") {
+        const portalData = authService.getCurrentStudentPortalData();
+        return database
+          .getLiveClasses({
+            ...filter,
+            className: portalData.student.className,
+            section: portalData.student.section,
+          })
+          .filter((item) => item.status !== "Draft");
+      }
+      const liveClasses = database.getLiveClasses(filter);
+      if (actor?.role === "Teacher") {
+        const employee = getCurrentEmployeeForScope();
+        return liveClasses.filter(
+          (item) => item.teacherEmployeeId === employee.id,
+        );
+      }
+      return liveClasses;
+    }),
+  );
+  ipcMain.handle(
+    "live-classes:get-by-id",
+    authenticated((_event, id) => {
+      const actor = requireRoles(["Owner", "Admin", "Teacher", "Viewer", "Student"]);
+      const liveClass = database.getLiveClass(id);
+      if (
+        (actor?.role === "Student" || actor?.accountType === "Student") &&
+        liveClass
+      ) {
+        const portalData = authService.getCurrentStudentPortalData();
+        if (
+          liveClass.status === "Draft" ||
+          liveClass.className !== portalData.student.className ||
+          (liveClass.section && liveClass.section !== portalData.student.section)
+        ) {
+          throw new Error("You are not authorized to view this live class.");
+        }
+      }
+      if (actor?.role === "Teacher") {
+        assertTeacherOwnsLiveClass(actor, liveClass);
+      }
+      return liveClass;
+    }),
+  );
+  ipcMain.handle(
+    "live-classes:create",
+    authenticated((_event, input) => {
+      const actor = requireRoles(["Owner", "Admin", "Teacher"]);
+      const scopedInput = { ...input };
+      if (actor?.role === "Teacher") {
+        const employee = getCurrentEmployeeForScope();
+        scopedInput.teacherEmployeeId = employee.id;
+        scopedInput.teacherName = employee.name;
+      }
+      return database.createLiveClass({ ...scopedInput, auditUser: actor, createdBy: actor?.name });
+    }),
+  );
+  ipcMain.handle(
+    "live-classes:update",
+    authenticated((_event, id, input) => {
+      const actor = requireRoles(["Owner", "Admin", "Teacher"]);
+      const existing = database.getLiveClass(id);
+      const employee = assertTeacherOwnsLiveClass(actor, existing);
+      const scopedInput = { ...input };
+      if (employee) {
+        scopedInput.teacherEmployeeId = employee.id;
+        scopedInput.teacherName = employee.name;
+      }
+      return database.updateLiveClass(id, { ...scopedInput, auditUser: actor });
+    }),
+  );
+  ipcMain.handle(
+    "live-classes:set-status",
+    authenticated((_event, id, status) => {
+      const actor = requireRoles(["Owner", "Admin", "Teacher"]);
+      assertTeacherOwnsLiveClass(actor, database.getLiveClass(id));
+      return database.setLiveClassStatus(id, status, actor);
+    }),
+  );
+  ipcMain.handle(
+    "live-classes:attendance:save",
+    authenticated((_event, liveClassId, records) => {
+      const actor = requireRoles(["Owner", "Admin", "Teacher"]);
+      assertTeacherOwnsLiveClass(actor, database.getLiveClass(liveClassId));
+      return database.saveLiveClassAttendance(liveClassId, records, actor);
+    }),
+  );
+  ipcMain.handle(
+    "live-classes:notification-preview",
+    authenticated((_event, liveClassId, input) => {
+      const actor = requireRoles(["Owner", "Admin", "Teacher"]);
+      const { liveClass, preview, variables } = buildLiveClassNotificationPayload(
+        actor,
+        liveClassId,
+        input,
+      );
+      return {
+        liveClassId: liveClass.id,
+        title: liveClass.title,
+        audienceSummary: `${liveClass.className}${liveClass.section ? `-${liveClass.section}` : ""}`,
+        recipientCount: preview.validCount,
+        skippedCount: preview.missingCount,
+        preview,
+        variables,
+      };
+    }),
+  );
+  ipcMain.handle(
+    "live-classes:notify",
+    authenticated(async (_event, liveClassId, input = {}) => {
+      const actor = requireRoles(["Owner", "Admin", "Teacher"]);
+      const { liveClass, preview, variables } = buildLiveClassNotificationPayload(
+        actor,
+        liveClassId,
+        input,
+      );
+      if (!preview.candidates.length) {
+        throw new Error("No valid guardian or student phone numbers were found.");
+      }
+      const channels = [];
+      if (input.whatsapp) {
+        channels.push({
+          channel: "WhatsApp",
+          templateId: input.whatsappTemplateId,
+        });
+      }
+      if (input.sms) {
+        channels.push({
+          channel: "SMS",
+          templateId: input.smsTemplateId,
+        });
+      }
+      if (!channels.length) {
+        throw new Error("Select WhatsApp or SMS before notifying recipients.");
+      }
+      const results = [];
+      for (const item of channels) {
+        if (!item.templateId) {
+          throw new Error(`${item.channel} template is required.`);
+        }
+        const result = await communicationService.sendExternalBatch(actor, {
+          channel: item.channel,
+          templateId: item.templateId,
+          title: `Live Class: ${liveClass.title}`,
+          audienceType: "Live Class",
+          recipients: preview.candidates.map((candidate) => ({
+            ...candidate,
+            variables: {
+              ...variables,
+              student_name:
+                candidate.studentName ||
+                candidate.name ||
+                "Student",
+            },
+          })),
+          variables,
+          idempotencyKey: `${liveClass.id}:${item.channel}:${item.templateId}:${preview.validCount}`,
+        });
+        results.push({ channel: item.channel, ...result });
+      }
+      authService?.audit(
+        "Live class notification queued",
+        "Live Class",
+        `Queued ${results.length} channel(s) for ${preview.validCount} recipient(s).`,
+        actor,
+      );
+      return {
+        liveClassId: liveClass.id,
+        recipientCount: preview.validCount,
+        skippedCount: preview.missingCount,
+        results,
+      };
+    }),
+  );
+
+  ipcMain.handle(
+    "store:categories:get-all",
+    authenticated(() => {
+      requireRoles(["Owner", "Admin", "Accountant", "Viewer"]);
+      return database.getStoreCategories();
+    }),
+  );
+  ipcMain.handle(
+    "store:categories:save",
+    authenticated((_event, input) => {
+      const actor = requireRoles(["Owner", "Admin", "Accountant"]);
+      const result = database.saveStoreCategory(input);
+      authService?.audit("Store category saved", "Store", "Saved a store category.", actor);
+      return result;
+    }),
+  );
+  ipcMain.handle(
+    "store:tax-rates:get-all",
+    authenticated(() => {
+      requireRoles(["Owner", "Admin", "Accountant", "Viewer"]);
+      return database.getStoreTaxRates();
+    }),
+  );
+  ipcMain.handle(
+    "store:tax-rates:save",
+    authenticated((_event, input) => {
+      const actor = requireRoles(["Owner", "Admin", "Accountant"]);
+      const result = database.saveStoreTaxRate(input);
+      authService?.audit("Store tax rate saved", "Store", "Saved a store tax rate.", actor);
+      return result;
+    }),
+  );
+  ipcMain.handle(
+    "store:products:get-all",
+    authenticated((_event, filter) => {
+      requireRoles(["Owner", "Admin", "Accountant", "Viewer"]);
+      return database.getStoreProducts(filter);
+    }),
+  );
+  ipcMain.handle(
+    "store:products:save",
+    authenticated((_event, input) => {
+      const actor = requireRoles(["Owner", "Admin", "Accountant"]);
+      const result = database.saveStoreProduct(input);
+      authService?.audit("Store product saved", "Store", "Saved a store product.", actor);
+      return result;
+    }),
+  );
+  ipcMain.handle(
+    "store:account-mappings:get",
+    authenticated(() => {
+      requireRoles(["Owner", "Admin", "Accountant", "Viewer"]);
+      return database.getStoreAccountMappings();
+    }),
+  );
+  ipcMain.handle(
+    "store:account-mappings:save",
+    authenticated((_event, input) => {
+      const actor = requireRoles(["Owner", "Admin", "Accountant"]);
+      return database.saveStoreAccountMapping(input, actor);
+    }),
+  );
+  ipcMain.handle(
+    "store:inventory:create-transaction",
+    authenticated((_event, input) => {
+      const actor = requireRoles(["Owner", "Admin", "Accountant"]);
+      return database.createStoreInventoryTransaction(input, actor);
+    }),
+  );
+  ipcMain.handle(
+    "store:inventory:ledger",
+    authenticated((_event, filter) => {
+      requireRoles(["Owner", "Admin", "Accountant", "Viewer"]);
+      return database.getStoreInventoryLedger(filter);
+    }),
+  );
+  ipcMain.handle(
+    "store:orders:get-all",
+    authenticated((_event, filter) => {
+      requireRoles(["Owner", "Admin", "Accountant", "Viewer"]);
+      return database.getStoreOrders(filter);
+    }),
+  );
+  ipcMain.handle(
+    "store:orders:create",
+    authenticated((_event, input) => {
+      const actor = requireRoles(["Owner", "Admin", "Accountant"]);
+      return database.createStoreOrder(input, actor);
+    }),
+  );
+  ipcMain.handle(
+    "store:orders:resume-held",
+    authenticated((_event, id, input) => {
+      const actor = requireRoles(["Owner", "Admin", "Accountant"]);
+      return database.resumeHeldStoreOrder(id, input, actor);
+    }),
+  );
+  ipcMain.handle(
+    "store:orders:cancel-held",
+    authenticated((_event, id, reason) => {
+      const actor = requireRoles(["Owner", "Admin", "Accountant"]);
+      return database.cancelHeldStoreOrder(id, reason, actor);
+    }),
+  );
+  ipcMain.handle(
+    "store:orders:reverse",
+    authenticated((_event, id, reason) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      return database.reverseStoreOrder(id, reason, actor);
+    }),
+  );
+  ipcMain.handle(
+    "store:sessions:get-current",
+    authenticated(() => {
+      const actor = requireRoles(["Owner", "Admin", "Accountant"]);
+      return database.getCurrentStorePosSession(actor);
+    }),
+  );
+  ipcMain.handle(
+    "store:sessions:get-all",
+    authenticated((_event, filter) => {
+      const actor = requireRoles(["Owner", "Admin", "Accountant", "Viewer"]);
+      return database.getStorePosSessions(filter, actor);
+    }),
+  );
+  ipcMain.handle(
+    "store:sessions:open",
+    authenticated((_event, input) => {
+      const actor = requireRoles(["Owner", "Admin", "Accountant"]);
+      return database.openStorePosSession(input, actor);
+    }),
+  );
+  ipcMain.handle(
+    "store:sessions:close",
+    authenticated((_event, id, input) => {
+      const actor = requireRoles(["Owner", "Admin", "Accountant"]);
+      return database.closeStorePosSession(id, input, actor);
+    }),
+  );
+  ipcMain.handle(
+    "store:reports:get",
+    authenticated((_event, filter) => {
+      requireRoles(["Owner", "Admin", "Accountant", "Viewer"]);
+      return database.getStoreReports(filter);
     }),
   );
 

@@ -232,6 +232,10 @@ import type {
   UserEntityLink,
 } from './index'
 
+// Dynamic IPC report rows are validated in the Electron main process.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type IpcRecord = Record<string, any>
+
 export interface ErpApi {
   getDeviceId: () => Promise<string>
   getLicenseStatus: () => Promise<LicenseStatus>
@@ -935,6 +939,71 @@ export interface ErpApi {
   getResultPositions: (
     filter?: ReportCardFilter,
   ) => Promise<ResultPosition[]>
+  getExamSchedules: (filter?: IpcRecord) => Promise<IpcRecord[]>
+  getExamSchedule: (id: string) => Promise<IpcRecord | null>
+  createExamSchedule: (input: IpcRecord) => Promise<IpcRecord>
+  updateExamSchedule: (
+    id: string,
+    input: IpcRecord,
+  ) => Promise<IpcRecord>
+  deleteExamSchedule: (id: string) => Promise<{ success: boolean }>
+  publishExamSchedule: (id: string) => Promise<IpcRecord>
+  cancelExamSchedule: (id: string) => Promise<IpcRecord>
+  completeExamSchedule: (id: string) => Promise<IpcRecord>
+  getExamScheduleEntries: (scheduleId: string) => Promise<IpcRecord[]>
+  saveExamScheduleEntries: (
+    scheduleId: string,
+    entries: IpcRecord[],
+  ) => Promise<IpcRecord[]>
+  detectExamScheduleConflicts: (
+    input: IpcRecord,
+  ) => Promise<IpcRecord>
+  getDateSheet: (filter?: IpcRecord) => Promise<IpcRecord>
+  getResultSheet: (filter?: IpcRecord) => Promise<IpcRecord>
+  getBlankAwardList: (filter?: IpcRecord) => Promise<IpcRecord>
+  getStudentProgressReport: (filter?: IpcRecord) => Promise<IpcRecord>
+  getCustomReportDomains: () => Promise<IpcRecord[]>
+  previewCustomReport: (input: IpcRecord) => Promise<IpcRecord>
+  getSavedReportDefinitions: (filter?: IpcRecord) => Promise<IpcRecord[]>
+  saveReportDefinition: (input: IpcRecord) => Promise<IpcRecord>
+  deleteReportDefinition: (id: string) => Promise<{ success: boolean }>
+  getLiveClasses: (filter?: IpcRecord) => Promise<IpcRecord[]>
+  getLiveClass: (id: string) => Promise<IpcRecord | null>
+  createLiveClass: (input: IpcRecord) => Promise<IpcRecord>
+  updateLiveClass: (id: string, input: IpcRecord) => Promise<IpcRecord>
+  setLiveClassStatus: (id: string, status: string) => Promise<IpcRecord>
+  saveLiveClassAttendance: (
+    liveClassId: string,
+    records: IpcRecord[],
+  ) => Promise<IpcRecord>
+  previewLiveClassNotification: (
+    liveClassId: string,
+    input: IpcRecord,
+  ) => Promise<IpcRecord>
+  notifyLiveClassRecipients: (
+    liveClassId: string,
+    input: IpcRecord,
+  ) => Promise<IpcRecord>
+  getStoreCategories: () => Promise<IpcRecord[]>
+  saveStoreCategory: (input: IpcRecord) => Promise<IpcRecord>
+  getStoreTaxRates: () => Promise<IpcRecord[]>
+  saveStoreTaxRate: (input: IpcRecord) => Promise<IpcRecord>
+  getStoreProducts: (filter?: IpcRecord) => Promise<IpcRecord[]>
+  saveStoreProduct: (input: IpcRecord) => Promise<IpcRecord>
+  getStoreAccountMappings: () => Promise<IpcRecord[]>
+  saveStoreAccountMapping: (input: IpcRecord) => Promise<IpcRecord>
+  createStoreInventoryTransaction: (input: IpcRecord) => Promise<IpcRecord>
+  getStoreInventoryLedger: (filter?: IpcRecord) => Promise<IpcRecord[]>
+  getStoreOrders: (filter?: IpcRecord) => Promise<IpcRecord[]>
+  createStoreOrder: (input: IpcRecord) => Promise<IpcRecord>
+  resumeHeldStoreOrder: (id: string, input: IpcRecord) => Promise<IpcRecord>
+  cancelHeldStoreOrder: (id: string, reason: string) => Promise<IpcRecord>
+  reverseStoreOrder: (id: string, reason: string) => Promise<IpcRecord>
+  getCurrentStorePosSession: () => Promise<IpcRecord | null>
+  getStorePosSessions: (filter?: IpcRecord) => Promise<IpcRecord[]>
+  openStorePosSession: (input: IpcRecord) => Promise<IpcRecord>
+  closeStorePosSession: (id: string, input: IpcRecord) => Promise<IpcRecord>
+  getStoreReports: (filter?: IpcRecord) => Promise<IpcRecord>
 
   getCertificateTemplates: () => Promise<CertificateTemplate[]>
   createCertificateTemplate: (

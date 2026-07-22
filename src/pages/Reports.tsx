@@ -5,6 +5,10 @@ import { getErpApi, getErrorMessage } from '../lib/erpApi'
 import { StudentReportCards } from './reports/StudentReportCards'
 import { ParentsInfoReport } from './reports/ParentsInfoReport'
 import {
+  CustomisedReports,
+  StudentProgressReport,
+} from './reports/ProgressAndCustomReports'
+import {
   exportCsv,
   formatCurrency,
   formatGeneratedAt,
@@ -35,6 +39,8 @@ export type ReportTab =
   | 'fee-due'
   | 'parents-info'
   | 'report-cards'
+  | 'progress'
+  | 'custom'
 
 interface ReportMetric {
   label: string
@@ -57,6 +63,8 @@ const reportTabs: { id: ReportTab; label: string }[] = [
   { id: 'fee-due', label: 'Fee Due' },
   { id: 'parents-info', label: 'Parents Info' },
   { id: 'report-cards', label: 'Report Cards' },
+  { id: 'progress', label: 'Student Progress' },
+  { id: 'custom', label: 'Customised Reports' },
 ]
 
 const paymentModes: PaymentMode[] = [
@@ -353,7 +361,7 @@ export function Reports({
         if (currentUser.role === 'Accountant') {
           return true
         }
-        return ['students', 'attendance', 'parents-info', 'report-cards'].includes(tab.id)
+        return ['students', 'attendance', 'parents-info', 'report-cards', 'progress'].includes(tab.id)
       }),
     [currentUser.role],
   )
@@ -1314,6 +1322,18 @@ export function Reports({
       )}
 
       {activeTab === 'parents-info' && <ParentsInfoReport />}
+
+      {activeTab === 'progress' && (
+        <StudentProgressReport
+          classes={classes}
+          currentUser={currentUser}
+          sections={sections}
+          settings={settings}
+          students={students}
+        />
+      )}
+
+      {activeTab === 'custom' && <CustomisedReports currentUser={currentUser} />}
     </div>
   )
 }

@@ -49,15 +49,14 @@ export function shouldCheckRemoteLicense(
 const normalizeFeature = (feature: string) =>
   feature.trim().toLowerCase().replace(/[\s_]+/g, '-')
 
-export function hasLicenseFeature(
+export function hasFeature(
   status: LicenseStatus,
   requestedFeature: string,
 ) {
+  if (!status.isValid || status.remote?.blocksUsage) {
+    return false
+  }
   const features = status.license?.features.map(normalizeFeature) ?? []
   const feature = normalizeFeature(requestedFeature)
-  return (
-    features.includes('all') ||
-    features.includes('advanced') ||
-    features.includes(feature)
-  )
+  return features.includes('all') || features.includes(feature)
 }
