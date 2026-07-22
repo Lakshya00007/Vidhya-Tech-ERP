@@ -728,6 +728,36 @@ contextBridge.exposeInMainWorld("erpApi", {
     ipcRenderer.invoke("certificates:get-issued"),
   getIssuedCertificatesByStudent: (studentId) =>
     ipcRenderer.invoke("certificates:get-issued-by-student", studentId),
+  getDocumentTemplateSettings: () =>
+    ipcRenderer.invoke("document-templates:get-all"),
+  updateDocumentTemplateSetting: (documentType, input) =>
+    ipcRenderer.invoke("document-templates:update", documentType, input),
+  getAdmissionFormData: (input) =>
+    ipcRenderer.invoke("documents:admission-form:get", input),
+  saveAdmissionFormSnapshot: (input) =>
+    ipcRenderer.invoke("documents:admission-form:snapshot", input),
+  getTransferCertificates: (filter) =>
+    ipcRenderer.invoke("transfer-certificates:get-all", filter),
+  getTransferCertificate: (id) =>
+    ipcRenderer.invoke("transfer-certificates:get-by-id", id),
+  getTransferCertificatePreview: (input) =>
+    ipcRenderer.invoke("transfer-certificates:preview", input),
+  createTransferCertificateDraft: (input) =>
+    ipcRenderer.invoke("transfer-certificates:create-draft", input),
+  updateTransferCertificateDraft: (id, input) =>
+    ipcRenderer.invoke("transfer-certificates:update-draft", id, input),
+  issueTransferCertificate: (id, input) =>
+    ipcRenderer.invoke("transfer-certificates:issue", id, input),
+  reprintTransferCertificate: (id) =>
+    ipcRenderer.invoke("transfer-certificates:reprint", id),
+  cancelTransferCertificate: (id, reason) =>
+    ipcRenderer.invoke("transfer-certificates:cancel", id, reason),
+  markStudentTransferredFromCertificate: (id) =>
+    ipcRenderer.invoke("transfer-certificates:mark-student-transferred", id),
+  getFeeReceiptPrintData: (paymentId) =>
+    ipcRenderer.invoke("fees:receipt-print-data", paymentId),
+  recordFeeReceiptPrint: (paymentId) =>
+    ipcRenderer.invoke("fees:receipt-print-record", paymentId),
 
   createDatabaseBackup: () =>
     ipcRenderer.invoke("database:create-backup"),

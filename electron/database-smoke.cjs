@@ -469,7 +469,22 @@ app.whenReady().then(async () => {
           "deleteCertificateTemplate",
           "issueCertificate",
           "getIssuedCertificates",
-          "getIssuedCertificatesByStudent"
+          "getIssuedCertificatesByStudent",
+          "getDocumentTemplateSettings",
+          "updateDocumentTemplateSetting",
+          "getAdmissionFormData",
+          "saveAdmissionFormSnapshot",
+          "getTransferCertificates",
+          "getTransferCertificate",
+          "getTransferCertificatePreview",
+          "createTransferCertificateDraft",
+          "updateTransferCertificateDraft",
+          "issueTransferCertificate",
+          "reprintTransferCertificate",
+          "cancelTransferCertificate",
+          "markStudentTransferredFromCertificate",
+          "getFeeReceiptPrintData",
+          "recordFeeReceiptPrint"
         ].every((method) => typeof window.erpApi[method] === "function");
         const employeeApiAvailable = [
           "getEmployees",
@@ -1448,6 +1463,83 @@ app.whenReady().then(async () => {
         });
         const issuedCertificatesByStudent =
           await window.erpApi.getIssuedCertificatesByStudent(student.id);
+        const documentTemplateSettings =
+          await window.erpApi.getDocumentTemplateSettings();
+        const updatedReceiptTemplate =
+          await window.erpApi.updateDocumentTemplateSetting("Fee Receipt", {
+            feeReceiptTerms: "Smoke-test receipt terms",
+            defaultPaperSize: "A5"
+          });
+        const blankAdmissionForm =
+          await window.erpApi.getAdmissionFormData({
+            mode: "Blank",
+            formDate: "2026-07-07"
+          });
+        const prefilledAdmissionForm =
+          await window.erpApi.getAdmissionFormData({
+            mode: "Prefilled",
+            studentId: student.id,
+            formDate: "2026-07-07"
+          });
+        const admissionSnapshot =
+          await window.erpApi.saveAdmissionFormSnapshot({
+            mode: "Prefilled",
+            studentId: student.id,
+            formDate: "2026-07-07"
+          });
+        const transferPreview =
+          await window.erpApi.getTransferCertificatePreview({
+            studentId: student.id,
+            issueDate: "2026-07-08",
+            reasonForLeaving: "Parent request",
+            duesPaidUpto: "July 2026"
+          });
+        const transferDraft =
+          await window.erpApi.createTransferCertificateDraft({
+            studentId: student.id,
+            issueDate: "2026-07-08",
+            reasonForLeaving: "Parent request",
+            duesPaidUpto: "July 2026",
+            promotionQualified: "Yes",
+            promotedToClass: "11"
+          });
+        const transferDraftUpdated =
+          await window.erpApi.updateTransferCertificateDraft(
+            transferDraft.id,
+            { generalConduct: "Very Good" }
+          );
+        const transferIssued =
+          await window.erpApi.issueTransferCertificate(
+            transferDraft.id,
+            { issueDate: "2026-07-08" }
+          );
+        let issuedTransferOverwriteRejected = false;
+        try {
+          await window.erpApi.updateTransferCertificateDraft(
+            transferIssued.id,
+            { generalConduct: "Overwritten" }
+          );
+        } catch {
+          issuedTransferOverwriteRejected = true;
+        }
+        const transferReprinted =
+          await window.erpApi.reprintTransferCertificate(transferIssued.id);
+        const transferCancelled =
+          await window.erpApi.cancelTransferCertificate(
+            transferIssued.id,
+            "Smoke test cancellation"
+          );
+        let cancelledTransferNumberRejected = false;
+        try {
+          await window.erpApi.createTransferCertificateDraft({
+            studentId: student.id,
+            certificateNumber: transferCancelled.certificateNumber,
+            serialNumber: "SMOKE-TC-NEW-SERIAL",
+            issueDate: "2026-07-09"
+          });
+        } catch {
+          cancelledTransferNumberRejected = true;
+        }
         const templateDeleteResult =
           await window.erpApi.deleteCertificateTemplate(
             certificateTemplate.id
@@ -1960,6 +2052,17 @@ app.whenReady().then(async () => {
               transaction.linkedModule === "Fees" &&
               transaction.linkedRecordId === paymentForReversal.id
           );
+        const partialReceiptPrintData =
+          await window.erpApi.getFeeReceiptPrintData(invoicePartialPayment.id);
+        const fullReceiptPrintData =
+          await window.erpApi.getFeeReceiptPrintData(invoiceFinalPayment.id);
+        const reversedReceiptPrintData =
+          await window.erpApi.getFeeReceiptPrintData(paymentForReversal.id);
+        const receiptPrintRecord =
+          await window.erpApi.recordFeeReceiptPrint(invoicePartialPayment.id);
+        const paymentsAfterReceiptPrint = await window.erpApi.getFeePayments();
+        const accountsAfterReceiptPrint =
+          await window.erpApi.getAccountTransactions();
         await window.erpApi.saveAttendanceBulk([
           {
             studentId: student.id,
@@ -3122,6 +3225,25 @@ app.whenReady().then(async () => {
             ),
           defaultCertificateTemplateCount:
             certificateTemplatesAfterDelete.length,
+          documentTemplateSettingsCorrect:
+            documentTemplateSettings.length === 3 &&
+            updatedReceiptTemplate.feeReceiptTerms ===
+              "Smoke-test receipt terms",
+          admissionFormDataCorrect:
+            blankAdmissionForm.mode === "Blank" &&
+            blankAdmissionForm.student === null &&
+            prefilledAdmissionForm.student?.id === student.id &&
+            prefilledAdmissionForm.ageAtAdmission.display === "" &&
+            admissionSnapshot.studentId === student.id,
+          transferCertificateLifecycleCorrect:
+            transferPreview.studentName === student.name &&
+            transferDraft.status === "Draft" &&
+            transferDraftUpdated.generalConduct === "Very Good" &&
+            transferIssued.status === "Issued" &&
+            issuedTransferOverwriteRejected &&
+            transferReprinted.reprintCount === 1 &&
+            transferCancelled.status === "Cancelled" &&
+            cancelledTransferNumberRejected,
           employeeId: employee.id,
           deletedEmployeeId: deletedEmployee.id,
           employeeCount: employeesAfterDelete.length,
@@ -3308,6 +3430,21 @@ app.whenReady().then(async () => {
           updatedMobile: updatedStudent.mobile,
           firstReceipt: firstPayment.receiptNo,
           secondReceipt: secondPayment.receiptNo,
+          feeReceiptPrintDataCorrect:
+            partialReceiptPrintData.payment.id === invoicePartialPayment.id &&
+            partialReceiptPrintData.rows.length > 0 &&
+            partialReceiptPrintData.totals.amountPaid === 5000 &&
+            partialReceiptPrintData.amountInWords.includes("Five Thousand") &&
+            fullReceiptPrintData.totals.remainingBalance === 0,
+          feeReceiptReversalVisible:
+            reversedReceiptPrintData.isReversed &&
+            reversedReceiptPrintData.reversedLabel === "REVERSED / CANCELLED",
+          feeReceiptPrintNoMutation:
+            receiptPrintRecord.success &&
+            paymentsAfterReceiptPrint.length ===
+              (await window.erpApi.getFeePayments()).length &&
+            accountsAfterReceiptPrint.length ===
+              (await window.erpApi.getAccountTransactions()).length,
           studentCount: (await window.erpApi.getStudents()).length,
           paymentCount: (await window.erpApi.getFeePayments()).length,
           attendanceCount: (await window.erpApi.getAttendance()).length,
@@ -3915,6 +4052,12 @@ app.whenReady().then(async () => {
     );
     assert(bridgeResult.secondPaymentMode === "Cheque", "Cheque mode was not saved.");
     assert(
+      bridgeResult.feeReceiptPrintDataCorrect &&
+        bridgeResult.feeReceiptReversalVisible &&
+        bridgeResult.feeReceiptPrintNoMutation,
+      "Fee receipt print data, reversal visibility, or no-mutation rule failed.",
+    );
+    assert(
       bridgeResult.certificateNo === "CERT-2026-0001",
       "Certificate number was not generated with the yearly sequence.",
     );
@@ -3935,6 +4078,12 @@ app.whenReady().then(async () => {
         bridgeResult.certificateTemplateSoftDeleted &&
         bridgeResult.defaultCertificateTemplateCount === 3,
       "Certificate template update, defaults, or soft delete failed.",
+    );
+    assert(
+      bridgeResult.documentTemplateSettingsCorrect &&
+        bridgeResult.admissionFormDataCorrect &&
+        bridgeResult.transferCertificateLifecycleCorrect,
+      "Document template, admission form, or transfer certificate lifecycle failed.",
     );
     assert(
       bridgeResult.employeeCount === 1 &&

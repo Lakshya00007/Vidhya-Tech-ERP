@@ -17,6 +17,8 @@ import type {
   ClassTestMark,
   Classroom,
   CertificateTemplate,
+  AdmissionFormData,
+  AdmissionFormSnapshot,
   CreateCertificateTemplateInput,
   CreateAcademicSessionInput,
   CreateBehaviourTraitInput,
@@ -63,6 +65,9 @@ import type {
   DatabaseInfo,
   DemoDataResult,
   DiscountType,
+  DocumentTemplateSettings,
+  DocumentTemplateType,
+  UpdateDocumentTemplateSettingInput,
   Employee,
   EmployeeLoginAccount,
   EmployeeLoginFilter,
@@ -84,6 +89,7 @@ import type {
   FeeInvoiceSummary,
   FeeHead,
   FeePayment,
+  FeeReceiptPrintData,
   FeePaymentReversalResult,
   FeeStructure,
   Family,
@@ -178,6 +184,9 @@ import type {
   SaveStudentSessionHistoryInput,
   StudentPromotion,
   StudentSessionHistory,
+  TransferCertificate,
+  TransferCertificateInput,
+  TransferCertificatePreview,
   TimetableEntry,
   TimetablePeriod,
   TimetableWeekday,
@@ -1021,6 +1030,53 @@ export interface ErpApi {
   getIssuedCertificatesByStudent: (
     studentId: string,
   ) => Promise<IssuedCertificate[]>
+  getDocumentTemplateSettings: () => Promise<DocumentTemplateSettings[]>
+  updateDocumentTemplateSetting: (
+    documentType: DocumentTemplateType,
+    input: UpdateDocumentTemplateSettingInput,
+  ) => Promise<DocumentTemplateSettings>
+  getAdmissionFormData: (input: {
+    mode: 'Blank' | 'Prefilled'
+    studentId?: string
+    formDate?: string
+  }) => Promise<AdmissionFormData>
+  saveAdmissionFormSnapshot: (input: {
+    mode: 'Blank' | 'Prefilled'
+    studentId?: string
+    formDate?: string
+  }) => Promise<AdmissionFormSnapshot>
+  getTransferCertificates: (
+    filter?: IpcRecord,
+  ) => Promise<TransferCertificate[]>
+  getTransferCertificate: (
+    id: string,
+  ) => Promise<TransferCertificate | null>
+  getTransferCertificatePreview: (
+    input: TransferCertificateInput,
+  ) => Promise<TransferCertificatePreview>
+  createTransferCertificateDraft: (
+    input: TransferCertificateInput,
+  ) => Promise<TransferCertificate>
+  updateTransferCertificateDraft: (
+    id: string,
+    input: TransferCertificateInput,
+  ) => Promise<TransferCertificate>
+  issueTransferCertificate: (
+    id: string,
+    input?: TransferCertificateInput,
+  ) => Promise<TransferCertificate>
+  reprintTransferCertificate: (id: string) => Promise<TransferCertificate>
+  cancelTransferCertificate: (
+    id: string,
+    reason: string,
+  ) => Promise<TransferCertificate>
+  markStudentTransferredFromCertificate: (
+    id: string,
+  ) => Promise<Student>
+  getFeeReceiptPrintData: (paymentId: string) => Promise<FeeReceiptPrintData>
+  recordFeeReceiptPrint: (
+    paymentId: string,
+  ) => Promise<{ success: boolean; receiptNo: string }>
 
   createDatabaseBackup: () => Promise<DatabaseActionResult>
   restoreDatabaseBackup: () => Promise<DatabaseActionResult>

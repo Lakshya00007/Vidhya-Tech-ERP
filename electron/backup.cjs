@@ -33,6 +33,7 @@ const MANAGED_FILE_CATEGORIES = [
   { id: "certificates", directory: "certificates" },
   { id: "homework", directory: "homework" },
   { id: "report-assets", directory: "report-assets" },
+  { id: "document-assets", directory: "document-assets" },
   { id: "store-products", directory: "store-products" },
 ];
 

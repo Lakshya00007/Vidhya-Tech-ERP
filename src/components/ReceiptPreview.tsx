@@ -1,38 +1,21 @@
-import type { FeePayment, SchoolSettings } from '../types'
+import { useState } from 'react'
+import type { FeeReceiptPrintData } from '../types'
 import { Icon } from './Icon'
+import { FeeReceiptPrint } from './PrintableSchoolDocuments'
 
 interface ReceiptPreviewProps {
-  payment: FeePayment
-  settings: SchoolSettings
+  receiptData: FeeReceiptPrintData
   onClose: () => void
   onPrint: () => void
 }
 
-const formatCurrency = (amount: number) =>
-  new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    maximumFractionDigits: 0,
-  }).format(amount)
-
-const formatDate = (value: string) => {
-  const dateText = value.slice(0, 10)
-  const date = new Date(`${dateText}T00:00:00`)
-  return Number.isNaN(date.getTime())
-    ? value
-    : new Intl.DateTimeFormat('en-IN', {
-        day: '2-digit',
-        month: 'long',
-        year: 'numeric',
-      }).format(date)
-}
-
 export function ReceiptPreview({
-  payment,
-  settings,
+  receiptData,
   onClose,
   onPrint,
 }: ReceiptPreviewProps) {
+  const [printMode, setPrintMode] = useState<'a5' | 'half-a4' | 'two-copy'>('a5')
+  const payment = receiptData.payment
   return (
     <div className="receipt-backdrop" role="presentation" onMouseDown={onClose}>
       <section
@@ -48,6 +31,18 @@ export function ReceiptPreview({
             <p>{payment.receiptNo}</p>
           </div>
           <div className="receipt-toolbar-actions">
+            <select
+              aria-label="Receipt print format"
+              className="receipt-format-select"
+              value={printMode}
+              onChange={(event) =>
+                setPrintMode(event.target.value as 'a5' | 'half-a4' | 'two-copy')
+              }
+            >
+              <option value="a5">A5 Receipt</option>
+              <option value="half-a4">Half-A4 Receipt</option>
+              <option value="two-copy">Parent + Office Copy</option>
+            </select>
             <button className="secondary-button" type="button" onClick={onClose}>
               Close
             </button>
@@ -58,95 +53,27 @@ export function ReceiptPreview({
           </div>
         </div>
 
-        <article className="receipt-print-area">
-          <header className="receipt-header">
-            <div className="receipt-school-mark">
-              <Icon name="school" size={28} />
-            </div>
-            <div>
-              <h1>{settings.schoolName}</h1>
-              <p>{settings.address || 'School address not configured'}</p>
-              <span>
-                {[settings.phone, settings.email].filter(Boolean).join(' · ') ||
-                  'Contact details not configured'}
-              </span>
-            </div>
-          </header>
-
-          <div className="receipt-title-row">
-            <div>
-              <span>Receipt Number</span>
-              <strong>{payment.receiptNo}</strong>
-            </div>
-            <div>
-              <span>Payment Date</span>
-              <strong>{formatDate(payment.paymentDate)}</strong>
-            </div>
-          </div>
-
-          <section className="receipt-section">
-            <h2>Student Details</h2>
-            <dl className="receipt-details-grid">
-              <div>
-                <dt>Student Name</dt>
-                <dd>{payment.studentName}</dd>
-              </div>
-              <div>
-                <dt>Admission No.</dt>
-                <dd>{payment.admissionNo || '—'}</dd>
-              </div>
-              <div>
-                <dt>Class / Section</dt>
-                <dd>
-                  {payment.className || '—'}
-                  {payment.section ? ` / ${payment.section}` : ''}
-                </dd>
-              </div>
-              <div>
-                <dt>Guardian</dt>
-                <dd>{payment.guardianName || '—'}</dd>
-              </div>
-            </dl>
-          </section>
-
-          <section className="receipt-section receipt-payment-section">
-            <h2>Payment Details</h2>
-            <div className="receipt-payment-row">
-              <div>
-                <span>Fee Head</span>
-                <strong>{payment.feeType}</strong>
-              </div>
-              <div>
-                <span>Payment Mode</span>
-                <strong>{payment.paymentMode}</strong>
-              </div>
-              <div className="receipt-amount">
-                <span>Amount Paid</span>
-                <strong>{formatCurrency(payment.amount)}</strong>
-              </div>
-            </div>
-            <div className="receipt-notes">
-              <span>Notes</span>
-              <p>{payment.notes || '—'}</p>
-            </div>
-          </section>
-
-          <footer className="receipt-footer">
-            <div>
-              <span>Received by</span>
-              <strong>{payment.cashierName || 'Administrator'}</strong>
-              <small>Cashier / Admin</small>
-            </div>
-            <div className="receipt-signature">
-              <span />
-              <strong>Authorized Signature</strong>
-            </div>
-          </footer>
-
-          <p className="receipt-thanks">
-            Thank you. This receipt was generated by Vidhya School ERP.
-          </p>
-        </article>
+        <div className={`receipt-print-area receipt-print-area--${printMode}`}>
+          {printMode === 'two-copy' ? (
+            <>
+              <FeeReceiptPrint
+                copyLabel="Parent Copy"
+                data={receiptData}
+                duplicate={payment.status === 'Reversed'}
+              />
+              <FeeReceiptPrint
+                copyLabel="Office Copy"
+                data={receiptData}
+                duplicate={payment.status === 'Reversed'}
+              />
+            </>
+          ) : (
+            <FeeReceiptPrint
+              data={receiptData}
+              duplicate={payment.status === 'Reversed'}
+            />
+          )}
+        </div>
       </section>
     </div>
   )

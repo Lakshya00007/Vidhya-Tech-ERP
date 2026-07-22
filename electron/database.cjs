@@ -50,6 +50,17 @@ const CERTIFICATE_TYPES = new Set([
   "Admission",
   "Custom",
 ]);
+const DOCUMENT_TEMPLATE_TYPES = new Set([
+  "Admission Form",
+  "Transfer Certificate",
+  "Fee Receipt",
+]);
+const DOCUMENT_PAPER_SIZES = new Set(["A4", "A5", "Half A4"]);
+const TRANSFER_CERTIFICATE_STATUSES = new Set([
+  "Draft",
+  "Issued",
+  "Cancelled",
+]);
 const ACCOUNT_TYPES = new Set(["Income", "Expense"]);
 const STORE_POS_ACCOUNT_MAPPINGS = {
   sales_income: {
@@ -918,6 +929,37 @@ function settingsFromRow(row) {
     receiptPrefix: row.receipt_prefix ?? "",
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+  };
+}
+
+function documentTemplateSettingsFromRow(row) {
+  let showFields = {};
+  try {
+    const parsed = JSON.parse(row.show_fields_json ?? "{}");
+    showFields = parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? parsed
+      : {};
+  } catch {
+    showFields = {};
+  }
+  return {
+    id: row.id,
+    documentType: row.document_type,
+    udiseCode: row.udise_code ?? "",
+    recognitionNumber: row.recognition_number ?? "",
+    principalName: row.principal_name ?? "",
+    principalSignaturePath: row.principal_signature_path ?? "",
+    schoolStampPath: row.school_stamp_path ?? "",
+    accentColor: row.accent_color ?? "#1f4e79",
+    footerText: row.footer_text ?? "",
+    feeReceiptTerms:
+      row.fee_receipt_terms ??
+      "Fees once paid are not refundable or transferable.",
+    defaultPaperSize: row.default_paper_size ?? "A4",
+    showFields,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    syncStatus: row.sync_status ?? "pending",
   };
 }
 
@@ -2151,6 +2193,72 @@ function issuedCertificateFromRow(row) {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     syncStatus: row.sync_status,
+  };
+}
+
+function admissionFormSnapshotFromRow(row) {
+  let snapshot = {};
+  try {
+    snapshot = JSON.parse(row.snapshot_json ?? "{}");
+  } catch {
+    snapshot = {};
+  }
+  return {
+    id: row.id,
+    snapshotNo: row.snapshot_no,
+    studentId: row.student_id ?? "",
+    admissionNo: row.admission_no ?? "",
+    studentName: row.student_name ?? "",
+    formDate: row.form_date,
+    issuedBy: row.issued_by ?? "",
+    snapshot,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at,
+    syncStatus: row.sync_status ?? "pending",
+  };
+}
+
+function transferCertificateFromRow(row) {
+  return {
+    id: row.id,
+    studentId: row.student_id,
+    certificateNumber: row.certificate_number,
+    serialNumber: row.serial_number ?? "",
+    srNumber: row.sr_number ?? "",
+    penNumber: row.pen_number ?? "",
+    academicSessionId: row.academic_session_id ?? "",
+    academicSessionName: row.academic_session_name ?? "",
+    studentName: row.student_name ?? "",
+    admissionNo: row.admission_no ?? "",
+    className: row.class_name ?? "",
+    section: row.section ?? "",
+    fatherGuardianName: row.father_guardian_name ?? "",
+    motherName: row.mother_name ?? "",
+    dateOfAdmission: row.date_of_admission ?? "",
+    admissionClass: row.admission_class ?? "",
+    dateOfBirth: row.date_of_birth ?? "",
+    dateOfBirthWords: row.date_of_birth_words ?? "",
+    lastClassStudied: row.last_class_studied ?? "",
+    promotionQualified: row.promotion_qualified ?? "",
+    promotedToClass: row.promoted_to_class ?? "",
+    duesPaidUpto: row.dues_paid_upto ?? "",
+    generalConduct: row.general_conduct ?? "",
+    issueDate: row.issue_date ?? "",
+    reasonForLeaving: row.reason_for_leaving ?? "",
+    nationality: row.nationality ?? "",
+    casteCategory: row.caste_category ?? "",
+    remarks: row.remarks ?? "",
+    status: row.status ?? "Draft",
+    issuedBy: row.issued_by ?? "",
+    reissuedFromId: row.reissued_from_id ?? "",
+    reprintCount: Number(row.reprint_count ?? 0),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    cancelledAt: row.cancelled_at ?? null,
+    cancellationReason: row.cancellation_reason ?? "",
+    deletedAt: row.deleted_at,
+    syncStatus: row.sync_status ?? "pending",
   };
 }
 
@@ -3678,6 +3786,42 @@ function createDatabase(databasePath) {
       sync_status TEXT DEFAULT 'pending'
     );
 
+    CREATE TABLE IF NOT EXISTS document_template_settings (
+      id TEXT PRIMARY KEY,
+      document_type TEXT UNIQUE NOT NULL CHECK (
+        document_type IN ('Admission Form', 'Transfer Certificate', 'Fee Receipt')
+      ),
+      udise_code TEXT,
+      recognition_number TEXT,
+      principal_name TEXT,
+      principal_signature_path TEXT,
+      school_stamp_path TEXT,
+      accent_color TEXT DEFAULT '#1f4e79',
+      footer_text TEXT,
+      fee_receipt_terms TEXT,
+      default_paper_size TEXT DEFAULT 'A4',
+      show_fields_json TEXT DEFAULT '{}',
+      created_at TEXT,
+      updated_at TEXT,
+      sync_status TEXT DEFAULT 'pending'
+    );
+
+    CREATE TABLE IF NOT EXISTS admission_form_snapshots (
+      id TEXT PRIMARY KEY,
+      snapshot_no TEXT UNIQUE NOT NULL,
+      student_id TEXT,
+      admission_no TEXT,
+      student_name TEXT,
+      form_date TEXT NOT NULL,
+      snapshot_json TEXT NOT NULL,
+      issued_by TEXT,
+      created_at TEXT,
+      updated_at TEXT,
+      deleted_at TEXT,
+      sync_status TEXT DEFAULT 'pending',
+      FOREIGN KEY (student_id) REFERENCES students(id)
+    );
+
     CREATE TABLE IF NOT EXISTS saved_report_definitions (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -3948,6 +4092,51 @@ function createDatabase(databasePath) {
       FOREIGN KEY (template_id) REFERENCES certificate_templates(id)
     );
 
+    CREATE TABLE IF NOT EXISTS transfer_certificates (
+      id TEXT PRIMARY KEY,
+      student_id TEXT NOT NULL,
+      certificate_number TEXT UNIQUE NOT NULL,
+      serial_number TEXT UNIQUE,
+      sr_number TEXT,
+      pen_number TEXT,
+      academic_session_id TEXT,
+      academic_session_name TEXT,
+      student_name TEXT,
+      admission_no TEXT,
+      class_name TEXT,
+      section TEXT,
+      father_guardian_name TEXT,
+      mother_name TEXT,
+      date_of_admission TEXT,
+      admission_class TEXT,
+      date_of_birth TEXT,
+      date_of_birth_words TEXT,
+      last_class_studied TEXT,
+      promotion_qualified TEXT,
+      promoted_to_class TEXT,
+      dues_paid_upto TEXT,
+      general_conduct TEXT,
+      issue_date TEXT,
+      reason_for_leaving TEXT,
+      nationality TEXT,
+      caste_category TEXT,
+      remarks TEXT,
+      status TEXT DEFAULT 'Draft' CHECK (
+        status IN ('Draft', 'Issued', 'Cancelled')
+      ),
+      issued_by TEXT,
+      reissued_from_id TEXT,
+      reprint_count INTEGER DEFAULT 0,
+      created_at TEXT,
+      updated_at TEXT,
+      cancelled_at TEXT,
+      cancellation_reason TEXT,
+      deleted_at TEXT,
+      sync_status TEXT DEFAULT 'pending',
+      FOREIGN KEY (student_id) REFERENCES students(id),
+      FOREIGN KEY (reissued_from_id) REFERENCES transfer_certificates(id)
+    );
+
     CREATE INDEX IF NOT EXISTS idx_students_active
       ON students(deleted_at, created_at);
     CREATE INDEX IF NOT EXISTS idx_families_active
@@ -4068,6 +4257,14 @@ function createDatabase(databasePath) {
       ON issued_certificates(student_id, issued_date DESC);
     CREATE INDEX IF NOT EXISTS idx_issued_certificates_date
       ON issued_certificates(issued_date DESC, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_document_template_settings_type
+      ON document_template_settings(document_type);
+    CREATE INDEX IF NOT EXISTS idx_admission_form_snapshots_student
+      ON admission_form_snapshots(student_id, form_date DESC, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_transfer_certificates_student
+      ON transfer_certificates(student_id, status, issue_date DESC);
+    CREATE INDEX IF NOT EXISTS idx_transfer_certificates_register
+      ON transfer_certificates(status, issue_date DESC, created_at DESC);
   `);
 
   addColumnIfMissing(db, "fee_payments", "admission_no", "TEXT");
@@ -4087,6 +4284,70 @@ function createDatabase(databasePath) {
   );
   addColumnIfMissing(db, "fee_invoice_allocations", "reversed_at", "TEXT");
   addColumnIfMissing(db, "fee_invoice_allocations", "reversal_id", "TEXT");
+  [
+    ["udise_code", "TEXT"],
+    ["recognition_number", "TEXT"],
+    ["principal_name", "TEXT"],
+    ["principal_signature_path", "TEXT"],
+    ["school_stamp_path", "TEXT"],
+    ["accent_color", "TEXT DEFAULT '#1f4e79'"],
+    ["footer_text", "TEXT"],
+    ["fee_receipt_terms", "TEXT"],
+    ["default_paper_size", "TEXT DEFAULT 'A4'"],
+    ["show_fields_json", "TEXT DEFAULT '{}'"],
+    ["sync_status", "TEXT DEFAULT 'pending'"],
+  ].forEach(([columnName, definition]) => {
+    addColumnIfMissing(db, "document_template_settings", columnName, definition);
+  });
+  [
+    ["student_id", "TEXT"],
+    ["admission_no", "TEXT"],
+    ["student_name", "TEXT"],
+    ["form_date", "TEXT"],
+    ["snapshot_json", "TEXT DEFAULT '{}'"],
+    ["issued_by", "TEXT"],
+    ["deleted_at", "TEXT"],
+    ["sync_status", "TEXT DEFAULT 'pending'"],
+  ].forEach(([columnName, definition]) => {
+    addColumnIfMissing(db, "admission_form_snapshots", columnName, definition);
+  });
+  [
+    ["serial_number", "TEXT"],
+    ["sr_number", "TEXT"],
+    ["pen_number", "TEXT"],
+    ["academic_session_id", "TEXT"],
+    ["academic_session_name", "TEXT"],
+    ["student_name", "TEXT"],
+    ["admission_no", "TEXT"],
+    ["class_name", "TEXT"],
+    ["section", "TEXT"],
+    ["father_guardian_name", "TEXT"],
+    ["mother_name", "TEXT"],
+    ["date_of_admission", "TEXT"],
+    ["admission_class", "TEXT"],
+    ["date_of_birth", "TEXT"],
+    ["date_of_birth_words", "TEXT"],
+    ["last_class_studied", "TEXT"],
+    ["promotion_qualified", "TEXT"],
+    ["promoted_to_class", "TEXT"],
+    ["dues_paid_upto", "TEXT"],
+    ["general_conduct", "TEXT"],
+    ["issue_date", "TEXT"],
+    ["reason_for_leaving", "TEXT"],
+    ["nationality", "TEXT"],
+    ["caste_category", "TEXT"],
+    ["remarks", "TEXT"],
+    ["status", "TEXT DEFAULT 'Draft'"],
+    ["issued_by", "TEXT"],
+    ["reissued_from_id", "TEXT"],
+    ["reprint_count", "INTEGER DEFAULT 0"],
+    ["cancelled_at", "TEXT"],
+    ["cancellation_reason", "TEXT"],
+    ["deleted_at", "TEXT"],
+    ["sync_status", "TEXT DEFAULT 'pending'"],
+  ].forEach(([columnName, definition]) => {
+    addColumnIfMissing(db, "transfer_certificates", columnName, definition);
+  });
   db.prepare(`
     UPDATE fee_payments
     SET status = 'Active'
@@ -4905,6 +5166,50 @@ function createDatabase(databasePath) {
     updatedAt: timestamp,
   });
 
+  const insertDocumentTemplateSetting = db.prepare(`
+    INSERT OR IGNORE INTO document_template_settings (
+      id, document_type, udise_code, recognition_number, principal_name,
+      principal_signature_path, school_stamp_path, accent_color, footer_text,
+      fee_receipt_terms, default_paper_size, show_fields_json, created_at,
+      updated_at, sync_status
+    ) VALUES (
+      @id, @documentType, '', '', '', '', '', '#1f4e79', @footerText,
+      @feeReceiptTerms, @defaultPaperSize, '{}', @createdAt, @updatedAt,
+      'pending'
+    )
+  `);
+  [
+    {
+      id: "document-template-admission-form",
+      documentType: "Admission Form",
+      footerText:
+        "All information must be verified with original documents before admission is finalized.",
+      feeReceiptTerms: "",
+      defaultPaperSize: "A4",
+    },
+    {
+      id: "document-template-transfer-certificate",
+      documentType: "Transfer Certificate",
+      footerText:
+        "This certificate is issued according to the school admission register.",
+      feeReceiptTerms: "",
+      defaultPaperSize: "A4",
+    },
+    {
+      id: "document-template-fee-receipt",
+      documentType: "Fee Receipt",
+      footerText: "Computer-generated receipt.",
+      feeReceiptTerms: "Fees once paid are not refundable or transferable.",
+      defaultPaperSize: "A5",
+    },
+  ].forEach((templateSetting) => {
+    insertDocumentTemplateSetting.run({
+      ...templateSetting,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    });
+  });
+
   const insertDefaultTemplate = db.prepare(`
     INSERT OR IGNORE INTO certificate_templates (
       id, name, type, body_template, status, created_at, updated_at,
@@ -5303,6 +5608,197 @@ function createDatabase(databasePath) {
     return `${certificateStem}${String(nextSequence).padStart(4, "0")}`;
   }
 
+  function generateAdmissionSnapshotNumber(formDate) {
+    const year = normalizeDate(formDate, "Form date").slice(0, 4);
+    const stem = `ADM-FORM-${year}-`;
+    const sequence = db
+      .prepare(`
+        SELECT MAX(
+          CAST(substr(snapshot_no, length(?) + 1) AS INTEGER)
+        ) AS last_sequence
+        FROM admission_form_snapshots
+        WHERE substr(snapshot_no, 1, length(?)) = ?
+      `)
+      .get(stem, stem, stem);
+    const nextSequence = Number(sequence?.last_sequence ?? 0) + 1;
+    return `${stem}${String(nextSequence).padStart(4, "0")}`;
+  }
+
+  function generateTransferCertificateNumber(issueDate) {
+    const year = normalizeDate(issueDate, "Issue date").slice(0, 4);
+    const stem = `TC-${year}-`;
+    const sequence = db
+      .prepare(`
+        SELECT MAX(
+          CAST(substr(certificate_number, length(?) + 1) AS INTEGER)
+        ) AS last_sequence
+        FROM transfer_certificates
+        WHERE substr(certificate_number, 1, length(?)) = ?
+      `)
+      .get(stem, stem, stem);
+    const nextSequence = Number(sequence?.last_sequence ?? 0) + 1;
+    return `${stem}${String(nextSequence).padStart(4, "0")}`;
+  }
+
+  function generateTransferSerialNumber(issueDate) {
+    const year = normalizeDate(issueDate, "Issue date").slice(0, 4);
+    const stem = `TC-SR-${year}-`;
+    const sequence = db
+      .prepare(`
+        SELECT MAX(
+          CAST(substr(serial_number, length(?) + 1) AS INTEGER)
+        ) AS last_sequence
+        FROM transfer_certificates
+        WHERE substr(serial_number, 1, length(?)) = ?
+      `)
+      .get(stem, stem, stem);
+    const nextSequence = Number(sequence?.last_sequence ?? 0) + 1;
+    return `${stem}${String(nextSequence).padStart(4, "0")}`;
+  }
+
+  const smallNumberWords = [
+    "Zero",
+    "One",
+    "Two",
+    "Three",
+    "Four",
+    "Five",
+    "Six",
+    "Seven",
+    "Eight",
+    "Nine",
+    "Ten",
+    "Eleven",
+    "Twelve",
+    "Thirteen",
+    "Fourteen",
+    "Fifteen",
+    "Sixteen",
+    "Seventeen",
+    "Eighteen",
+    "Nineteen",
+  ];
+  const tensNumberWords = [
+    "",
+    "",
+    "Twenty",
+    "Thirty",
+    "Forty",
+    "Fifty",
+    "Sixty",
+    "Seventy",
+    "Eighty",
+    "Ninety",
+  ];
+
+  function numberUnderThousandToWords(value) {
+    const number = Math.floor(Number(value) || 0);
+    const parts = [];
+    const hundreds = Math.floor(number / 100);
+    const remainder = number % 100;
+    if (hundreds > 0) {
+      parts.push(`${smallNumberWords[hundreds]} Hundred`);
+    }
+    if (remainder > 0) {
+      if (remainder < 20) {
+        parts.push(smallNumberWords[remainder]);
+      } else {
+        const tens = Math.floor(remainder / 10);
+        const ones = remainder % 10;
+        parts.push(
+          ones > 0
+            ? `${tensNumberWords[tens]} ${smallNumberWords[ones]}`
+            : tensNumberWords[tens],
+        );
+      }
+    }
+    return parts.join(" ");
+  }
+
+  function numberToIndianWords(value) {
+    const number = Math.floor(Math.abs(Number(value) || 0));
+    if (number === 0) return "Zero";
+    const chunks = [
+      { label: "Crore", divisor: 10000000 },
+      { label: "Lakh", divisor: 100000 },
+      { label: "Thousand", divisor: 1000 },
+      { label: "Hundred", divisor: 100 },
+    ];
+    let remaining = number;
+    const parts = [];
+    for (const chunk of chunks) {
+      const quotient = Math.floor(remaining / chunk.divisor);
+      if (quotient > 0) {
+        parts.push(
+          chunk.label === "Hundred"
+            ? `${smallNumberWords[quotient]} Hundred`
+            : `${numberUnderThousandToWords(quotient)} ${chunk.label}`,
+        );
+        remaining %= chunk.divisor;
+      }
+    }
+    if (remaining > 0) parts.push(numberUnderThousandToWords(remaining));
+    return parts.join(" ");
+  }
+
+  function amountToWords(amount) {
+    const rupees = Math.floor(Math.max(0, Number(amount) || 0));
+    return `${numberToIndianWords(rupees)} Rupees Only`;
+  }
+
+  function dateToWords(value) {
+    const text = optionalText(value);
+    if (!text) return "";
+    let dateText = "";
+    try {
+      dateText = normalizeDate(text, "Date");
+    } catch {
+      return "";
+    }
+    const date = new Date(`${dateText}T00:00:00Z`);
+    const day = date.getUTCDate();
+    const month = new Intl.DateTimeFormat("en-IN", {
+      month: "long",
+      timeZone: "UTC",
+    }).format(date);
+    return `${numberToIndianWords(day)} ${month} ${numberToIndianWords(
+      date.getUTCFullYear(),
+    )}`;
+  }
+
+  function calculateAgeOnDate(dateOfBirth, referenceDate) {
+    const birthText = optionalText(dateOfBirth);
+    const referenceText = optionalText(referenceDate);
+    if (!birthText || !referenceText) {
+      return { years: "", months: "", display: "" };
+    }
+    let birthDate;
+    let targetDate;
+    try {
+      birthDate = new Date(`${normalizeDate(birthText, "Date of birth")}T00:00:00Z`);
+      targetDate = new Date(`${normalizeDate(referenceText, "Admission date")}T00:00:00Z`);
+    } catch {
+      return { years: "", months: "", display: "" };
+    }
+    if (birthDate > targetDate) {
+      return { years: "", months: "", display: "" };
+    }
+    let years = targetDate.getUTCFullYear() - birthDate.getUTCFullYear();
+    let months = targetDate.getUTCMonth() - birthDate.getUTCMonth();
+    if (targetDate.getUTCDate() < birthDate.getUTCDate()) months -= 1;
+    if (months < 0) {
+      years -= 1;
+      months += 12;
+    }
+    return {
+      years,
+      months,
+      display: `${years} year${years === 1 ? "" : "s"} ${months} month${
+        months === 1 ? "" : "s"
+      }`,
+    };
+  }
+
   function normalizeSalaryMonth(value) {
     const month = requiredText(value, "Salary month");
     if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) {
@@ -5384,6 +5880,295 @@ function createDatabase(databasePath) {
       throw new Error("Guardian relation is invalid.");
     }
     return relation;
+  }
+
+  function normalizeDocumentType(value) {
+    const documentType = requiredText(value, "Document type");
+    if (!DOCUMENT_TEMPLATE_TYPES.has(documentType)) {
+      throw new Error("Document type is invalid.");
+    }
+    return documentType;
+  }
+
+  function normalizeDocumentPaperSize(value, fallback = "A4") {
+    const paperSize = optionalText(value) || fallback;
+    if (!DOCUMENT_PAPER_SIZES.has(paperSize)) {
+      throw new Error("Document paper size is invalid.");
+    }
+    return paperSize;
+  }
+
+  function normalizeTransferCertificateStatus(value, fallback = "Draft") {
+    const status = optionalText(value) || fallback;
+    if (!TRANSFER_CERTIFICATE_STATUSES.has(status)) {
+      throw new Error("Transfer certificate status is invalid.");
+    }
+    return status;
+  }
+
+  function getDocumentTemplateSettingsRow(documentType) {
+    const normalizedType = normalizeDocumentType(documentType);
+    return db
+      .prepare(`
+        SELECT *
+        FROM document_template_settings
+        WHERE document_type = ?
+      `)
+      .get(normalizedType);
+  }
+
+  function getDocumentTemplateSettingsOrDefault(documentType) {
+    const normalizedType = normalizeDocumentType(documentType);
+    const row = getDocumentTemplateSettingsRow(normalizedType);
+    if (row) return documentTemplateSettingsFromRow(row);
+    const timestamp = now();
+    db.prepare(`
+      INSERT INTO document_template_settings (
+        id, document_type, udise_code, recognition_number, principal_name,
+        principal_signature_path, school_stamp_path, accent_color, footer_text,
+        fee_receipt_terms, default_paper_size, show_fields_json, created_at,
+        updated_at, sync_status
+      ) VALUES (
+        @id, @documentType, '', '', '', '', '', '#1f4e79', '', '',
+        'A4', '{}', @createdAt, @updatedAt, 'pending'
+      )
+    `).run({
+      id: `document-template-${normalizedType.toLowerCase().replaceAll(" ", "-")}`,
+      documentType: normalizedType,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    });
+    return documentTemplateSettingsFromRow(
+      getDocumentTemplateSettingsRow(normalizedType),
+    );
+  }
+
+  function getStudentGuardianLinksForDocuments(studentId) {
+    if (!studentId) return [];
+    return db
+      .prepare(`
+        ${studentGuardianLinkSelect("links.student_id = @studentId AND links.deleted_at IS NULL")}
+        ORDER BY links.is_primary DESC,
+          guardians.relation COLLATE NOCASE,
+          guardians.full_name COLLATE NOCASE
+      `)
+      .all({ studentId })
+      .map(studentGuardianLinkFromRow);
+  }
+
+  function buildAdmissionFormData(input = {}) {
+    const mode = optionalText(input.mode) === "Blank" ? "Blank" : "Prefilled";
+    const formDate =
+      mode === "Blank"
+        ? optionalText(input.formDate) || now().slice(0, 10)
+        : normalizeDate(optionalText(input.formDate) || now().slice(0, 10), "Form date");
+    const settings = settingsFromRow(
+      db.prepare("SELECT * FROM school_settings WHERE id = ?").get(DEFAULT_SETTINGS_ID),
+    );
+    const templateSettings = getDocumentTemplateSettingsOrDefault("Admission Form");
+    if (mode === "Blank") {
+      return {
+        mode,
+        formDate,
+        schoolSettings: settings,
+        templateSettings,
+        student: null,
+        guardians: [],
+        primaryGuardian: null,
+        father: null,
+        mother: null,
+        ageAtAdmission: { years: "", months: "", display: "" },
+        dateOfBirthWords: "",
+      };
+    }
+    const studentId = requiredText(input.studentId, "Student");
+    const studentRow = getStudentStatement.get(studentId);
+    if (!studentRow) {
+      throw new Error("The selected student was not found.");
+    }
+    const student = studentFromRow(studentRow);
+    const guardians = getStudentGuardianLinksForDocuments(student.id);
+    const primaryGuardian = guardians.find((guardian) => guardian.isPrimary) ?? guardians[0] ?? null;
+    const father =
+      guardians.find((guardian) => guardian.relationToStudent === "Father") ??
+      guardians.find((guardian) => guardian.relation === "Father") ??
+      null;
+    const mother =
+      guardians.find((guardian) => guardian.relationToStudent === "Mother") ??
+      guardians.find((guardian) => guardian.relation === "Mother") ??
+      null;
+    return {
+      mode,
+      formDate,
+      schoolSettings: settings,
+      templateSettings,
+      student,
+      guardians,
+      primaryGuardian,
+      father,
+      mother,
+      ageAtAdmission: calculateAgeOnDate(
+        student.dateOfBirth,
+        student.admissionDate || formDate,
+      ),
+      dateOfBirthWords: dateToWords(student.dateOfBirth),
+    };
+  }
+
+  function buildTransferCertificateInput(input = {}, existing = null) {
+    const studentId =
+      input.studentId === undefined
+        ? existing?.student_id
+        : requiredText(input.studentId, "Student");
+    const studentRow = getStudentStatement.get(studentId);
+    if (!studentRow) {
+      throw new Error("The selected student was not found.");
+    }
+    const student = studentFromRow(studentRow);
+    const guardians = getStudentGuardianLinksForDocuments(student.id);
+    const father =
+      guardians.find((guardian) => guardian.relationToStudent === "Father") ??
+      guardians.find((guardian) => guardian.relation === "Father") ??
+      null;
+    const primaryGuardian = guardians.find((guardian) => guardian.isPrimary) ?? guardians[0] ?? null;
+    const issueDate = normalizeDate(
+      input.issueDate === undefined
+        ? existing?.issue_date || now().slice(0, 10)
+        : input.issueDate,
+      "Issue date",
+    );
+    const certificateNumber =
+      input.certificateNumber === undefined
+        ? existing?.certificate_number || generateTransferCertificateNumber(issueDate)
+        : requiredText(input.certificateNumber, "Certificate number");
+    const serialNumber =
+      input.serialNumber === undefined
+        ? existing?.serial_number || generateTransferSerialNumber(issueDate)
+        : optionalText(input.serialNumber) || generateTransferSerialNumber(issueDate);
+
+    return {
+      student,
+      values: {
+        studentId: student.id,
+        certificateNumber,
+        serialNumber,
+        srNumber:
+          input.srNumber === undefined
+            ? existing?.sr_number ?? student.admissionNo
+            : optionalText(input.srNumber),
+        penNumber:
+          input.penNumber === undefined
+            ? existing?.pen_number ?? ""
+            : optionalText(input.penNumber),
+        academicSessionId:
+          input.academicSessionId === undefined
+            ? existing?.academic_session_id ?? student.academicSessionId ?? ""
+            : optionalText(input.academicSessionId),
+        academicSessionName:
+          input.academicSessionName === undefined
+            ? existing?.academic_session_name ?? student.academicSessionName ?? ""
+            : optionalText(input.academicSessionName),
+        studentName:
+          input.studentName === undefined
+            ? existing?.student_name ?? student.name
+            : requiredText(input.studentName, "Student name"),
+        admissionNo:
+          input.admissionNo === undefined
+            ? existing?.admission_no ?? student.admissionNo
+            : optionalText(input.admissionNo),
+        className:
+          input.className === undefined
+            ? existing?.class_name ?? student.className
+            : optionalText(input.className),
+        section:
+          input.section === undefined
+            ? existing?.section ?? student.section
+            : optionalText(input.section),
+        fatherGuardianName:
+          input.fatherGuardianName === undefined
+            ? existing?.father_guardian_name ??
+              father?.guardianName ??
+              father?.guardianFullName ??
+              student.fatherName ??
+              primaryGuardian?.guardianName ??
+              student.guardianName ??
+              ""
+            : optionalText(input.fatherGuardianName),
+        motherName:
+          input.motherName === undefined
+            ? existing?.mother_name ?? student.motherName ?? ""
+            : optionalText(input.motherName),
+        dateOfAdmission:
+          input.dateOfAdmission === undefined
+            ? existing?.date_of_admission ?? student.admissionDate ?? ""
+            : optionalText(input.dateOfAdmission)
+              ? normalizeDate(input.dateOfAdmission, "Date of admission")
+              : "",
+        admissionClass:
+          input.admissionClass === undefined
+            ? existing?.admission_class ?? student.className ?? ""
+            : optionalText(input.admissionClass),
+        dateOfBirth:
+          input.dateOfBirth === undefined
+            ? existing?.date_of_birth ?? student.dateOfBirth ?? ""
+            : optionalText(input.dateOfBirth)
+              ? normalizeDate(input.dateOfBirth, "Date of birth")
+              : "",
+        dateOfBirthWords:
+          input.dateOfBirthWords === undefined
+            ? existing?.date_of_birth_words ??
+              dateToWords(student.dateOfBirth)
+            : optionalText(input.dateOfBirthWords),
+        lastClassStudied:
+          input.lastClassStudied === undefined
+            ? existing?.last_class_studied ?? student.className ?? ""
+            : optionalText(input.lastClassStudied),
+        promotionQualified:
+          input.promotionQualified === undefined
+            ? existing?.promotion_qualified ?? ""
+            : optionalText(input.promotionQualified),
+        promotedToClass:
+          input.promotedToClass === undefined
+            ? existing?.promoted_to_class ?? ""
+            : optionalText(input.promotedToClass),
+        duesPaidUpto:
+          input.duesPaidUpto === undefined
+            ? existing?.dues_paid_upto ?? ""
+            : optionalText(input.duesPaidUpto),
+        generalConduct:
+          input.generalConduct === undefined
+            ? existing?.general_conduct ?? "Good"
+            : optionalText(input.generalConduct),
+        issueDate,
+        reasonForLeaving:
+          input.reasonForLeaving === undefined
+            ? existing?.reason_for_leaving ?? ""
+            : optionalText(input.reasonForLeaving),
+        nationality:
+          input.nationality === undefined
+            ? existing?.nationality ?? "Indian"
+            : optionalText(input.nationality),
+        casteCategory:
+          input.casteCategory === undefined
+            ? existing?.caste_category ?? ""
+            : optionalText(input.casteCategory),
+        remarks:
+          input.remarks === undefined
+            ? existing?.remarks ?? ""
+            : optionalText(input.remarks),
+        status: normalizeTransferCertificateStatus(
+          input.status === undefined ? existing?.status ?? "Draft" : input.status,
+        ),
+        issuedBy:
+          input.issuedBy === undefined
+            ? existing?.issued_by ?? ""
+            : optionalText(input.issuedBy),
+        reissuedFromId:
+          input.reissuedFromId === undefined
+            ? existing?.reissued_from_id ?? null
+            : optionalText(input.reissuedFromId) || null,
+      },
+    };
   }
 
   function normalizeGuardianStatus(value, fallback = "Active") {
@@ -6333,6 +7118,174 @@ function createDatabase(databasePath) {
       `Allocated ${payment.receipt_no} to ${createdAllocations.length} invoice(s).`,
     );
     return createdAllocations;
+  }
+
+  function buildFeeReceiptPrintData(paymentId) {
+    const id = requiredText(paymentId, "Fee payment id");
+    const paymentRow = db
+      .prepare(`${paymentSelect} WHERE fee_payments.id = ?`)
+      .get(id);
+    if (!paymentRow) {
+      throw new Error("Fee receipt was not found.");
+    }
+    const payment = paymentFromRow(paymentRow);
+    const settings = settingsFromRow(
+      db.prepare("SELECT * FROM school_settings WHERE id = ?").get(DEFAULT_SETTINGS_ID),
+    );
+    const templateSettings = getDocumentTemplateSettingsOrDefault("Fee Receipt");
+    const student = payment.studentId
+      ? (() => {
+          const studentRow = getStudentStatement.get(payment.studentId);
+          return studentRow ? studentFromRow(studentRow) : null;
+        })()
+      : null;
+    const allocations = db
+      .prepare(`
+        SELECT
+          allocations.*,
+          invoices.invoice_no,
+          invoices.billing_period,
+          invoices.grand_total,
+          invoices.balance_amount,
+          invoices.previous_due,
+          invoices.late_fee,
+          invoices.discount_amount,
+          invoices.status AS invoice_status
+        FROM fee_invoice_allocations AS allocations
+        JOIN fee_invoices AS invoices
+          ON invoices.id = allocations.invoice_id
+        WHERE allocations.fee_payment_id = ?
+          AND allocations.reversed_at IS NULL
+        ORDER BY allocations.created_at
+      `)
+      .all(id);
+
+    const rows = [];
+    let serial = 1;
+    for (const allocation of allocations) {
+      const invoice = refreshFeeInvoiceStatusInternal(allocation.invoice_id);
+      const items = getFeeInvoiceItems(allocation.invoice_id);
+      let remainingAllocation = Number(allocation.allocated_amount ?? 0);
+      for (const item of items) {
+        if (remainingAllocation <= 0) break;
+        const amount = Math.min(Number(item.netAmount ?? 0), remainingAllocation);
+        if (amount > 0) {
+          rows.push({
+            serialNo: serial,
+            particulars: item.feeHeadName,
+            period: invoice?.billingPeriod || allocation.billing_period || "",
+            invoiceNo: invoice?.invoiceNo || allocation.invoice_no || "",
+            amount,
+          });
+          serial += 1;
+          remainingAllocation -= amount;
+        }
+      }
+      const extraLines = [
+        {
+          particulars: "Previous Balance",
+          amount: Math.max(Number(allocation.previous_due ?? 0), 0),
+        },
+        {
+          particulars: "Late Fee",
+          amount: Math.max(Number(allocation.late_fee ?? 0), 0),
+        },
+      ];
+      for (const line of extraLines) {
+        if (remainingAllocation <= 0 || line.amount <= 0) continue;
+        const amount = Math.min(line.amount, remainingAllocation);
+        rows.push({
+          serialNo: serial,
+          particulars: line.particulars,
+          period: invoice?.billingPeriod || allocation.billing_period || "",
+          invoiceNo: invoice?.invoiceNo || allocation.invoice_no || "",
+          amount,
+        });
+        serial += 1;
+        remainingAllocation -= amount;
+      }
+      if (remainingAllocation > 0) {
+        rows.push({
+          serialNo: serial,
+          particulars: `Invoice ${invoice?.invoiceNo || allocation.invoice_no}`,
+          period: invoice?.billingPeriod || allocation.billing_period || "",
+          invoiceNo: invoice?.invoiceNo || allocation.invoice_no || "",
+          amount: remainingAllocation,
+        });
+        serial += 1;
+      }
+    }
+
+    if (rows.length === 0) {
+      rows.push({
+        serialNo: 1,
+        particulars: payment.feeType || "Fee Payment",
+        period: payment.paymentDate ? payment.paymentDate.slice(0, 7) : "",
+        invoiceNo: "",
+        amount: Number(payment.amount ?? 0),
+      });
+    }
+
+    const activeInvoiceRows = payment.studentId
+      ? db
+          .prepare(`
+            SELECT id
+            FROM fee_invoices
+            WHERE student_id = ?
+              AND status <> 'Cancelled'
+          `)
+          .all(payment.studentId)
+      : [];
+    const outstandingInvoices = activeInvoiceRows.map((row) =>
+      refreshFeeInvoiceStatusInternal(row.id),
+    );
+    const remainingBalance = outstandingInvoices.reduce(
+      (total, invoice) => total + Number(invoice?.balanceAmount ?? 0),
+      0,
+    );
+    const grossAmount = rows.reduce((total, row) => total + Number(row.amount ?? 0), 0);
+    const discountAmount = allocations.reduce(
+      (total, allocation) => total + Math.max(Number(allocation.discount_amount ?? 0), 0),
+      0,
+    );
+    const lateFee = allocations.reduce(
+      (total, allocation) => total + Math.max(Number(allocation.late_fee ?? 0), 0),
+      0,
+    );
+    const previousBalance = allocations.reduce(
+      (total, allocation) => total + Math.max(Number(allocation.previous_due ?? 0), 0),
+      0,
+    );
+
+    return {
+      payment,
+      student,
+      schoolSettings: settings,
+      templateSettings,
+      rows,
+      allocations: allocations.map((allocation) => ({
+        id: allocation.id,
+        invoiceId: allocation.invoice_id,
+        invoiceNo: allocation.invoice_no ?? "",
+        billingPeriod: allocation.billing_period ?? "",
+        allocatedAmount: Number(allocation.allocated_amount ?? 0),
+        invoiceStatus: allocation.invoice_status ?? "",
+        createdAt: allocation.created_at,
+      })),
+      totals: {
+        grossAmount,
+        discountAmount,
+        lateFee,
+        previousBalance,
+        amountPaid: Number(payment.amount ?? 0),
+        totalPaid: Number(payment.amount ?? 0),
+        remainingBalance,
+      },
+      amountInWords: amountToWords(payment.amount),
+      isReversed: payment.status === "Reversed",
+      reversedLabel:
+        payment.status === "Reversed" ? "REVERSED / CANCELLED" : "",
+    };
   }
 
   function reverseFeePaymentInternal(paymentId, reason, actorName, auditUser) {
@@ -11625,6 +12578,422 @@ function createDatabase(databasePath) {
 
       importTransaction();
       return result;
+    },
+
+    getDocumentTemplateSettings() {
+      return db
+        .prepare(`
+          SELECT *
+          FROM document_template_settings
+          ORDER BY CASE document_type
+            WHEN 'Admission Form' THEN 0
+            WHEN 'Transfer Certificate' THEN 1
+            WHEN 'Fee Receipt' THEN 2
+            ELSE 3
+          END
+        `)
+        .all()
+        .map(documentTemplateSettingsFromRow);
+    },
+
+    getDocumentTemplateSetting(documentType) {
+      return getDocumentTemplateSettingsOrDefault(documentType);
+    },
+
+    updateDocumentTemplateSetting(documentType, input = {}) {
+      const normalizedType = normalizeDocumentType(documentType);
+      const existing = getDocumentTemplateSettingsOrDefault(normalizedType);
+      const defaultPaperSize = normalizeDocumentPaperSize(
+        input.defaultPaperSize,
+        existing.defaultPaperSize,
+      );
+      const showFields =
+        input.showFields && typeof input.showFields === "object" && !Array.isArray(input.showFields)
+          ? input.showFields
+          : existing.showFields;
+      const timestamp = now();
+      db.prepare(`
+        UPDATE document_template_settings
+        SET udise_code = @udiseCode,
+            recognition_number = @recognitionNumber,
+            principal_name = @principalName,
+            principal_signature_path = @principalSignaturePath,
+            school_stamp_path = @schoolStampPath,
+            accent_color = @accentColor,
+            footer_text = @footerText,
+            fee_receipt_terms = @feeReceiptTerms,
+            default_paper_size = @defaultPaperSize,
+            show_fields_json = @showFieldsJson,
+            updated_at = @updatedAt,
+            sync_status = 'pending'
+        WHERE document_type = @documentType
+      `).run({
+        documentType: normalizedType,
+        udiseCode:
+          input.udiseCode === undefined
+            ? existing.udiseCode
+            : optionalText(input.udiseCode),
+        recognitionNumber:
+          input.recognitionNumber === undefined
+            ? existing.recognitionNumber
+            : optionalText(input.recognitionNumber),
+        principalName:
+          input.principalName === undefined
+            ? existing.principalName
+            : optionalText(input.principalName),
+        principalSignaturePath:
+          input.principalSignaturePath === undefined
+            ? existing.principalSignaturePath
+            : optionalText(input.principalSignaturePath),
+        schoolStampPath:
+          input.schoolStampPath === undefined
+            ? existing.schoolStampPath
+            : optionalText(input.schoolStampPath),
+        accentColor:
+          input.accentColor === undefined
+            ? existing.accentColor
+            : optionalText(input.accentColor) || "#1f4e79",
+        footerText:
+          input.footerText === undefined
+            ? existing.footerText
+            : optionalText(input.footerText),
+        feeReceiptTerms:
+          input.feeReceiptTerms === undefined
+            ? existing.feeReceiptTerms
+            : optionalText(input.feeReceiptTerms),
+        defaultPaperSize,
+        showFieldsJson: JSON.stringify(showFields),
+        updatedAt: timestamp,
+      });
+      return getDocumentTemplateSettingsOrDefault(normalizedType);
+    },
+
+    getAdmissionFormData(input = {}) {
+      return buildAdmissionFormData(input);
+    },
+
+    saveAdmissionFormSnapshot(input = {}) {
+      const formDate = normalizeDate(
+        optionalText(input.formDate) || now().slice(0, 10),
+        "Form date",
+      );
+      const data = buildAdmissionFormData({
+        ...input,
+        mode: optionalText(input.mode) === "Blank" ? "Blank" : "Prefilled",
+        formDate,
+      });
+      const id = crypto.randomUUID();
+      const timestamp = now();
+      db.prepare(`
+        INSERT INTO admission_form_snapshots (
+          id, snapshot_no, student_id, admission_no, student_name, form_date,
+          snapshot_json, issued_by, created_at, updated_at, deleted_at,
+          sync_status
+        ) VALUES (
+          @id, @snapshotNo, @studentId, @admissionNo, @studentName, @formDate,
+          @snapshotJson, @issuedBy, @createdAt, @updatedAt, NULL, 'pending'
+        )
+      `).run({
+        id,
+        snapshotNo: generateAdmissionSnapshotNumber(formDate),
+        studentId: data.student?.id ?? null,
+        admissionNo: data.student?.admissionNo ?? "",
+        studentName: data.student?.name ?? "",
+        formDate,
+        snapshotJson: JSON.stringify(data),
+        issuedBy: optionalText(input.issuedBy),
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+      return admissionFormSnapshotFromRow(
+        db
+          .prepare("SELECT * FROM admission_form_snapshots WHERE id = ?")
+          .get(id),
+      );
+    },
+
+    getTransferCertificates(filter = {}) {
+      const clauses = ["deleted_at IS NULL"];
+      const params = {};
+      const search = optionalText(filter.search);
+      if (search) {
+        clauses.push(`(
+          certificate_number LIKE @search
+          OR serial_number LIKE @search
+          OR sr_number LIKE @search
+          OR pen_number LIKE @search
+          OR student_name LIKE @search
+          OR admission_no LIKE @search
+        )`);
+        params.search = `%${search}%`;
+      }
+      const studentId = optionalText(filter.studentId);
+      if (studentId) {
+        clauses.push("student_id = @studentId");
+        params.studentId = studentId;
+      }
+      const status = optionalText(filter.status);
+      if (status && status !== "All") {
+        clauses.push("status = @status");
+        params.status = normalizeTransferCertificateStatus(status);
+      }
+      return db
+        .prepare(`
+          SELECT *
+          FROM transfer_certificates
+          WHERE ${clauses.join(" AND ")}
+          ORDER BY issue_date DESC, created_at DESC
+        `)
+        .all(params)
+        .map(transferCertificateFromRow);
+    },
+
+    getTransferCertificate(id) {
+      const row = db
+        .prepare(`
+          SELECT *
+          FROM transfer_certificates
+          WHERE id = ? AND deleted_at IS NULL
+        `)
+        .get(requiredText(id, "Transfer certificate id"));
+      return row ? transferCertificateFromRow(row) : null;
+    },
+
+    getTransferCertificatePreview(input = {}) {
+      const { values } = buildTransferCertificateInput(input);
+      return {
+        ...values,
+        dateOfBirthWords:
+          values.dateOfBirthWords || dateToWords(values.dateOfBirth),
+        schoolSettings: this.getSchoolSettings(),
+        templateSettings:
+          getDocumentTemplateSettingsOrDefault("Transfer Certificate"),
+      };
+    },
+
+    createTransferCertificateDraft(input = {}) {
+      const { values } = buildTransferCertificateInput({
+        ...input,
+        status: "Draft",
+      });
+      const duplicate = db
+        .prepare(`
+          SELECT id
+          FROM transfer_certificates
+          WHERE (certificate_number = @certificateNumber
+              OR serial_number = @serialNumber)
+            AND deleted_at IS NULL
+        `)
+        .get(values);
+      if (duplicate) {
+        throw new Error("Certificate number or serial number is already in use.");
+      }
+      const id = crypto.randomUUID();
+      const timestamp = now();
+      db.prepare(`
+        INSERT INTO transfer_certificates (
+          id, student_id, certificate_number, serial_number, sr_number,
+          pen_number, academic_session_id, academic_session_name,
+          student_name, admission_no, class_name, section,
+          father_guardian_name, mother_name, date_of_admission,
+          admission_class, date_of_birth, date_of_birth_words,
+          last_class_studied, promotion_qualified, promoted_to_class,
+          dues_paid_upto, general_conduct, issue_date, reason_for_leaving,
+          nationality, caste_category, remarks, status, issued_by,
+          reissued_from_id, reprint_count, created_at, updated_at,
+          cancelled_at, cancellation_reason, deleted_at, sync_status
+        ) VALUES (
+          @id, @studentId, @certificateNumber, @serialNumber, @srNumber,
+          @penNumber, @academicSessionId, @academicSessionName,
+          @studentName, @admissionNo, @className, @section,
+          @fatherGuardianName, @motherName, @dateOfAdmission,
+          @admissionClass, @dateOfBirth, @dateOfBirthWords,
+          @lastClassStudied, @promotionQualified, @promotedToClass,
+          @duesPaidUpto, @generalConduct, @issueDate, @reasonForLeaving,
+          @nationality, @casteCategory, @remarks, 'Draft', @issuedBy,
+          @reissuedFromId, 0, @createdAt, @updatedAt,
+          NULL, '', NULL, 'pending'
+        )
+      `).run({
+        id,
+        ...values,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+      return this.getTransferCertificate(id);
+    },
+
+    updateTransferCertificateDraft(id, input = {}) {
+      const certificateId = requiredText(id, "Transfer certificate id");
+      const existing = db
+        .prepare(`
+          SELECT *
+          FROM transfer_certificates
+          WHERE id = ? AND deleted_at IS NULL
+        `)
+        .get(certificateId);
+      if (!existing) throw new Error("Transfer certificate was not found.");
+      if (existing.status !== "Draft") {
+        throw new Error("Only draft transfer certificates can be edited.");
+      }
+      const { values } = buildTransferCertificateInput(input, existing);
+      const duplicate = db
+        .prepare(`
+          SELECT id
+          FROM transfer_certificates
+          WHERE id <> @id
+            AND (certificate_number = @certificateNumber
+              OR serial_number = @serialNumber)
+            AND deleted_at IS NULL
+        `)
+        .get({ id: certificateId, ...values });
+      if (duplicate) {
+        throw new Error("Certificate number or serial number is already in use.");
+      }
+      db.prepare(`
+        UPDATE transfer_certificates
+        SET student_id = @studentId,
+            certificate_number = @certificateNumber,
+            serial_number = @serialNumber,
+            sr_number = @srNumber,
+            pen_number = @penNumber,
+            academic_session_id = @academicSessionId,
+            academic_session_name = @academicSessionName,
+            student_name = @studentName,
+            admission_no = @admissionNo,
+            class_name = @className,
+            section = @section,
+            father_guardian_name = @fatherGuardianName,
+            mother_name = @motherName,
+            date_of_admission = @dateOfAdmission,
+            admission_class = @admissionClass,
+            date_of_birth = @dateOfBirth,
+            date_of_birth_words = @dateOfBirthWords,
+            last_class_studied = @lastClassStudied,
+            promotion_qualified = @promotionQualified,
+            promoted_to_class = @promotedToClass,
+            dues_paid_upto = @duesPaidUpto,
+            general_conduct = @generalConduct,
+            issue_date = @issueDate,
+            reason_for_leaving = @reasonForLeaving,
+            nationality = @nationality,
+            caste_category = @casteCategory,
+            remarks = @remarks,
+            issued_by = @issuedBy,
+            reissued_from_id = @reissuedFromId,
+            updated_at = @updatedAt,
+            sync_status = 'pending'
+        WHERE id = @id
+      `).run({
+        id: certificateId,
+        ...values,
+        updatedAt: now(),
+      });
+      return this.getTransferCertificate(certificateId);
+    },
+
+    issueTransferCertificate(id, input = {}) {
+      const certificateId = requiredText(id, "Transfer certificate id");
+      const existing = db
+        .prepare(`
+          SELECT *
+          FROM transfer_certificates
+          WHERE id = ? AND deleted_at IS NULL
+        `)
+        .get(certificateId);
+      if (!existing) throw new Error("Transfer certificate was not found.");
+      if (existing.status !== "Draft") {
+        throw new Error("Only draft transfer certificates can be issued.");
+      }
+      const issuedBy = optionalText(input.issuedBy) || existing.issued_by || "";
+      db.transaction(() => {
+        db.prepare(`
+          UPDATE transfer_certificates
+          SET status = 'Issued',
+              issued_by = @issuedBy,
+              issue_date = @issueDate,
+              updated_at = @updatedAt,
+              sync_status = 'pending'
+          WHERE id = @id AND status = 'Draft'
+        `).run({
+          id: certificateId,
+          issuedBy,
+          issueDate: normalizeDate(
+            optionalText(input.issueDate) || existing.issue_date || now().slice(0, 10),
+            "Issue date",
+          ),
+          updatedAt: now(),
+        });
+      })();
+      return this.getTransferCertificate(certificateId);
+    },
+
+    reprintTransferCertificate(id) {
+      const certificateId = requiredText(id, "Transfer certificate id");
+      const existing = this.getTransferCertificate(certificateId);
+      if (!existing) throw new Error("Transfer certificate was not found.");
+      if (existing.status === "Draft") {
+        throw new Error("Issue the transfer certificate before reprinting it.");
+      }
+      db.prepare(`
+        UPDATE transfer_certificates
+        SET reprint_count = COALESCE(reprint_count, 0) + 1,
+            updated_at = ?,
+            sync_status = 'pending'
+        WHERE id = ? AND deleted_at IS NULL
+      `).run(now(), certificateId);
+      return this.getTransferCertificate(certificateId);
+    },
+
+    cancelTransferCertificate(id, reason) {
+      const certificateId = requiredText(id, "Transfer certificate id");
+      const cancellationReason = requiredText(reason, "Cancellation reason");
+      const existing = this.getTransferCertificate(certificateId);
+      if (!existing) throw new Error("Transfer certificate was not found.");
+      if (existing.status === "Cancelled") {
+        throw new Error("This transfer certificate is already cancelled.");
+      }
+      db.prepare(`
+        UPDATE transfer_certificates
+        SET status = 'Cancelled',
+            cancelled_at = @cancelledAt,
+            cancellation_reason = @reason,
+            updated_at = @updatedAt,
+            sync_status = 'pending'
+        WHERE id = @id AND deleted_at IS NULL
+      `).run({
+        id: certificateId,
+        reason: cancellationReason,
+        cancelledAt: now(),
+        updatedAt: now(),
+      });
+      return this.getTransferCertificate(certificateId);
+    },
+
+    markStudentTransferredFromCertificate(id) {
+      const certificate = this.getTransferCertificate(id);
+      if (!certificate) throw new Error("Transfer certificate was not found.");
+      if (certificate.status !== "Issued") {
+        throw new Error("Only an issued transfer certificate can mark a student transferred.");
+      }
+      db.prepare(`
+        UPDATE students
+        SET status = 'Inactive',
+            updated_at = ?,
+            sync_status = 'pending'
+        WHERE id = ?
+          AND deleted_at IS NULL
+      `).run(now(), certificate.studentId);
+      return studentFromRow(getStudentStatement.get(certificate.studentId));
+    },
+
+    getFeeReceiptPrintData(paymentId) {
+      return buildFeeReceiptPrintData(paymentId);
+    },
+
+    recordFeeReceiptPrint(paymentId) {
+      const data = buildFeeReceiptPrintData(paymentId);
+      return { success: true, receiptNo: data.payment.receiptNo };
     },
 
     getSchoolSettings() {

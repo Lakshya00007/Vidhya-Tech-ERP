@@ -1965,6 +1965,47 @@ export type SaveSchoolSettingsInput = Pick<
   'schoolName' | 'address' | 'phone' | 'email' | 'academicYear' | 'receiptPrefix'
 >
 
+export type DocumentTemplateType =
+  | 'Admission Form'
+  | 'Transfer Certificate'
+  | 'Fee Receipt'
+
+export type DocumentPaperSize = 'A4' | 'A5' | 'Half A4'
+
+export interface DocumentTemplateSettings {
+  id: string
+  documentType: DocumentTemplateType
+  udiseCode: string
+  recognitionNumber: string
+  principalName: string
+  principalSignaturePath: string
+  schoolStampPath: string
+  accentColor: string
+  footerText: string
+  feeReceiptTerms: string
+  defaultPaperSize: DocumentPaperSize
+  showFields: Record<string, boolean>
+  createdAt: string
+  updatedAt: string
+  syncStatus: SyncStatus
+}
+
+export type UpdateDocumentTemplateSettingInput = Partial<
+  Pick<
+    DocumentTemplateSettings,
+    | 'udiseCode'
+    | 'recognitionNumber'
+    | 'principalName'
+    | 'principalSignaturePath'
+    | 'schoolStampPath'
+    | 'accentColor'
+    | 'footerText'
+    | 'feeReceiptTerms'
+    | 'defaultPaperSize'
+    | 'showFields'
+  >
+>
+
 export type PaymentMode = 'Cash' | 'UPI' | 'Card' | 'Bank Transfer' | 'Cheque'
 export type FeePaymentStatus = 'Active' | 'Reversed'
 export type DiscountMode = 'Fixed' | 'Percentage'
@@ -2906,6 +2947,138 @@ export interface IssueCertificateInput {
   studentId: string
   templateId: string
   issuedDate: string
+}
+
+export interface AdmissionFormData {
+  mode: 'Blank' | 'Prefilled'
+  formDate: string
+  schoolSettings: SchoolSettings
+  templateSettings: DocumentTemplateSettings
+  student: Student | null
+  guardians: StudentGuardianLink[]
+  primaryGuardian: StudentGuardianLink | null
+  father: StudentGuardianLink | null
+  mother: StudentGuardianLink | null
+  ageAtAdmission: {
+    years: number | ''
+    months: number | ''
+    display: string
+  }
+  dateOfBirthWords: string
+}
+
+export interface AdmissionFormSnapshot {
+  id: string
+  snapshotNo: string
+  studentId: string
+  admissionNo: string
+  studentName: string
+  formDate: string
+  issuedBy: string
+  snapshot: AdmissionFormData | Record<string, unknown>
+  createdAt: string
+  updatedAt: string
+  deletedAt: string | null
+  syncStatus: SyncStatus
+}
+
+export type TransferCertificateStatus = 'Draft' | 'Issued' | 'Cancelled'
+
+export interface TransferCertificate {
+  id: string
+  studentId: string
+  certificateNumber: string
+  serialNumber: string
+  srNumber: string
+  penNumber: string
+  academicSessionId: string
+  academicSessionName: string
+  studentName: string
+  admissionNo: string
+  className: string
+  section: string
+  fatherGuardianName: string
+  motherName: string
+  dateOfAdmission: string
+  admissionClass: string
+  dateOfBirth: string
+  dateOfBirthWords: string
+  lastClassStudied: string
+  promotionQualified: string
+  promotedToClass: string
+  duesPaidUpto: string
+  generalConduct: string
+  issueDate: string
+  reasonForLeaving: string
+  nationality: string
+  casteCategory: string
+  remarks: string
+  status: TransferCertificateStatus
+  issuedBy: string
+  reissuedFromId: string
+  reprintCount: number
+  createdAt: string
+  updatedAt: string
+  cancelledAt: string | null
+  cancellationReason: string
+  deletedAt: string | null
+  syncStatus: SyncStatus
+}
+
+export type TransferCertificateInput = Partial<
+  Omit<
+    TransferCertificate,
+    | 'id'
+    | 'createdAt'
+    | 'updatedAt'
+    | 'cancelledAt'
+    | 'cancellationReason'
+    | 'deletedAt'
+    | 'syncStatus'
+    | 'reprintCount'
+  >
+>
+
+export interface TransferCertificatePreview extends TransferCertificateInput {
+  schoolSettings: SchoolSettings
+  templateSettings: DocumentTemplateSettings
+}
+
+export interface FeeReceiptPrintRow {
+  serialNo: number
+  particulars: string
+  period: string
+  invoiceNo: string
+  amount: number
+}
+
+export interface FeeReceiptPrintData {
+  payment: FeePayment
+  student: Student | null
+  schoolSettings: SchoolSettings
+  templateSettings: DocumentTemplateSettings
+  rows: FeeReceiptPrintRow[]
+  allocations: Array<{
+    id: string
+    invoiceId: string
+    invoiceNo: string
+    billingPeriod: string
+    allocatedAmount: number
+    invoiceStatus: string
+    createdAt: string
+  }>
+  totals: {
+    grossAmount: number
+    discountAmount: number
+    lateFee: number
+    previousBalance: number
+    amountPaid: number
+    totalPaid: number
+    remainingBalance: number
+  }
+  amountInWords: string
+  isReversed: boolean
+  reversedLabel: string
 }
 
 export type MessageThreadType =

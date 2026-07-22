@@ -10,14 +10,18 @@ import type {
   Student,
 } from '../types'
 import { AdmissionLetter } from './documents/AdmissionLetter'
+import { AdmissionForm } from './documents/AdmissionForm'
 import { Certificates } from './documents/Certificates'
 import { CertificateTemplates } from './documents/CertificateTemplates'
 import { StudentIdCards } from './documents/StudentIdCards'
+import { TransferCertificates } from './documents/TransferCertificates'
 import type { DocumentNotice } from './documents/types'
 
 export type StudentDocumentsView =
   | 'id-cards'
   | 'admission-letter'
+  | 'admission-form'
+  | 'transfer-certificates'
   | 'certificates'
   | 'templates'
 
@@ -32,6 +36,8 @@ const tabs: {
 }[] = [
   { id: 'id-cards', label: 'Student ID Cards', icon: 'students' },
   { id: 'admission-letter', label: 'Admission Letter', icon: 'reports' },
+  { id: 'admission-form', label: 'Admission Form', icon: 'reports' },
+  { id: 'transfer-certificates', label: 'Transfer Certificates', icon: 'school' },
   { id: 'certificates', label: 'Generate Certificate', icon: 'school' },
   { id: 'templates', label: 'Certificate Templates', icon: 'edit' },
 ]
@@ -178,6 +184,16 @@ export function StudentDocuments({
           )}
           {activeView === 'admission-letter' && (
             <AdmissionLetter settings={settings} students={students} />
+          )}
+          {activeView === 'admission-form' && (
+            <AdmissionForm onNotice={setNotice} students={students} />
+          )}
+          {activeView === 'transfer-certificates' && (
+            <TransferCertificates
+              onNotice={setNotice}
+              settings={settings}
+              students={students}
+            />
           )}
           {activeView === 'certificates' && (
             <Certificates

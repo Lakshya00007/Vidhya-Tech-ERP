@@ -331,6 +331,21 @@ const channels = [
   "certificates:issue",
   "certificates:get-issued",
   "certificates:get-issued-by-student",
+  "document-templates:get-all",
+  "document-templates:update",
+  "documents:admission-form:get",
+  "documents:admission-form:snapshot",
+  "transfer-certificates:get-all",
+  "transfer-certificates:get-by-id",
+  "transfer-certificates:preview",
+  "transfer-certificates:create-draft",
+  "transfer-certificates:update-draft",
+  "transfer-certificates:issue",
+  "transfer-certificates:reprint",
+  "transfer-certificates:cancel",
+  "transfer-certificates:mark-student-transferred",
+  "fees:receipt-print-data",
+  "fees:receipt-print-record",
   "communications:configure-gateway",
   "communications:get-configuration",
   "communications:remove-token",
@@ -3697,6 +3712,185 @@ function registerIpcHandlers(
     authenticated((_event, studentId) => {
       requireRoles(["Owner", "Admin"]);
       return database.getIssuedCertificatesByStudent(studentId);
+    }),
+  );
+  ipcMain.handle(
+    "document-templates:get-all",
+    authenticated(() => {
+      requireRoles(["Owner", "Admin", "Accountant", "Teacher", "Viewer"]);
+      return database.getDocumentTemplateSettings();
+    }),
+  );
+  ipcMain.handle(
+    "document-templates:update",
+    authenticated((_event, documentType, input) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      const updated = database.updateDocumentTemplateSetting(documentType, input);
+      authService?.audit(
+        "Document template settings updated",
+        "Document Templates",
+        `Updated ${updated.documentType} print settings.`,
+        actor,
+      );
+      return updated;
+    }),
+  );
+  ipcMain.handle(
+    "documents:admission-form:get",
+    authenticated((_event, input) => {
+      requireRoles(["Owner", "Admin", "Accountant", "Teacher", "Viewer"]);
+      return database.getAdmissionFormData(input);
+    }),
+  );
+  ipcMain.handle(
+    "documents:admission-form:snapshot",
+    authenticated((_event, input) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      const snapshot = database.saveAdmissionFormSnapshot({
+        ...input,
+        issuedBy: actor?.name ?? "",
+      });
+      authService?.audit(
+        "Admission form saved",
+        "Student Documents",
+        snapshot.studentName
+          ? `Saved admission form ${snapshot.snapshotNo} for ${snapshot.studentName}.`
+          : `Saved blank admission form ${snapshot.snapshotNo}.`,
+        actor,
+      );
+      return snapshot;
+    }),
+  );
+  ipcMain.handle(
+    "transfer-certificates:get-all",
+    authenticated((_event, filter) => {
+      requireRoles(["Owner", "Admin", "Accountant", "Teacher", "Viewer"]);
+      return database.getTransferCertificates(filter);
+    }),
+  );
+  ipcMain.handle(
+    "transfer-certificates:get-by-id",
+    authenticated((_event, id) => {
+      requireRoles(["Owner", "Admin", "Accountant", "Teacher", "Viewer"]);
+      return database.getTransferCertificate(id);
+    }),
+  );
+  ipcMain.handle(
+    "transfer-certificates:preview",
+    authenticated((_event, input) => {
+      requireRoles(["Owner", "Admin", "Accountant", "Teacher", "Viewer"]);
+      return database.getTransferCertificatePreview(input);
+    }),
+  );
+  ipcMain.handle(
+    "transfer-certificates:create-draft",
+    authenticated((_event, input) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      const draft = database.createTransferCertificateDraft({
+        ...input,
+        issuedBy: input?.issuedBy ?? actor?.name ?? "",
+      });
+      authService?.audit(
+        "Transfer certificate draft created",
+        "Transfer Certificates",
+        `Prepared draft ${draft.certificateNumber} for ${draft.studentName}.`,
+        actor,
+      );
+      return draft;
+    }),
+  );
+  ipcMain.handle(
+    "transfer-certificates:update-draft",
+    authenticated((_event, id, input) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      const draft = database.updateTransferCertificateDraft(id, input);
+      authService?.audit(
+        "Transfer certificate draft updated",
+        "Transfer Certificates",
+        `Updated draft ${draft.certificateNumber}.`,
+        actor,
+      );
+      return draft;
+    }),
+  );
+  ipcMain.handle(
+    "transfer-certificates:issue",
+    authenticated((_event, id, input) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      const certificate = database.issueTransferCertificate(id, {
+        ...input,
+        issuedBy: input?.issuedBy ?? actor?.name ?? "",
+      });
+      authService?.audit(
+        "Transfer certificate issued",
+        "Transfer Certificates",
+        `Issued ${certificate.certificateNumber} to ${certificate.studentName}.`,
+        actor,
+      );
+      return certificate;
+    }),
+  );
+  ipcMain.handle(
+    "transfer-certificates:reprint",
+    authenticated((_event, id) => {
+      const actor = requireRoles(["Owner", "Admin", "Accountant"]);
+      const certificate = database.reprintTransferCertificate(id);
+      authService?.audit(
+        "Transfer certificate reprinted",
+        "Transfer Certificates",
+        `Reprinted ${certificate.certificateNumber}.`,
+        actor,
+      );
+      return certificate;
+    }),
+  );
+  ipcMain.handle(
+    "transfer-certificates:cancel",
+    authenticated((_event, id, reason) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      const certificate = database.cancelTransferCertificate(id, reason);
+      authService?.audit(
+        "Transfer certificate cancelled",
+        "Transfer Certificates",
+        `Cancelled ${certificate.certificateNumber}.`,
+        actor,
+      );
+      return certificate;
+    }),
+  );
+  ipcMain.handle(
+    "transfer-certificates:mark-student-transferred",
+    authenticated((_event, id) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      const student = database.markStudentTransferredFromCertificate(id);
+      authService?.audit(
+        "Student marked transferred",
+        "Transfer Certificates",
+        `Marked admission ${student.admissionNo} inactive after TC issue.`,
+        actor,
+      );
+      return student;
+    }),
+  );
+  ipcMain.handle(
+    "fees:receipt-print-data",
+    authenticated((_event, paymentId) => {
+      requireRoles(["Owner", "Admin", "Accountant"]);
+      return database.getFeeReceiptPrintData(paymentId);
+    }),
+  );
+  ipcMain.handle(
+    "fees:receipt-print-record",
+    authenticated((_event, paymentId) => {
+      const actor = requireRoles(["Owner", "Admin", "Accountant"]);
+      const result = database.recordFeeReceiptPrint(paymentId);
+      authService?.audit(
+        "Fee receipt printed",
+        "Fees",
+        `Printed receipt ${result.receiptNo}.`,
+        actor,
+      );
+      return result;
     }),
   );
 

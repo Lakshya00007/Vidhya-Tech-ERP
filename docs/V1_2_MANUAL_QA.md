@@ -256,3 +256,101 @@ Do not run destructive restore tests against the real production userData path.
   Setup: Gateway connected but WhatsApp or SMS provider disabled.
   Steps: Attempt to queue the disabled channel for a live class.
   Expected: Schedule remains saved, a readable integration-not-active/provider-disabled message appears, and no falsely successful job is shown.
+
+## Admission Form - Blank
+
+- [ ] Pass / [ ] Fail
+  Setup: Owner/Admin account, School Profile configured, optional Document Templates settings saved.
+  Steps: Open Students -> Admission Form, choose Blank Admission Form, set form date, open print preview.
+  Expected: A4 form opens with school header, blank child/guardian fields, document checklist, declaration and signatures; no student record or snapshot is created unless Issue / Save Form is clicked.
+
+## Admission Form - Prefilled
+
+- [ ] Pass / [ ] Fail
+  Setup: Active student with date of birth, admission date and guardian details.
+  Steps: Open Students -> Admission Form, choose Prefilled Admission Form, select the student.
+  Expected: Student, class, admission, guardian and address fields populate; missing values remain blank and never show `undefined` or `null`.
+
+## Admission Form With Photos
+
+- [ ] Pass / [ ] Fail
+  Setup: Local document/student photo assets available where configured.
+  Steps: Preview the prefilled admission form.
+  Expected: Available local images render at correct aspect ratio; missing photos show clean photo boxes without broken layout.
+
+## Admission Form PDF Print
+
+- [ ] Pass / [ ] Fail
+  Setup: Admission Form preview visible.
+  Steps: Click Print / Save PDF and inspect the system print preview.
+  Expected: Sidebar/topbar are hidden, text is sharp vector text, A4 margins are clean and fields do not overflow.
+
+## Transfer Certificate Draft
+
+- [ ] Pass / [ ] Fail
+  Setup: Active student with guardian and admission details.
+  Steps: Open Students -> Transfer Certificates, select student, fill reason/dues/conduct, save draft.
+  Expected: Draft is created with unique certificate and serial numbers, appears in the register and remains editable while status is Draft.
+
+## Transfer Certificate Issue
+
+- [ ] Pass / [ ] Fail
+  Setup: Saved TC draft.
+  Steps: Click Issue and confirm.
+  Expected: Status changes to Issued, print preview displays TC identifiers and structured fields, and attempts to edit the issued record are blocked.
+
+## Transfer Certificate Reprint
+
+- [ ] Pass / [ ] Fail
+  Setup: Issued TC.
+  Steps: Click Reprint from the register.
+  Expected: Reprint does not create a new certificate number, displays duplicate/reprint marking, and adds an audit entry only.
+
+## Transfer Certificate Cancel
+
+- [ ] Pass / [ ] Fail
+  Setup: Issued TC that must be cancelled.
+  Steps: Click Cancel, enter reason and confirm.
+  Expected: Certificate status becomes Cancelled, history remains visible, certificate/serial numbers are not reusable, and cancelled print shows cancellation marking.
+
+## Mark Student Transferred
+
+- [ ] Pass / [ ] Fail
+  Setup: Issued TC.
+  Steps: Click Mark Student Transferred and confirm.
+  Expected: Student is marked inactive/transferred through the explicit action only; printing or issuing the TC alone does not silently change student status.
+
+## Fee Receipt Partial Payment
+
+- [ ] Pass / [ ] Fail
+  Setup: Student with fee invoice and a partial payment allocation.
+  Steps: Open Fees -> Fees Paid Slip, view the partial-payment receipt.
+  Expected: Receipt shows original receipt number, allocated invoice/particulars, amount paid in words and remaining balance.
+
+## Fee Receipt Full Payment
+
+- [ ] Pass / [ ] Fail
+  Setup: Student invoice paid completely.
+  Steps: View and print the final receipt.
+  Expected: Receipt shows zero remaining balance and totals match the authoritative payment/allocation data.
+
+## Fee Receipt Reprint
+
+- [ ] Pass / [ ] Fail
+  Setup: Existing fee receipt.
+  Steps: Reopen receipt, choose A5 or Half-A4 format and print/save PDF.
+  Expected: No second payment or Accounts entry is created; original receipt number is reused and print is sharp.
+
+## Reversed Receipt
+
+- [ ] Pass / [ ] Fail
+  Setup: Reversed/cancelled fee receipt.
+  Steps: Open the reversed receipt preview.
+  Expected: Receipt displays `REVERSED / CANCELLED`, does not appear as a valid paid receipt, and reversal reason is visible where available.
+
+## Parent Office Copy Printing
+
+- [ ] Pass / [ ] Fail
+  Setup: Existing receipt open in preview.
+  Steps: Select Parent + Office Copy and print/save PDF.
+  Expected: Two labelled copies appear on one A4 page, sidebar/topbar are hidden and the financial totals match exactly on both copies.

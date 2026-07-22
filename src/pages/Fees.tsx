@@ -13,6 +13,7 @@ import type {
   FeeInvoice,
   FeePaymentInvoiceAllocationInput,
   FeePayment,
+  FeeReceiptPrintData,
   FeeStructure,
   PaymentMode,
   SchoolSettings,
@@ -117,6 +118,8 @@ export function Fees({ initialView = 'collect', currentUser }: FeesProps) {
   const [paymentDate, setPaymentDate] = useState(getTodayValue)
   const [notes, setNotes] = useState('')
   const [selectedReceipt, setSelectedReceipt] = useState<FeePayment | null>(null)
+  const [selectedReceiptData, setSelectedReceiptData] =
+    useState<FeeReceiptPrintData | null>(null)
   const [printRequested, setPrintRequested] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
@@ -175,7 +178,7 @@ export function Fees({ initialView = 'collect', currentUser }: FeesProps) {
   }, [])
 
   useEffect(() => {
-    if (!printRequested || !selectedReceipt) return
+    if (!printRequested || !selectedReceiptData) return
 
     const printTimer = window.setTimeout(() => {
       window.print()
@@ -183,7 +186,7 @@ export function Fees({ initialView = 'collect', currentUser }: FeesProps) {
     }, 150)
 
     return () => window.clearTimeout(printTimer)
-  }, [printRequested, selectedReceipt])
+  }, [printRequested, selectedReceiptData])
 
   const matchingStudents = useMemo(() => {
     const query = search.trim().toLowerCase()
@@ -308,14 +311,32 @@ export function Fees({ initialView = 'collect', currentUser }: FeesProps) {
     setAmount(structuredAmount ? String(structuredAmount) : '')
   }
 
-  const openReceipt = (payment: FeePayment) => {
+  const openReceipt = async (payment: FeePayment) => {
     setPrintRequested(false)
     setSelectedReceipt(payment)
+    try {
+      const data = await getErpApi().getFeeReceiptPrintData(payment.id)
+      setSelectedReceiptData(data)
+      setError('')
+    } catch (printError) {
+      setSelectedReceiptData(null)
+      setError(getErrorMessage(printError))
+    }
   }
 
-  const printReceipt = (payment: FeePayment) => {
+  const printReceipt = async (payment: FeePayment) => {
     setSelectedReceipt(payment)
-    setPrintRequested(true)
+    try {
+      const data = await getErpApi().getFeeReceiptPrintData(payment.id)
+      setSelectedReceiptData(data)
+      await getErpApi().recordFeeReceiptPrint(payment.id)
+      setPrintRequested(true)
+      setError('')
+    } catch (printError) {
+      setSelectedReceiptData(null)
+      setPrintRequested(false)
+      setError(getErrorMessage(printError))
+    }
   }
 
   const columns: TableColumn<FeePayment>[] = [
@@ -326,7 +347,7 @@ export function Fees({ initialView = 'collect', currentUser }: FeesProps) {
         <button
           className="receipt-link"
           type="button"
-          onClick={() => openReceipt(payment)}
+          onClick={() => void openReceipt(payment)}
         >
           {payment.receiptNo}
         </button>
@@ -383,14 +404,14 @@ export function Fees({ initialView = 'collect', currentUser }: FeesProps) {
           <button
             className="table-action-button"
             type="button"
-            onClick={() => openReceipt(payment)}
+            onClick={() => void openReceipt(payment)}
           >
             View
           </button>
           <button
             className="table-action-button"
             type="button"
-            onClick={() => printReceipt(payment)}
+            onClick={() => void printReceipt(payment)}
           >
             <Icon name="print" size={13} />
             Print
@@ -441,6 +462,7 @@ export function Fees({ initialView = 'collect', currentUser }: FeesProps) {
       setInvoiceAllocations({})
       setMessage(`Payment recorded. Receipt ${payment.receiptNo} was generated.`)
       setSelectedReceipt(payment)
+      setSelectedReceiptData(await getErpApi().getFeeReceiptPrintData(payment.id))
       setError('')
     } catch (saveError) {
       setError(getErrorMessage(saveError))
@@ -901,15 +923,15 @@ export function Fees({ initialView = 'collect', currentUser }: FeesProps) {
         </section>
       )}
 
-      {selectedReceipt && settings && (
+      {selectedReceipt && selectedReceiptData && settings && (
         <ReceiptPreview
-          payment={selectedReceipt}
-          settings={settings}
+          receiptData={selectedReceiptData}
           onClose={() => {
             setPrintRequested(false)
             setSelectedReceipt(null)
+            setSelectedReceiptData(null)
           }}
-          onPrint={() => window.print()}
+          onPrint={() => void printReceipt(selectedReceipt)}
         />
       )}
     </div>

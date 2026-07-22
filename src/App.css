@@ -2262,6 +2262,17 @@
   gap: 7px;
 }
 
+.receipt-format-select {
+  min-height: 34px;
+  padding: 0 10px;
+  color: #344258;
+  background: #f8fafc;
+  border: 1px solid #d9e2ef;
+  border-radius: 7px;
+  font-size: 8.5px;
+  font-weight: 650;
+}
+
 .receipt-print-area {
   width: 560px;
   max-width: calc(100% - 34px);
@@ -2272,6 +2283,13 @@
   border: 1px solid #dfe4eb;
   box-shadow: 0 5px 18px rgba(20, 35, 58, 0.08);
   overflow-y: auto;
+}
+
+.receipt-print-area--two-copy {
+  width: min(760px, calc(100% - 34px));
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
 }
 
 .receipt-header {
@@ -10396,9 +10414,316 @@
   }
 }
 
+.school-document-print {
+  position: relative;
+  width: min(820px, 100%);
+  min-height: 1020px;
+  margin: 0 auto;
+  padding: 42px 48px;
+  color: #182235;
+  background: #fff;
+  border: 1px solid #d8e0eb;
+  box-shadow: 0 12px 35px rgba(25, 39, 61, 0.1);
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.print-document-header {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  padding-bottom: 14px;
+  border-bottom: 2px solid #1f4e79;
+}
+
+.print-school-logo {
+  width: 52px;
+  height: 52px;
+  object-fit: contain;
+}
+
+.print-school-logo--placeholder {
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: #1f4e79;
+  border-radius: 10px;
+}
+
+.print-document-header h1 {
+  margin: 0;
+  color: #17345f;
+  font-size: 23px;
+  line-height: 1.15;
+}
+
+.print-document-header p {
+  margin: 4px 0 0;
+  color: #52627a;
+  font-size: 9px;
+  line-height: 1.35;
+}
+
+.print-document-header span,
+.print-document-header small {
+  display: block;
+  margin-top: 3px;
+  color: #657489;
+  font-size: 8px;
+}
+
+.print-document-title-block {
+  text-align: right;
+}
+
+.print-document-title-block strong {
+  display: block;
+  color: #15243a;
+  font-size: 15px;
+  letter-spacing: 0.7px;
+}
+
+.print-document-title-block span {
+  color: #53657e;
+  font-size: 8px;
+}
+
+.print-document-meta-grid,
+.print-field-grid,
+.receipt-total-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 12px;
+  margin-top: 14px;
+}
+
+.receipt-total-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding: 12px;
+  background: #f8fafc;
+  border: 1px solid #dde5ef;
+}
+
+.print-field {
+  min-height: 35px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid #cfd8e6;
+}
+
+.print-field--wide {
+  grid-column: 1 / -1;
+}
+
+.print-field span {
+  display: block;
+  color: #657489;
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: 0.35px;
+  text-transform: uppercase;
+}
+
+.print-field strong {
+  display: block;
+  min-height: 18px;
+  margin-top: 5px;
+  color: #1d2b42;
+  font-size: 10px;
+  font-weight: 650;
+  line-height: 1.3;
+  white-space: pre-wrap;
+}
+
+.print-section-block {
+  margin-top: 16px;
+}
+
+.print-section-block h2 {
+  margin: 0 0 9px;
+  color: #18345e;
+  font-size: 10px;
+  letter-spacing: 0.35px;
+  text-transform: uppercase;
+}
+
+.admission-child-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 120px;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.print-photo-box {
+  min-height: 118px;
+  display: grid;
+  place-items: center;
+  color: #7b8799;
+  border: 1px dashed #aab7c8;
+  font-size: 8px;
+  text-transform: uppercase;
+}
+
+.admission-parent-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.admission-parent-grid .print-photo-box {
+  min-height: 72px;
+  margin-bottom: 8px;
+}
+
+.document-checklist {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.document-checklist span {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #334155;
+  font-size: 9px;
+}
+
+.document-checklist i {
+  width: 11px;
+  height: 11px;
+  border: 1px solid #334155;
+}
+
+.print-declaration {
+  margin-top: 16px;
+  padding: 10px 12px;
+  color: #334155;
+  background: #f8fafc;
+  border: 1px solid #dfe6ef;
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.print-signature-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 28px;
+  color: #24344c;
+  font-size: 8px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.print-signature-grid--four {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.print-signature-grid span,
+.print-signature-line {
+  display: block;
+  height: 28px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid #64748b;
+}
+
+.print-signature-image {
+  display: block;
+  max-width: 94px;
+  max-height: 36px;
+  margin: 0 auto 4px;
+  object-fit: contain;
+}
+
+.transfer-certificate-table,
+.fee-receipt-table {
+  width: 100%;
+  margin-top: 16px;
+  border-collapse: collapse;
+  color: #1f2937;
+  font-size: 10px;
+}
+
+.transfer-certificate-table th,
+.transfer-certificate-table td,
+.fee-receipt-table th,
+.fee-receipt-table td {
+  padding: 7px 8px;
+  border: 1px solid #cbd5e1;
+  text-align: left;
+  vertical-align: top;
+}
+
+.transfer-certificate-table th {
+  width: 45%;
+  background: #f8fafc;
+  font-weight: 700;
+}
+
+.fee-receipt-table th {
+  color: #0f172a;
+  background: #eef2f6;
+  font-size: 8px;
+  text-transform: uppercase;
+}
+
+.fee-receipt-table td:last-child,
+.fee-receipt-table th:last-child {
+  text-align: right;
+}
+
+.fee-receipt-table td span {
+  display: block;
+  margin-top: 2px;
+  color: #64748b;
+  font-size: 7px;
+}
+
+.receipt-copy-label {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  padding: 4px 8px;
+  color: #1f4e79;
+  border: 1px solid #1f4e79;
+  border-radius: 999px;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+
+.document-watermark {
+  position: absolute;
+  inset: 40% auto auto 50%;
+  z-index: 0;
+  transform: translate(-50%, -50%) rotate(-22deg);
+  color: rgba(30, 64, 175, 0.1);
+  font-size: 54px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.document-watermark--danger {
+  color: rgba(185, 28, 28, 0.16);
+}
+
+.print-footer-note {
+  margin: 14px 0 0;
+  color: #64748b;
+  font-size: 8px;
+  text-align: center;
+}
+
+.fee-receipt-print {
+  min-height: 0;
+}
+
 @media print {
   @page receipt {
-    size: A5 portrait;
+    size: A4 portrait;
     margin: 0;
   }
 
@@ -10624,7 +10949,9 @@
   .session-report-print-area *,
   .parents-info-print-area *,
   .certificate-print-area,
-  .certificate-print-area * {
+  .certificate-print-area *,
+  .school-document-print,
+  .school-document-print * {
     visibility: visible !important;
   }
 
@@ -10702,6 +11029,155 @@
     overflow: visible;
     print-color-adjust: exact;
     -webkit-print-color-adjust: exact;
+  }
+
+  .receipt-print-area--half-a4 {
+    width: 190mm;
+    min-height: 130mm;
+  }
+
+  .receipt-print-area--two-copy {
+    position: static;
+    width: 190mm;
+    min-height: 277mm;
+    display: grid;
+    grid-template-rows: repeat(2, 1fr);
+    gap: 4mm;
+    margin: 0 auto;
+    padding: 10mm;
+  }
+
+  .school-document-print {
+    page: student-document;
+    position: relative;
+    width: auto;
+    min-height: 277mm;
+    margin: 0;
+    padding: 11mm 12mm;
+    background: #fff;
+    border: 0;
+    box-shadow: none;
+    overflow: visible;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .receipt-print-area .school-document-print {
+    page: receipt;
+    width: auto;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+  }
+
+  .receipt-print-area--two-copy .school-document-print {
+    padding: 4mm;
+    border: 1px solid #cbd5e1;
+    break-inside: avoid;
+  }
+
+  .fee-receipt-print {
+    min-height: 0;
+  }
+
+  .print-document-header {
+    grid-template-columns: 14mm minmax(0, 1fr) 38mm;
+    gap: 3mm;
+    padding-bottom: 3mm;
+  }
+
+  .print-document-header h1 {
+    font-size: 17pt;
+  }
+
+  .print-document-header p,
+  .print-document-header span,
+  .print-document-header small {
+    font-size: 7pt;
+  }
+
+  .print-document-title-block strong {
+    font-size: 11pt;
+  }
+
+  .print-school-logo {
+    width: 13mm;
+    height: 13mm;
+  }
+
+  .print-field-grid,
+  .print-document-meta-grid,
+  .receipt-total-grid {
+    gap: 2mm 3mm;
+    margin-top: 3.5mm;
+  }
+
+  .print-field {
+    min-height: 8.5mm;
+    padding-bottom: 1mm;
+  }
+
+  .print-field span {
+    font-size: 5.8pt;
+  }
+
+  .print-field strong,
+  .transfer-certificate-table,
+  .fee-receipt-table {
+    font-size: 8pt;
+  }
+
+  .print-section-block {
+    margin-top: 4mm;
+  }
+
+  .print-section-block h2 {
+    margin-bottom: 2mm;
+    font-size: 7.5pt;
+  }
+
+  .admission-child-grid {
+    grid-template-columns: minmax(0, 1fr) 28mm;
+    gap: 4mm;
+    margin-top: 4mm;
+  }
+
+  .print-photo-box {
+    min-height: 26mm;
+    font-size: 6pt;
+  }
+
+  .admission-parent-grid {
+    gap: 3mm;
+  }
+
+  .document-checklist {
+    gap: 2mm;
+  }
+
+  .document-checklist span,
+  .print-declaration,
+  .print-footer-note {
+    font-size: 7pt;
+  }
+
+  .print-signature-grid {
+    gap: 5mm;
+    margin-top: 8mm;
+    font-size: 7pt;
+  }
+
+  .print-signature-grid span,
+  .print-signature-line {
+    height: 9mm;
+    margin-bottom: 1.5mm;
+  }
+
+  .transfer-certificate-table th,
+  .transfer-certificate-table td,
+  .fee-receipt-table th,
+  .fee-receipt-table td {
+    padding: 1.6mm 2mm;
   }
 
   .fee-invoice-print-area {

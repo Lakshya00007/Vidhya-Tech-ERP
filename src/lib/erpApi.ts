@@ -98,6 +98,21 @@ const documentApiMethods = [
   'issueCertificate',
   'getIssuedCertificates',
   'getIssuedCertificatesByStudent',
+  'getDocumentTemplateSettings',
+  'updateDocumentTemplateSetting',
+  'getAdmissionFormData',
+  'saveAdmissionFormSnapshot',
+  'getTransferCertificates',
+  'getTransferCertificate',
+  'getTransferCertificatePreview',
+  'createTransferCertificateDraft',
+  'updateTransferCertificateDraft',
+  'issueTransferCertificate',
+  'reprintTransferCertificate',
+  'cancelTransferCertificate',
+  'markStudentTransferredFromCertificate',
+  'getFeeReceiptPrintData',
+  'recordFeeReceiptPrint',
 ] as const satisfies ReadonlyArray<keyof ErpApi>
 
 const employeeApiMethods = [

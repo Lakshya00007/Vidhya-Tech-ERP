@@ -16,6 +16,7 @@ import { SchoolRulesSettings } from './settings/SchoolRulesSettings'
 import { ThemeLanguageSettings } from './settings/ThemeLanguageSettings'
 import { AccountSettings } from './settings/AccountSettings'
 import { CommunicationIntegrationsSettings } from './settings/CommunicationIntegrationsSettings'
+import { DocumentTemplatesSettings } from './settings/DocumentTemplatesSettings'
 import { translateText } from '../lib/i18n'
 import type { AppPreference, AuthUser, LicenseStatus } from '../types'
 
@@ -40,6 +41,7 @@ export type SettingsTab =
   | 'theme-language'
   | 'account'
   | 'communications'
+  | 'document-templates'
   | 'users'
   | 'backup'
   | 'demo'
@@ -58,6 +60,7 @@ const tabs: { id: SettingsTab; label: string; icon: IconName }[] = [
   { id: 'theme-language', label: 'Theme & Language', icon: 'settings' },
   { id: 'account', label: 'Account Settings', icon: 'user' },
   { id: 'communications', label: 'Communication Integrations', icon: 'bell' },
+  { id: 'document-templates', label: 'Document Templates', icon: 'reports' },
   { id: 'users', label: 'Users & Roles', icon: 'user' },
   { id: 'backup', label: 'Backup & Restore', icon: 'download' },
   { id: 'demo', label: 'Demo Tools', icon: 'settings' },
@@ -106,6 +109,7 @@ export function Settings({
             'theme-language',
             'account',
             'communications',
+            'document-templates',
             'license',
             'about',
           ].includes(tab.id),
@@ -117,12 +121,13 @@ export function Settings({
               'marks-grading',
               'theme-language',
               'account',
+              'document-templates',
               'about',
             ].includes(tab.id),
           )
         : currentUser.role === 'Viewer'
           ? tabs.filter((tab) =>
-              ['rules', 'theme-language', 'account', 'about'].includes(tab.id),
+              ['rules', 'theme-language', 'account', 'document-templates', 'about'].includes(tab.id),
             )
           : tabs.filter((tab) => tab.id !== 'demo' || currentUser.role === 'Owner')
   const language = preferences.language
@@ -227,6 +232,12 @@ export function Settings({
       )}
       {selectedTab === 'communications' && (
         <CommunicationIntegrationsSettings onNotice={setNotice} />
+      )}
+      {selectedTab === 'document-templates' && (
+        <DocumentTemplatesSettings
+          onNotice={setNotice}
+          readOnly={currentUser.role !== 'Owner' && currentUser.role !== 'Admin'}
+        />
       )}
       {selectedTab === 'users' && (
         <UsersRolesSettings currentUser={currentUser} onNotice={setNotice} />
