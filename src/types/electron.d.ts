@@ -152,6 +152,9 @@ import type {
   SendExternalBatchInput,
   SendExternalMessageInput,
   Student,
+  StudentAdmissionNumbers,
+  StudentAdmissionProfile,
+  StudentAdmissionSaveInput,
   StudentGuardianLink,
   StudentDiscount,
   StudentDiscountFilter,
@@ -421,6 +424,13 @@ export interface ErpApi {
   createDemoData: () => Promise<DemoDataResult>
 
   getStudents: () => Promise<Student[]>
+  getStudentAdmissionProfile: (
+    studentId: string,
+  ) => Promise<StudentAdmissionProfile | null>
+  getNextStudentAdmissionNumbers: () => Promise<StudentAdmissionNumbers>
+  saveStudentAdmission: (
+    input: StudentAdmissionSaveInput,
+  ) => Promise<StudentAdmissionProfile>
   createStudent: (student: CreateStudentInput) => Promise<Student>
   updateStudent: (id: string, student: UpdateStudentInput) => Promise<Student>
   deleteStudent: (id: string) => Promise<{ success: boolean }>
@@ -1040,6 +1050,9 @@ export interface ErpApi {
     studentId?: string
     formDate?: string
   }) => Promise<AdmissionFormData>
+  getAdmissionFormSnapshots: (filter?: {
+    studentId?: string
+  }) => Promise<AdmissionFormSnapshot[]>
   saveAdmissionFormSnapshot: (input: {
     mode: 'Blank' | 'Prefilled'
     studentId?: string

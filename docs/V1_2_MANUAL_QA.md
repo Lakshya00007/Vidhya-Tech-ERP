@@ -354,3 +354,122 @@ Do not run destructive restore tests against the real production userData path.
   Setup: Existing receipt open in preview.
   Steps: Select Parent + Office Copy and print/save PDF.
   Expected: Two labelled copies appear on one A4 page, sidebar/topbar are hidden and the financial totals match exactly on both copies.
+
+## Add Student Draft
+
+- [ ] Pass / [ ] Fail
+  Setup: Login as Owner/Admin with at least one active class and section.
+  Steps: Open Students -> Add Student, verify generated application/admission numbers, enter minimum admission and child details, click Save Draft.
+  Expected: Draft student saves, remains distinguishable from Active students, guardian/document/office sections keep entered values and no duplicate admission number is generated.
+
+## Complete Student Admission
+
+- [ ] Pass / [ ] Fail
+  Setup: Draft admission or a new Add Student form with valid class/section/session.
+  Steps: Complete required sections through Review & Save, click Admit Student.
+  Expected: Student becomes Active, class/section/session assignment is saved, family/guardian records are linked and the success actions are shown.
+
+## Child Details Admission Entry
+
+- [ ] Pass / [ ] Fail
+  Setup: Add Student form open.
+  Steps: Enter DOB, admission date, Aadhaar, PEN, caste/category, nationality, religion, blood group, photo path and medical notes.
+  Expected: Age is calculated from DOB to admission date, DOB words preview is readable, invalid Aadhaar/PEN values are rejected and missing optional values stay blank.
+
+## Father Details Admission Entry
+
+- [ ] Pass / [ ] Fail
+  Setup: Add Student form open on Father Details.
+  Steps: Enter father name, qualification, occupation, employer/organization, phone, WhatsApp, email, income, address, photo path and contact flags.
+  Expected: A Father guardian record is created or updated, qualification/employer/address remain separate and primary/fee/SMS/pickup flags save correctly.
+
+## Mother Details Admission Entry
+
+- [ ] Pass / [ ] Fail
+  Setup: Add Student form open on Mother Details.
+  Steps: Enter mother name, qualification, occupation, employer/organization, contact fields, income, address, photo path and emergency-contact flag.
+  Expected: A Mother guardian record is created or updated and can be displayed in Student Profile and the prefilled Admission Form.
+
+## Different Guardian
+
+- [ ] Pass / [ ] Fail
+  Setup: Add Student form with father and mother details.
+  Steps: Enable Guardian is different from parents, enter guardian relationship/contact/address and pickup/emergency flags, then save.
+  Expected: Separate guardian is linked only when enabled; disabling the option does not create a blank guardian record.
+
+## Same Guardian Family Detection
+
+- [ ] Pass / [ ] Fail
+  Setup: Existing family/guardian has a matching phone or email.
+  Steps: Try creating another admission with the same guardian name/contact without selecting the existing family.
+  Expected: Save is blocked with a clear duplicate warning; selecting the existing family links to it without duplicating guardians.
+
+## Address And Communication
+
+- [ ] Pass / [ ] Fail
+  Setup: Add Student form open on Address & Contact.
+  Steps: Fill residential address, locality, city, district, state, PIN, school distance, emergency contact, preferred SMS/WhatsApp number, transport and pickup point.
+  Expected: Structured address/contact fields save and prefill the printable Admission Form; same-as-guardian behavior does not overwrite guardian records unexpectedly.
+
+## Documents Checklist
+
+- [ ] Pass / [ ] Fail
+  Setup: Add Student form open on Documents Checklist.
+  Steps: Mark required/optional documents as Received, Pending or Not Applicable; add notes and received date.
+  Expected: Checklist persists after save/edit and appears on the Admission Form without being stored only as visual checkboxes.
+
+## Office Use Admission Entry
+
+- [ ] Pass / [ ] Fail
+  Setup: Login as Owner/Admin; real fee receipt exists for the selected student where applicable.
+  Steps: Fill approved by/date, select or type the real receipt number, mark Student ID issued, enter officer/principal approval and remarks.
+  Expected: Office Use saves only for authorized roles, real receipt is linked to the student, and fake/wrong-student receipt numbers are rejected.
+
+## Real Fee Receipt Linking
+
+- [ ] Pass / [ ] Fail
+  Setup: Student has an existing saved fee payment receipt.
+  Steps: Edit the student admission, add that receipt in Office Use, save and reopen.
+  Expected: Receipt number and payment ID persist; no new payment, invoice allocation or Accounts entry is created by the student form.
+
+## After-Save Print Admission Form
+
+- [ ] Pass / [ ] Fail
+  Setup: Complete Student Admission succeeds.
+  Steps: On the success panel click Print Admission Form.
+  Expected: Prefilled Admission Form opens/prints from the newly saved authoritative data; printing creates no new student, guardian or payment records.
+
+## Edit Student Admission Details
+
+- [ ] Pass / [ ] Fail
+  Setup: Existing admitted student with admission details and linked guardians.
+  Steps: Open Students -> Edit, change roll number/contact/document status, save.
+  Expected: Admission number is not regenerated, existing guardian links update safely and a warning reminds users that issued document snapshots remain historical.
+
+## Existing Student Without Admission Row
+
+- [ ] Pass / [ ] Fail
+  Setup: Pre-v1.2 or legacy student with no `student_admission_details` row.
+  Steps: Open Edit Student and open Students -> Admission Form -> Prefilled for that student.
+  Expected: Student still opens; legacy student/guardian fields are used as fallback and missing admission-only fields remain blank.
+
+## Admission Form Snapshot History
+
+- [ ] Pass / [ ] Fail
+  Setup: Prefilled Admission Form for a student.
+  Steps: Issue/Save Admission Form Snapshot, then edit the student name or roll number and reopen the snapshot list.
+  Expected: Saved snapshot remains unchanged; current prefilled form uses updated data only until a new snapshot is explicitly saved.
+
+## Unsaved Changes Warning
+
+- [ ] Pass / [ ] Fail
+  Setup: Add/Edit Student form open with unsaved changes.
+  Steps: Try closing the drawer or clicking outside it.
+  Expected: User receives a confirmation warning; choosing cancel keeps all entered tab data.
+
+## Admission Role Permissions
+
+- [ ] Pass / [ ] Fail
+  Setup: Accounts for Owner/Admin, Teacher, Accountant, Viewer and Student exist.
+  Steps: Attempt Add Student, Office Use update and admission save through each role.
+  Expected: Owner/Admin can admit and approve; unauthorized roles are blocked in UI and IPC, and Student accounts cannot access Add Student.

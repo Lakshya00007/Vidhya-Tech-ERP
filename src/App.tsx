@@ -352,6 +352,12 @@ function App() {
             initialSessionFilter={studentInitialState.sessionFilter}
             initialStatusFilter={studentInitialState.statusFilter}
             key={`students-${activeView}-${navigationRevision}`}
+            onOpenDocuments={(view) =>
+              handleNavigate({ page: 'documents', view }, `documents-${view}`)
+            }
+            onOpenFees={(view) =>
+              handleNavigate({ page: 'fees', view }, `fees-${view}`)
+            }
           />
         )
       }

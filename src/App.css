@@ -1568,6 +1568,14 @@
   animation: drawer-in 180ms ease-out;
 }
 
+.form-drawer--wide {
+  width: min(1120px, calc(100vw - 32px));
+}
+
+.admission-drawer .drawer-header {
+  min-height: 84px;
+}
+
 @keyframes drawer-in {
   from { transform: translateX(25px); opacity: 0.7; }
   to { transform: translateX(0); opacity: 1; }
@@ -1601,6 +1609,195 @@
   gap: 16px;
   padding: 22px 23px;
   overflow-y: auto;
+}
+
+.admission-form {
+  gap: 14px;
+}
+
+.admission-stepper {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+  gap: 8px;
+}
+
+.admission-stepper__item {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 7px 9px;
+  color: var(--muted);
+  background: var(--surface);
+  font-size: 0.78rem;
+  text-align: left;
+}
+
+.admission-stepper__item span {
+  width: 22px;
+  height: 22px;
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 999px;
+  color: var(--text);
+  background: var(--surface-muted);
+  font-weight: 700;
+  font-size: 0.72rem;
+}
+
+.admission-stepper__item--active {
+  border-color: var(--primary);
+  color: var(--text);
+  background: rgba(37, 99, 235, 0.08);
+}
+
+.admission-stepper__item--active span {
+  color: white;
+  background: var(--primary);
+}
+
+.admission-step-card {
+  display: grid;
+  gap: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  background: var(--surface);
+}
+
+.admission-step-card h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 1rem;
+}
+
+.admission-form-grid {
+  display: grid;
+  gap: 13px;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+}
+
+.admission-checkbox-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+
+.admission-document-table {
+  display: grid;
+  gap: 8px;
+}
+
+.admission-document-table__header,
+.admission-document-row {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(180px, 1.1fr) 130px 150px minmax(220px, 1.4fr);
+  align-items: center;
+}
+
+.admission-document-table__header {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.admission-document-row {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+  background: var(--surface-muted);
+}
+
+.admission-document-row > div {
+  display: grid;
+  gap: 6px;
+}
+
+.admission-review-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+
+.admission-review-grid > div {
+  display: grid;
+  gap: 4px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  background: var(--surface-muted);
+}
+
+.admission-review-grid span,
+.admission-review-grid small {
+  color: var(--muted);
+}
+
+.admission-success-panel {
+  display: grid;
+  gap: 18px;
+  padding: 24px;
+  overflow-y: auto;
+}
+
+.admission-success-panel > svg,
+.admission-success-panel > .icon {
+  color: var(--success);
+}
+
+.admission-success-panel h3 {
+  margin: 0;
+}
+
+.admission-success-panel p {
+  margin: 4px 0 0;
+  color: var(--muted);
+}
+
+.admission-after-save-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.admission-drawer-actions {
+  position: sticky;
+  bottom: -22px;
+  margin: 4px -23px -22px;
+  padding: 14px 23px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+}
+
+.document-history-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.document-history-list {
+  display: grid;
+  gap: 8px;
+}
+
+.document-history-list > div {
+  display: grid;
+  gap: 3px;
+  grid-template-columns: 150px 1fr 120px;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: var(--surface-muted);
+}
+
+.document-history-list small {
+  color: var(--muted);
+  text-align: right;
 }
 
 .form-field {
@@ -10561,6 +10758,12 @@
   border: 1px dashed #aab7c8;
   font-size: 8px;
   text-transform: uppercase;
+}
+
+.print-photo-box img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .admission-parent-grid {

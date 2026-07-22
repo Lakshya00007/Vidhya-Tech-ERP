@@ -104,7 +104,14 @@ function FieldLine({
   )
 }
 
-function PhotoBox({ label }: { label: string }) {
+function PhotoBox({ label, path }: { label: string; path?: string }) {
+  if (path) {
+    return (
+      <div className="print-photo-box">
+        <img alt={label} src={path} />
+      </div>
+    )
+  }
   return (
     <div className="print-photo-box">
       <span>{label}</span>
@@ -117,18 +124,26 @@ export function AdmissionFormPrint({ data }: { data: AdmissionFormData }) {
   const father = data.father
   const mother = data.mother
   const primaryGuardian = data.primaryGuardian
+  const admissionDetails = data.admissionDetails
+  const officeUse = data.officeUse
   const settings = data.schoolSettings
   const template = data.templateSettings
   const blank = data.mode === 'Blank'
-  const documents = [
-    'Birth certificate',
-    'Aadhaar card',
-    'Previous school TC',
-    'Previous report card',
-    'Passport photographs',
-    'Address proof',
-    'Other',
-  ]
+  const documents =
+    data.admissionDocuments.length > 0
+      ? data.admissionDocuments
+      : [
+          'Birth certificate',
+          'Child Aadhaar card',
+          'Previous school Transfer Certificate',
+          'Previous report card',
+          'Passport photographs',
+          'Address proof',
+          'Other document',
+        ].map((documentType) => ({
+          documentType,
+          receivedStatus: 'Pending',
+        }))
 
   return (
     <article className="school-document-print admission-form-print">
@@ -142,7 +157,7 @@ export function AdmissionFormPrint({ data }: { data: AdmissionFormData }) {
         <FieldLine label="Academic Year" value={settings.academicYear} />
         <FieldLine
           label="Application / Form No."
-          value={blank ? '' : `ADM/${student?.admissionNo ?? ''}`}
+          value={blank ? '' : admissionDetails?.applicationNo}
         />
         <FieldLine label="Admission No." value={student?.admissionNo} />
         <FieldLine label="Admission Date" value={formatDocumentDate(student?.admissionDate ?? '')} />
@@ -159,36 +174,37 @@ export function AdmissionFormPrint({ data }: { data: AdmissionFormData }) {
             <FieldLine label="Age - Months" value={data.ageAtAdmission.months} />
             <FieldLine label="Gender" value={student?.gender} />
             <FieldLine label="Aadhaar number" value={student?.aadharNo} />
-            <FieldLine label="PEN number" value="" />
-            <FieldLine label="Caste" value="" />
-            <FieldLine label="Category" value="" />
-            <FieldLine label="Nationality" value="Indian" />
-            <FieldLine label="Religion" value="" />
+            <FieldLine label="PEN number" value={admissionDetails?.penNo} />
+            <FieldLine label="SR number" value={admissionDetails?.srNo} />
+            <FieldLine label="Caste" value={admissionDetails?.caste} />
+            <FieldLine label="Category" value={admissionDetails?.category} />
+            <FieldLine label="Nationality" value={admissionDetails?.nationality || 'Indian'} />
+            <FieldLine label="Religion" value={admissionDetails?.religion} />
             <FieldLine label="Blood group" value={student?.bloodGroup} />
-            <FieldLine label="Admission required for" value={student?.className} />
+            <FieldLine label="Admission required for" value={admissionDetails?.admissionRequiredFor || student?.className} />
             <FieldLine label="Class" value={student?.className} />
             <FieldLine label="Section" value={student?.section} />
             <FieldLine label="Previous school" value={student?.previousSchool} wide />
-            <FieldLine label="Previous class" value="" />
+            <FieldLine label="Previous class" value={admissionDetails?.previousClass} />
           </div>
         </div>
-        <PhotoBox label="Child photograph" />
+        <PhotoBox label="Child photograph" path={admissionDetails?.childPhotoPath} />
       </section>
 
       <section className="print-section-block">
         <h2>Parent / Guardian Details</h2>
         <div className="admission-parent-grid">
           <div>
-            <PhotoBox label="Father photo" />
+            <PhotoBox label="Father photo" path={admissionDetails?.fatherPhotoPath} />
             <FieldLine label="Father name" value={student?.fatherName || father?.guardianName} />
-            <FieldLine label="Qualification" value={father?.guardianFullName ? '' : ''} />
+            <FieldLine label="Qualification" value={father?.guardianFullName ? father?.relation : ''} />
             <FieldLine label="Occupation" value={father?.occupation} />
             <FieldLine label="Contact number" value={father?.mobile || student?.mobile} />
             <FieldLine label="WhatsApp number" value={father?.mobile || student?.mobile} />
             <FieldLine label="Email" value={father?.email || student?.email} />
           </div>
           <div>
-            <PhotoBox label="Mother photo" />
+            <PhotoBox label="Mother photo" path={admissionDetails?.motherPhotoPath} />
             <FieldLine label="Mother name" value={student?.motherName || mother?.guardianName} />
             <FieldLine label="Qualification" value="" />
             <FieldLine label="Occupation" value={mother?.occupation} />
@@ -210,21 +226,24 @@ export function AdmissionFormPrint({ data }: { data: AdmissionFormData }) {
         <h2>Address and Contact</h2>
         <div className="print-field-grid">
           <FieldLine label="Residential address" value={student?.address} wide />
-          <FieldLine label="Distance from school" value="" />
-          <FieldLine label="Emergency contact number" value={primaryGuardian?.emergencyContactMobile || student?.mobile} />
-          <FieldLine label="Preferred phone for school SMS" value={student?.mobile} />
-          <FieldLine label="Transport required" value="" />
-          <FieldLine label="Pickup point" value="" />
+          <FieldLine label="City / district" value={[admissionDetails?.city, admissionDetails?.district].filter(Boolean).join(' / ')} />
+          <FieldLine label="State / PIN" value={[admissionDetails?.state, admissionDetails?.pinCode].filter(Boolean).join(' / ')} />
+          <FieldLine label="Distance from school" value={admissionDetails?.distanceFromSchool} />
+          <FieldLine label="Emergency contact number" value={admissionDetails?.emergencyContactNumber || primaryGuardian?.emergencyContactMobile || student?.mobile} />
+          <FieldLine label="Preferred phone for school SMS" value={admissionDetails?.preferredSmsNumber || student?.mobile} />
+          <FieldLine label="Transport required" value={admissionDetails?.transportRequired ? 'Yes' : ''} />
+          <FieldLine label="Pickup point" value={admissionDetails?.pickupPoint} />
         </div>
       </section>
 
       <section className="print-section-block">
         <h2>Documents Checklist</h2>
         <div className="document-checklist">
-          {documents.map((documentName) => (
-            <span key={documentName}>
+          {documents.map((documentItem) => (
+            <span key={documentItem.documentType}>
               <i />
-              {documentName}
+              {documentItem.documentType}
+              {documentItem.receivedStatus ? ` · ${documentItem.receivedStatus}` : ''}
             </span>
           ))}
         </div>
@@ -233,7 +252,10 @@ export function AdmissionFormPrint({ data }: { data: AdmissionFormData }) {
       <section className="print-declaration">
         <p>
           I declare that the information provided above is true to the best of
-          my knowledge and that I will follow the school rules and regulations.
+              my knowledge and that I will follow the school rules and regulations.
+              {admissionDetails?.declarationAcceptedBy
+                ? ` Accepted by ${admissionDetails.declarationAcceptedBy}.`
+                : ''}
         </p>
       </section>
 
@@ -249,10 +271,13 @@ export function AdmissionFormPrint({ data }: { data: AdmissionFormData }) {
       <section className="print-section-block office-use">
         <h2>Office Use</h2>
         <div className="print-field-grid">
-          <FieldLine label="Admission approved by" value="" />
-          <FieldLine label="Fee receipt no." value="" />
-          <FieldLine label="Student ID issued" value="" />
-          <FieldLine label="Remarks" value="" wide />
+          <FieldLine label="Admission approved by" value={officeUse?.approvedBy} />
+          <FieldLine label="Approval date" value={formatDocumentDate(officeUse?.approvalDate ?? '')} />
+          <FieldLine label="Fee receipt no." value={officeUse?.feeReceiptNo} />
+          <FieldLine label="Student ID issued" value={officeUse?.studentIdIssued ? 'Yes' : ''} />
+          <FieldLine label="Admission officer" value={officeUse?.admissionOfficer} />
+          <FieldLine label="Principal approval" value={officeUse?.principalApproval} />
+          <FieldLine label="Remarks" value={officeUse?.remarks} wide />
         </div>
       </section>
     </article>

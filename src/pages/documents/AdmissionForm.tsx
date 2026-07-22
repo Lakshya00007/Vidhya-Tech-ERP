@@ -3,7 +3,7 @@ import { AdmissionFormPrint } from '../../components/PrintableSchoolDocuments'
 import { Icon } from '../../components/Icon'
 import { getDocumentsErpApi, getErrorMessage } from '../../lib/erpApi'
 import { getTodayInputValue } from '../../lib/documentPrint'
-import type { AdmissionFormData, Student } from '../../types'
+import type { AdmissionFormData, AdmissionFormSnapshot, Student } from '../../types'
 import type { DocumentNoticeProps } from './types'
 
 interface AdmissionFormProps extends DocumentNoticeProps {
@@ -11,16 +11,24 @@ interface AdmissionFormProps extends DocumentNoticeProps {
 }
 
 export function AdmissionForm({ onNotice, students }: AdmissionFormProps) {
-  const activeStudents = useMemo(
-    () => students.filter((student) => student.status === 'Active'),
+  const selectableStudents = useMemo(
+    () => students.filter((student) => student.status !== 'Inactive'),
     [students],
   )
   const [mode, setMode] = useState<'Blank' | 'Prefilled'>('Prefilled')
-  const [studentId, setStudentId] = useState(activeStudents[0]?.id ?? '')
+  const [studentId, setStudentId] = useState(selectableStudents[0]?.id ?? '')
   const [formDate, setFormDate] = useState(getTodayInputValue)
   const [data, setData] = useState<AdmissionFormData | null>(null)
+  const [snapshots, setSnapshots] = useState<AdmissionFormSnapshot[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const selectedStudentId = useMemo(() => {
+    if (mode === 'Blank') return ''
+    if (selectableStudents.some((student) => student.id === studentId)) {
+      return studentId
+    }
+    return selectableStudents[0]?.id ?? ''
+  }, [mode, selectableStudents, studentId])
 
   useEffect(() => {
     let isCurrent = true
@@ -29,7 +37,7 @@ export function AdmissionForm({ onNotice, students }: AdmissionFormProps) {
       await Promise.resolve()
       if (!isCurrent) return
 
-      if (mode === 'Prefilled' && !studentId) {
+      if (mode === 'Prefilled' && !selectedStudentId) {
         setData(null)
         setIsLoading(false)
         return
@@ -39,10 +47,19 @@ export function AdmissionForm({ onNotice, students }: AdmissionFormProps) {
       try {
         const nextData = await getDocumentsErpApi().getAdmissionFormData({
           mode,
-          studentId: mode === 'Prefilled' ? studentId : undefined,
+          studentId: mode === 'Prefilled' ? selectedStudentId : undefined,
           formDate,
         })
-        if (isCurrent) setData(nextData)
+        const nextSnapshots =
+          mode === 'Prefilled' && selectedStudentId
+            ? await getDocumentsErpApi().getAdmissionFormSnapshots({
+                studentId: selectedStudentId,
+              })
+            : []
+        if (isCurrent) {
+          setData(nextData)
+          setSnapshots(nextSnapshots)
+        }
       } catch (error) {
         if (isCurrent) {
           setData(null)
@@ -56,21 +73,28 @@ export function AdmissionForm({ onNotice, students }: AdmissionFormProps) {
     return () => {
       isCurrent = false
     }
-  }, [formDate, mode, onNotice, studentId])
+  }, [formDate, mode, onNotice, selectedStudentId])
 
   const saveSnapshot = async () => {
-    if (mode === 'Prefilled' && !studentId) return
+    if (mode === 'Prefilled' && !selectedStudentId) return
     setIsSaving(true)
     try {
       const snapshot = await getDocumentsErpApi().saveAdmissionFormSnapshot({
         mode,
-        studentId: mode === 'Prefilled' ? studentId : undefined,
+        studentId: mode === 'Prefilled' ? selectedStudentId : undefined,
         formDate,
       })
       onNotice({
         type: 'success',
         message: `${snapshot.snapshotNo} was saved.`,
       })
+      if (mode === 'Prefilled' && selectedStudentId) {
+        setSnapshots(
+          await getDocumentsErpApi().getAdmissionFormSnapshots({
+            studentId: selectedStudentId,
+          }),
+        )
+      }
     } catch (error) {
       onNotice({ type: 'error', message: getErrorMessage(error) })
     } finally {
@@ -106,16 +130,17 @@ export function AdmissionForm({ onNotice, students }: AdmissionFormProps) {
           <label className="form-field">
             <span>Student</span>
             <select
-              disabled={mode === 'Blank' || activeStudents.length === 0}
-              value={studentId}
+              disabled={mode === 'Blank' || selectableStudents.length === 0}
+              value={selectedStudentId}
               onChange={(event) => setStudentId(event.target.value)}
             >
-              {activeStudents.length === 0 && (
-                <option value="">No active students available</option>
+              {selectableStudents.length === 0 && (
+                <option value="">No students available</option>
               )}
-              {activeStudents.map((student) => (
+              {selectableStudents.map((student) => (
                 <option key={student.id} value={student.id}>
                   {student.admissionNo} · {student.name}
+                  {student.status === 'Draft' ? ' · Draft' : ''}
                 </option>
               ))}
             </select>
@@ -156,13 +181,38 @@ export function AdmissionForm({ onNotice, students }: AdmissionFormProps) {
           <p>Select a student or choose blank form mode.</p>
         </section>
       ) : (
-        <section className="panel document-preview-shell document-preview-shell--paper">
-          <div className="document-preview-label">
-            <span>A4 print preview</span>
-            <strong>{mode}</strong>
-          </div>
-          <AdmissionFormPrint data={data} />
-        </section>
+        <>
+          <section className="panel document-preview-shell document-preview-shell--paper">
+            <div className="document-preview-label">
+              <span>A4 print preview</span>
+              <strong>{mode}</strong>
+            </div>
+            <AdmissionFormPrint data={data} />
+          </section>
+          {mode === 'Prefilled' && (
+            <section className="panel document-history-panel">
+              <div className="panel-heading">
+                <div>
+                  <h3>Saved Admission Form Snapshots</h3>
+                  <p>Historical issued forms remain unchanged after student edits.</p>
+                </div>
+              </div>
+              {snapshots.length === 0 ? (
+                <p className="empty-inline">No saved admission form snapshots yet.</p>
+              ) : (
+                <div className="document-history-list">
+                  {snapshots.map((snapshot) => (
+                    <div key={snapshot.id}>
+                      <strong>{snapshot.snapshotNo}</strong>
+                      <span>{snapshot.studentName || 'Blank form'}</span>
+                      <small>{snapshot.formDate}</small>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
+        </>
       )}
     </div>
   )

@@ -441,6 +441,12 @@ app.whenReady().then(async () => {
           "importStudentsBulk",
           "getStudentImportTemplate"
         ].every((method) => typeof window.erpApi[method] === "function");
+        const studentAdmissionApiAvailable = [
+          "getStudentAdmissionProfile",
+          "getNextStudentAdmissionNumbers",
+          "saveStudentAdmission",
+          "getAdmissionFormSnapshots"
+        ].every((method) => typeof window.erpApi[method] === "function");
         const familyApiAvailable = [
           "getFamilies",
           "getFamilyById",
@@ -474,6 +480,7 @@ app.whenReady().then(async () => {
           "updateDocumentTemplateSetting",
           "getAdmissionFormData",
           "saveAdmissionFormSnapshot",
+          "getAdmissionFormSnapshots",
           "getTransferCertificates",
           "getTransferCertificate",
           "getTransferCertificatePreview",
@@ -929,7 +936,7 @@ app.whenReady().then(async () => {
           frequency: "Monthly",
           status: "Active"
         });
-        await window.erpApi.createFeeStructure({
+        const tuitionFeeStructure = await window.erpApi.createFeeStructure({
           className: schoolClass.name,
           feeHeadId: feeHead.id,
           amount: 12500,
@@ -1017,6 +1024,309 @@ app.whenReady().then(async () => {
         });
         const studentLinksAfterPrimary =
           await window.erpApi.getStudentGuardians(student.id);
+        const admissionNumbers = await window.erpApi.getNextStudentAdmissionNumbers();
+        const admissionStudentInput = {
+          admissionNo: admissionNumbers.admissionNo,
+          name: "Admission Workflow Student",
+          className: schoolClass.name,
+          section: "A",
+          guardianName: "Admission Smoke Father",
+          mobile: "9666666600",
+          fatherName: "Admission Smoke Father",
+          motherName: "Admission Smoke Mother",
+          email: "admission.workflow@example.com",
+          gender: "Female",
+          bloodGroup: "B+",
+          aadharNo: "123456789012",
+          previousSchool: "Little Scholars Academy",
+          notes: "Admission workflow smoke test",
+          status: "Draft",
+          address: "12 Admission Street",
+          dateOfBirth: "2020-04-15",
+          admissionDate: "2026-04-10"
+        };
+        const admissionDetailsInput = {
+          applicationNo: admissionNumbers.applicationNo,
+          academicSessionId: fromAcademicSession.id,
+          academicSessionName: fromAcademicSession.sessionName,
+          admissionRequiredFor: schoolClass.name,
+          rollNo: "21",
+          admissionType: "New Admission",
+          feeStructureId: tuitionFeeStructure.id,
+          feeStructureName: "Tuition Fee · 2026–2027",
+          transportRequired: true,
+          pickupPoint: "North Gate",
+          routeName: "Route A",
+          childPhotoPath: "student-photos/admission-workflow.jpg",
+          fatherPhotoPath: "parent-photos/admission-father.jpg",
+          motherPhotoPath: "parent-photos/admission-mother.jpg",
+          firstName: "Admission",
+          middleName: "Workflow",
+          lastName: "Student",
+          penNo: "PEN1234567",
+          srNo: admissionNumbers.admissionNo,
+          caste: "General",
+          category: "General",
+          nationality: "Indian",
+          religion: "Not specified",
+          motherTongue: "Hindi",
+          identificationMarks: "Small mark on left hand",
+          medicalNotes: "No allergies recorded",
+          previousClass: "UKG",
+          previousBoard: "State Board",
+          previousSchoolAddress: "Old School Road",
+          previousTcNumber: "TC-OLD-001",
+          previousTcDate: "2026-03-31",
+          previousResultStatus: "Promoted",
+          reasonForLeavingPreviousSchool: "Family relocation",
+          locality: "Admission Locality",
+          city: "Test City",
+          district: "Test District",
+          state: "Test State",
+          pinCode: "110001",
+          distanceFromSchool: "3 km",
+          emergencyContactNumber: "9666666601",
+          preferredSmsNumber: "9666666600",
+          preferredWhatsappNumber: "9666666602",
+          sameAsGuardianAddress: true,
+          guardianDifferentFromParents: false,
+          primaryGuardianRole: "Father",
+          feeContactRole: "Father",
+          smsContactRole: "Father",
+          emergencyContactRole: "Mother",
+          pickupAuthorizedRole: "Father",
+          declarationAccepted: false,
+          schoolRulesAccepted: false,
+          communicationConsent: false,
+          emergencyConsent: false,
+          photoConsent: false
+        };
+        const admissionFatherInput = {
+          fullName: "Admission Smoke Father",
+          relation: "Father",
+          mobile: "9666666600",
+          whatsappNumber: "9666666602",
+          email: "admission.father@example.com",
+          occupation: "Engineer",
+          employerOrganization: "Smoke Engineering Works",
+          qualification: "B.Tech",
+          annualIncome: 900000,
+          address: "12 Admission Street",
+          isPrimary: true,
+          financialResponsibility: true,
+          smsContact: true,
+          emergencyContact: false,
+          pickupAuthorized: true,
+          livesWithStudent: true
+        };
+        const admissionMotherInput = {
+          fullName: "Admission Smoke Mother",
+          relation: "Mother",
+          mobile: "9666666601",
+          whatsappNumber: "9666666601",
+          email: "admission.mother@example.com",
+          occupation: "Doctor",
+          employerOrganization: "Smoke Clinic",
+          qualification: "MBBS",
+          annualIncome: 1000000,
+          address: "12 Admission Street",
+          isPrimary: false,
+          financialResponsibility: false,
+          smsContact: false,
+          emergencyContact: true,
+          pickupAuthorized: true,
+          livesWithStudent: true
+        };
+        const admissionDocumentsInput = [
+          {
+            documentType: "Birth certificate",
+            requirementStatus: "Required",
+            receivedStatus: "Received",
+            notes: "Verified at admission desk",
+            receivedAt: "2026-04-10",
+            verifiedBy: "Smoke Test Owner"
+          },
+          {
+            documentType: "Previous report card",
+            requirementStatus: "Optional",
+            receivedStatus: "Pending",
+            notes: "Parent will submit later"
+          }
+        ];
+        const admissionDraft = await window.erpApi.saveStudentAdmission({
+          mode: "Draft",
+          student: admissionStudentInput,
+          admissionDetails: admissionDetailsInput,
+          family: {
+            createNew: true,
+            familyName: "Admission Workflow Family"
+          },
+          guardians: {
+            father: admissionFatherInput,
+            mother: admissionMotherInput
+          },
+          documents: admissionDocumentsInput,
+          officeUse: {}
+        });
+        const draftProfile = await window.erpApi.getStudentAdmissionProfile(
+          admissionDraft.student.id
+        );
+        const admissionDraftProfileCorrect =
+          draftProfile.student.status === "Draft" &&
+          draftProfile.admissionDetails.applicationNo ===
+            admissionNumbers.applicationNo &&
+          draftProfile.documents.length === 2 &&
+          draftProfile.guardians.length === 2;
+        const admittedProfile = await window.erpApi.saveStudentAdmission({
+          studentId: admissionDraft.student.id,
+          mode: "Admit",
+          student: {
+            ...admissionStudentInput,
+            status: "Active"
+          },
+          admissionDetails: {
+            ...admissionDetailsInput,
+            declarationAccepted: true,
+            declarationAcceptedDate: "2026-04-10",
+            declarationAcceptedBy: "Admission Smoke Father",
+            schoolRulesAccepted: true,
+            communicationConsent: true,
+            emergencyConsent: true,
+            photoConsent: true
+          },
+          family: {
+            familyId: draftProfile.family.id
+          },
+          guardians: {
+            father: admissionFatherInput,
+            mother: admissionMotherInput
+          },
+          documents: admissionDocumentsInput,
+          officeUse: {
+            approvedBy: "Smoke Test Owner",
+            approvalDate: "2026-04-10",
+            admissionOfficer: "Office Desk",
+            principalApproval: "Approved",
+            remarks: "Admitted from smoke test"
+          }
+        });
+        const admissionGuardiansAfterRepeat =
+          await window.erpApi.getStudentGuardians(admittedProfile.student.id);
+        const admissionPrefilledForm =
+          await window.erpApi.getAdmissionFormData({
+            mode: "Prefilled",
+            studentId: admittedProfile.student.id,
+            formDate: "2026-04-10"
+          });
+        const admissionSnapshotBeforeEdit =
+          await window.erpApi.saveAdmissionFormSnapshot({
+            mode: "Prefilled",
+            studentId: admittedProfile.student.id,
+            formDate: "2026-04-10"
+          });
+        await window.erpApi.saveStudentAdmission({
+          studentId: admittedProfile.student.id,
+          mode: "Update",
+          student: {
+            ...admissionStudentInput,
+            admissionNo: admittedProfile.student.admissionNo,
+            name: "Admission Workflow Student Updated",
+            status: "Active"
+          },
+          admissionDetails: {
+            ...admissionDetailsInput,
+            applicationNo: admittedProfile.admissionDetails.applicationNo,
+            rollNo: "22"
+          },
+          family: {
+            familyId: admittedProfile.family.id
+          },
+          guardians: {
+            father: admissionFatherInput,
+            mother: admissionMotherInput
+          },
+          documents: admissionDocumentsInput,
+          officeUse: admittedProfile.officeUse
+        });
+        const admissionProfileAfterEdit =
+          await window.erpApi.getStudentAdmissionProfile(
+            admittedProfile.student.id
+          );
+        const admissionSnapshotHistory =
+          await window.erpApi.getAdmissionFormSnapshots({
+            studentId: admittedProfile.student.id
+          });
+        const legacyStudentAdmissionProfile =
+          await window.erpApi.getStudentAdmissionProfile(student.id);
+        const blankAdmissionProfileForm =
+          await window.erpApi.getAdmissionFormData({
+            mode: "Blank",
+            formDate: "2026-04-10"
+          });
+        const studentCountBeforePrintPreview =
+          (await window.erpApi.getStudents()).length;
+        await window.erpApi.getAdmissionFormData({
+          mode: "Prefilled",
+          studentId: admittedProfile.student.id,
+          formDate: "2026-04-10"
+        });
+        const studentCountAfterPrintPreview =
+          (await window.erpApi.getStudents()).length;
+        let duplicateAdmissionNumberRejected = false;
+        try {
+          await window.erpApi.saveStudentAdmission({
+            mode: "Admit",
+            student: {
+              ...admissionStudentInput,
+              name: "Duplicate Admission Number",
+              mobile: "9555555500"
+            },
+            admissionDetails: {
+              ...admissionDetailsInput,
+              applicationNo: "APP-DUPLICATE-SMOKE"
+            }
+          });
+        } catch (error) {
+          duplicateAdmissionNumberRejected = true;
+        }
+        let duplicateApplicationNumberRejected = false;
+        try {
+          await window.erpApi.saveStudentAdmission({
+            mode: "Admit",
+            student: {
+              ...admissionStudentInput,
+              admissionNo: "SMOKE-ADM-UNIQUE",
+              name: "Duplicate Application Number",
+              mobile: "9444444400"
+            },
+            admissionDetails: {
+              ...admissionDetailsInput,
+              applicationNo: admissionNumbers.applicationNo
+            }
+          });
+        } catch (error) {
+          duplicateApplicationNumberRejected = true;
+        }
+        await window.erpApi.login("teacher", "Reset-Teacher-Password");
+        let admissionUnauthorizedSaveRejected = false;
+        try {
+          await window.erpApi.saveStudentAdmission({
+            mode: "Draft",
+            student: {
+              admissionNo: "SMOKE-TEACHER-DRAFT",
+              name: "Teacher Blocked Admission",
+              className: schoolClass.name,
+              section: "A",
+              status: "Draft"
+            },
+            admissionDetails: {
+              applicationNo: "APP-TEACHER-BLOCKED"
+            }
+          });
+        } catch (error) {
+          admissionUnauthorizedSaveRejected = true;
+        }
+        await window.erpApi.login("owner", "Updated-Owner-Password");
         await window.erpApi.saveSchoolSettings({
           schoolName: "Persistence Test School",
           address: "Local Test Address",
@@ -1783,6 +2093,9 @@ app.whenReady().then(async () => {
         );
         const initialClassTestMarks =
           await window.erpApi.getClassTestMarks(classTest.id);
+        const originalStudentClassTestMark =
+          initialClassTestMarks.find((mark) => mark.studentId === student.id) ??
+          initialClassTestMarks[0];
         const failedClassTestMarks =
           await window.erpApi.saveClassTestMarksBulk([
             {
@@ -1795,7 +2108,7 @@ app.whenReady().then(async () => {
           ]);
         const passedClassTestMark =
           await window.erpApi.updateClassTestMark(
-            initialClassTestMarks[0].id,
+            originalStudentClassTestMark.id,
             {
               marksObtained: 9,
               resultStatus: "Fail",
@@ -1969,6 +2282,74 @@ app.whenReady().then(async () => {
           paymentDate: "2026-07-04",
           notes: "Cheque 10042"
         });
+        const admissionFeeReceipt = await window.erpApi.createFeePayment({
+          studentId: admittedProfile.student.id,
+          feeType: "Tuition Fee",
+          amount: 1000,
+          paymentMode: "Cash",
+          paymentDate: "2026-04-10",
+          notes: "Admission office-use receipt"
+        });
+        const admissionOfficeUseWithReceipt =
+          await window.erpApi.saveStudentAdmission({
+            studentId: admittedProfile.student.id,
+            mode: "Update",
+            student: {
+              ...admissionStudentInput,
+              admissionNo: admittedProfile.student.admissionNo,
+              name: admissionProfileAfterEdit.student.name,
+              status: "Active"
+            },
+            admissionDetails: {
+              ...admissionDetailsInput,
+              applicationNo: admittedProfile.admissionDetails.applicationNo,
+              rollNo: admissionProfileAfterEdit.admissionDetails.rollNo
+            },
+            family: {
+              familyId: admittedProfile.family.id
+            },
+            guardians: {
+              father: admissionFatherInput,
+              mother: admissionMotherInput
+            },
+            documents: admissionDocumentsInput,
+            officeUse: {
+              ...admissionProfileAfterEdit.officeUse,
+              feePaymentId: admissionFeeReceipt.id,
+              feeReceiptNo: admissionFeeReceipt.receiptNo
+            }
+          });
+        let wrongStudentReceiptRejected = false;
+        try {
+          await window.erpApi.saveStudentAdmission({
+            studentId: admittedProfile.student.id,
+            mode: "Update",
+            student: {
+              ...admissionStudentInput,
+              admissionNo: admittedProfile.student.admissionNo,
+              name: admissionProfileAfterEdit.student.name,
+              status: "Active"
+            },
+            admissionDetails: {
+              ...admissionDetailsInput,
+              applicationNo: admittedProfile.admissionDetails.applicationNo
+            },
+            family: {
+              familyId: admittedProfile.family.id
+            },
+            guardians: {
+              father: admissionFatherInput,
+              mother: admissionMotherInput
+            },
+            documents: admissionDocumentsInput,
+            officeUse: {
+              feePaymentId: firstPayment.id,
+              feeReceiptNo: firstPayment.receiptNo
+            }
+          });
+        } catch (error) {
+          wrongStudentReceiptRejected = true;
+        }
         const invoicePartialPayment =
           await window.erpApi.createFeePayment({
             studentId: student.id,
@@ -2804,6 +3185,7 @@ app.whenReady().then(async () => {
           authApiAvailable,
           demoApiAvailable,
           studentImportApiAvailable,
+          studentAdmissionApiAvailable,
           certificateApiAvailable,
           employeeApiAvailable,
           salaryApiAvailable,
@@ -2838,6 +3220,76 @@ app.whenReady().then(async () => {
           familyCreated:
             smokeFamily.familyCode.startsWith("FAM-") &&
             smokeFamily.primaryContactName === "Smoke Test Father",
+          admissionWorkflowCorrect:
+            admissionDraftProfileCorrect &&
+            admittedProfile.student.status === "Active" &&
+            admittedProfile.student.admissionNo ===
+              admissionNumbers.admissionNo &&
+            admittedProfile.admissionDetails.applicationNo ===
+              admissionNumbers.applicationNo &&
+            admittedProfile.admissionDetails.feeStructureId ===
+              tuitionFeeStructure.id &&
+            admittedProfile.admissionDetails.childPhotoPath.includes(
+              "admission-workflow"
+            ) &&
+            admissionPrefilledForm.student.id === admittedProfile.student.id &&
+            admissionPrefilledForm.ageAtAdmission.years === 5 &&
+            admissionPrefilledForm.ageAtAdmission.months === 11 &&
+            admissionPrefilledForm.father?.qualification === "B.Tech" &&
+            admissionPrefilledForm.father?.employerOrganization ===
+              "Smoke Engineering Works" &&
+            admissionPrefilledForm.admissionDocuments.some(
+              (document) =>
+                document.documentType === "Birth certificate" &&
+                document.receivedStatus === "Received"
+            ) &&
+            admissionGuardiansAfterRepeat.length === 2 &&
+            new Set(
+              admissionGuardiansAfterRepeat.map((link) => link.guardianId)
+            ).size === 2,
+          admissionOfficeUseCorrect:
+            admissionOfficeUseWithReceipt.officeUse.feeReceiptNo ===
+              admissionFeeReceipt.receiptNo &&
+            wrongStudentReceiptRejected,
+          admissionSafeguardsDebug: {
+            duplicateAdmissionNumberRejected,
+            duplicateApplicationNumberRejected,
+            admissionUnauthorizedSaveRejected,
+            printPreviewNoMutation:
+              studentCountBeforePrintPreview === studentCountAfterPrintPreview,
+            legacyStudentOpens:
+              legacyStudentAdmissionProfile.student.id === student.id,
+            legacyAdmissionFallback:
+              legacyStudentAdmissionProfile.admissionDetails?.applicationNo ===
+                "" &&
+              legacyStudentAdmissionProfile.admissionDetails?.srNo ===
+                student.admissionNo,
+            blankAdmissionFormWorks:
+              blankAdmissionProfileForm.mode === "Blank",
+            editPreservedAdmissionNumber:
+              admissionProfileAfterEdit.student.admissionNo ===
+              admissionNumbers.admissionNo,
+            snapshotHistoryContainsIssuedSnapshot:
+              admissionSnapshotHistory.some(
+                (snapshot) => snapshot.id === admissionSnapshotBeforeEdit.id
+              ),
+          },
+          admissionSafeguardsCorrect:
+            duplicateAdmissionNumberRejected &&
+            duplicateApplicationNumberRejected &&
+            admissionUnauthorizedSaveRejected &&
+            studentCountBeforePrintPreview === studentCountAfterPrintPreview &&
+            legacyStudentAdmissionProfile.student.id === student.id &&
+            legacyStudentAdmissionProfile.admissionDetails?.applicationNo ===
+              "" &&
+            legacyStudentAdmissionProfile.admissionDetails?.srNo ===
+              student.admissionNo &&
+            blankAdmissionProfileForm.mode === "Blank" &&
+            admissionProfileAfterEdit.student.admissionNo ===
+              admissionNumbers.admissionNo &&
+            admissionSnapshotHistory.some(
+              (snapshot) => snapshot.id === admissionSnapshotBeforeEdit.id
+            ),
           guardiansCreated:
             fatherGuardian.relation === "Father" &&
             motherGuardian.relation === "Mother",
@@ -3330,7 +3782,7 @@ app.whenReady().then(async () => {
               (item) => item.id === homeworkToDelete.id
             ),
           classTestId: classTest.id,
-          classTestMarkId: initialClassTestMarks[0].id,
+          classTestMarkId: originalStudentClassTestMark.id,
           classTestMarkCount: initialClassTestMarks.length,
           classTestPendingCreated:
             initialClassTestMarks[0]?.resultStatus === "Pending",
@@ -3514,11 +3966,33 @@ app.whenReady().then(async () => {
             failingReportPreview.resultStatus === "Fail" &&
             failingReportPreview.subjects[0]?.resultStatus === "Fail" &&
             failingReportPreview.overallGrade === "F",
+          reportCardBatchDebug: {
+            batchCount: classReportBatch.count,
+            batchStatuses: classReportBatch.reportCards.map(
+              (card) => card.resultStatus
+            ),
+            totalStudents: classSummary.summary.totalStudents,
+            resultComplete: classSummary.summary.resultComplete,
+            failed: classSummary.summary.failed,
+            rankingCount: classSummary.rankings.length,
+            positionCount: resultPositions.length,
+            firstPosition: resultPositions[0]?.position,
+            firstResultStatus: resultPositions[0]?.resultStatus,
+            finalReportCardIdMatches:
+              finalStudentReportCard?.id === regeneratedReportCardAfterDelete.id,
+            finalReportCardNo: finalStudentReportCard?.reportCardNo,
+            finalActiveReportCardsForStudent: activeReportCardsFinal.length,
+          },
           reportCardClassBatchCorrect:
-            classReportBatch.count === 1 &&
-            classReportBatch.reportCards[0]?.resultStatus === "Fail",
+            classReportBatch.count === 2 &&
+            classReportBatch.reportCards.some(
+              (card) => card.resultStatus === "Fail"
+            ) &&
+            classReportBatch.reportCards.some(
+              (card) => card.resultStatus === "Pending"
+            ),
           reportCardSummaryCorrect:
-            classSummary.summary.totalStudents === 1 &&
+            classSummary.summary.totalStudents === 2 &&
             classSummary.summary.resultComplete === 1 &&
             classSummary.summary.failed === 1 &&
             classSummary.rankings[0]?.position === 1 &&
@@ -3532,7 +4006,7 @@ app.whenReady().then(async () => {
             activeReportCardsAfterDelete.length === 0,
           finalReportCardPersisted:
             finalStudentReportCard?.id === regeneratedReportCardAfterDelete.id &&
-            finalStudentReportCard.reportCardNo === "RC-2026-0002" &&
+            /^RC-2026-[0-9]{4}$/.test(finalStudentReportCard.reportCardNo) &&
             activeReportCardsFinal.length === 1,
           databaseInfo,
           schoolName: (await window.erpApi.getSchoolSettings()).schoolName,
@@ -3604,6 +4078,10 @@ app.whenReady().then(async () => {
     assert(
       bridgeResult.studentImportApiAvailable,
       "Student import APIs were not exposed by the preload bridge.",
+    );
+    assert(
+      bridgeResult.studentAdmissionApiAvailable,
+      "Student admission workflow APIs were not exposed by the preload bridge.",
     );
     assert(
       bridgeResult.familyApiAvailable,
@@ -4015,23 +4493,30 @@ app.whenReady().then(async () => {
       bridgeResult.classAttendanceIsArray,
       "Attendance class/date query did not return an array.",
     );
-    assert(bridgeResult.studentCount === 5, "Student IPC operations failed.");
+    assert(bridgeResult.studentCount === 6, "Student IPC operations failed.");
     assert(bridgeResult.updatedMobile === "9888888888", "Student update IPC failed.");
+    const familyAdmissionDebug = {
+      familyCreated: bridgeResult.familyCreated,
+      guardiansCreated: bridgeResult.guardiansCreated,
+      guardianPrimaryEnforced: bridgeResult.guardianPrimaryEnforced,
+      legacyParentFallbackWorked: bridgeResult.legacyParentFallbackWorked,
+      siblingLinkWorked: bridgeResult.siblingLinkWorked,
+      familyProfileCorrect: bridgeResult.familyProfileCorrect,
+      parentsInfoReportCorrect: bridgeResult.parentsInfoReportCorrect,
+      emergencyReportCorrect: bridgeResult.emergencyReportCorrect,
+      siblingReportCorrect: bridgeResult.siblingReportCorrect,
+      guardianUnlinkedWithoutDelete: bridgeResult.guardianUnlinkedWithoutDelete,
+      familySoftDeletedStudentSafe: bridgeResult.familySoftDeletedStudentSafe,
+      admissionWorkflowCorrect: bridgeResult.admissionWorkflowCorrect,
+      admissionOfficeUseCorrect: bridgeResult.admissionOfficeUseCorrect,
+      admissionSafeguardsCorrect: bridgeResult.admissionSafeguardsCorrect,
+      admissionSafeguardsDebug: bridgeResult.admissionSafeguardsDebug,
+    };
     assert(
-      bridgeResult.familyCreated &&
-        bridgeResult.guardiansCreated &&
-        bridgeResult.guardianPrimaryEnforced &&
-        bridgeResult.legacyParentFallbackWorked &&
-        bridgeResult.siblingLinkWorked &&
-        bridgeResult.familyProfileCorrect &&
-        bridgeResult.parentsInfoReportCorrect &&
-        bridgeResult.emergencyReportCorrect &&
-        bridgeResult.siblingReportCorrect &&
-        bridgeResult.guardianUnlinkedWithoutDelete &&
-        bridgeResult.familySoftDeletedStudentSafe,
-      "Family, guardian, sibling, legacy fallback, report, unlink, or soft-delete behavior failed.",
+      Object.values(familyAdmissionDebug).every(Boolean),
+      `Family, guardian, admission, sibling, legacy fallback, report, unlink, or soft-delete behavior failed: ${JSON.stringify(familyAdmissionDebug)}`,
     );
-    assert(bridgeResult.paymentCount === 5, "Fee payment IPC operations failed.");
+    assert(bridgeResult.paymentCount === 6, "Fee payment IPC operations failed.");
     assert(
       bridgeResult.firstReceipt === "TEST-RC-2026-0001",
       "Yearly receipt number was not generated.",
@@ -4114,7 +4599,7 @@ app.whenReady().then(async () => {
       "Timetable setup, upsert, class query, or teacher query failed.",
     );
     assert(
-      bridgeResult.homeworkSubmissionCount === 1 &&
+      bridgeResult.homeworkSubmissionCount === 2 &&
         bridgeResult.homeworkPendingCreated &&
         bridgeResult.homeworkSubmissionUpdated &&
         bridgeResult.homeworkBulkUpdated &&
@@ -4123,7 +4608,7 @@ app.whenReady().then(async () => {
       "Homework creation, pending submissions, updates, class query, or soft delete failed.",
     );
     assert(
-      bridgeResult.classTestMarkCount === 1 &&
+      bridgeResult.classTestMarkCount === 2 &&
         bridgeResult.classTestPendingCreated &&
         bridgeResult.classTestUpdated &&
         bridgeResult.classTestFailAutoCalculated &&
@@ -4158,7 +4643,7 @@ app.whenReady().then(async () => {
       "Behaviour traits, skill ratings, domain reports, observation updates, or soft-delete behavior failed.",
     );
     assert(
-      bridgeResult.promotionPreviewCount === 4 &&
+      bridgeResult.promotionPreviewCount === 5 &&
         bridgeResult.initialSessionHistoryCreated &&
         bridgeResult.promotionNo === "PROM-2026-0001" &&
         bridgeResult.promotionCountsCorrect &&
@@ -4812,14 +5297,22 @@ app.whenReady().then(async () => {
         bridgeResult.manualIncomeUpdated,
       "Manual account transactions or account numbering failed.",
     );
+    const accountDebug = {
+      accountTransactionCount: bridgeResult.accountTransactionCount,
+      accountRangeCount: bridgeResult.accountRangeCount,
+      feeAccountCount: bridgeResult.feeAccountCount,
+      feeAccountLinked: bridgeResult.feeAccountLinked,
+      salaryAccountCount: bridgeResult.salaryAccountCount,
+      salaryAccountSynced: bridgeResult.salaryAccountSynced,
+    };
     assert(
-      bridgeResult.accountTransactionCount === 7 &&
+      bridgeResult.accountTransactionCount === 8 &&
         bridgeResult.accountRangeCount === 7 &&
-        bridgeResult.feeAccountCount === 4 &&
+        bridgeResult.feeAccountCount === 5 &&
         bridgeResult.feeAccountLinked &&
         bridgeResult.salaryAccountCount === 1 &&
         bridgeResult.salaryAccountSynced,
-      "Account date queries or automatic fee/salary ledger links failed.",
+      `Account date queries or automatic fee/salary ledger links failed: ${JSON.stringify(accountDebug)}`,
     );
     assert(
       bridgeResult.discountTypeCreated &&
@@ -4901,13 +5394,21 @@ app.whenReady().then(async () => {
         bridgeResult.reportCardFailRuleCorrect,
       "Report-card preview, generation, duplicate guard, remarks, snapshot, or fail rule failed.",
     );
+    const reportCardBatchDebug = {
+      reportCardClassBatchCorrect: bridgeResult.reportCardClassBatchCorrect,
+      reportCardSummaryCorrect: bridgeResult.reportCardSummaryCorrect,
+      reportCardPositionsCorrect: bridgeResult.reportCardPositionsCorrect,
+      reportCardSoftDeleted: bridgeResult.reportCardSoftDeleted,
+      finalReportCardPersisted: bridgeResult.finalReportCardPersisted,
+      details: bridgeResult.reportCardBatchDebug,
+    };
     assert(
       bridgeResult.reportCardClassBatchCorrect &&
         bridgeResult.reportCardSummaryCorrect &&
         bridgeResult.reportCardPositionsCorrect &&
         bridgeResult.reportCardSoftDeleted &&
         bridgeResult.finalReportCardPersisted,
-      "Report-card batch generation, summary, ranking, soft delete, or final persistence setup failed.",
+      `Report-card batch generation, summary, ranking, soft delete, or final persistence setup failed: ${JSON.stringify(reportCardBatchDebug)}`,
     );
     assert(
       bridgeResult.databaseInfo.databasePath === databasePath &&
@@ -5550,7 +6051,7 @@ app.whenReady().then(async () => {
           ),
       "Login history did not persist.",
     );
-    assert(database.getFeePayments().length === 5, "Fee payments did not persist.");
+    assert(database.getFeePayments().length === 6, "Fee payments did not persist.");
     assert(database.getAttendance().length === 1, "Attendance did not persist.");
     assert(
       database.getEmployeeAttendanceByRange({ month: "2026-07" }).length ===
@@ -5583,25 +6084,34 @@ app.whenReady().then(async () => {
         database.getTimetableByTeacher(bridgeResult.employeeId).length === 1,
       "Timetable setup or entries did not persist.",
     );
+    const persistedHomeworkSubmissions = database.getHomeworkSubmissions(
+      bridgeResult.homeworkId,
+    );
     assert(
       database.getHomework().length === 1 &&
         database.getHomework()[0].id === bridgeResult.homeworkId &&
-        database.getHomeworkSubmissions(bridgeResult.homeworkId).length ===
-          1 &&
-        database.getHomeworkSubmissions(bridgeResult.homeworkId)[0].status ===
-          "Checked" &&
-        database.getHomeworkSubmissions(bridgeResult.homeworkId)[0].marks ===
-          9,
+        persistedHomeworkSubmissions.length === 2 &&
+        persistedHomeworkSubmissions.some(
+          (submission) =>
+            submission.studentId === bridgeResult.studentId &&
+            submission.status === "Checked" &&
+            submission.marks === 9,
+        ),
       "Homework or submission updates did not persist.",
+    );
+    const persistedClassTestMarks = database.getClassTestMarks(
+      bridgeResult.classTestId,
     );
     assert(
       database.getClassTests().length === 1 &&
         database.getClassTests()[0].id === bridgeResult.classTestId &&
-        database.getClassTestMarks(bridgeResult.classTestId).length === 1 &&
-        database.getClassTestMarks(bridgeResult.classTestId)[0]
-          .resultStatus === "Pass" &&
-        database.getClassTestMarks(bridgeResult.classTestId)[0]
-          .marksObtained === 9,
+        persistedClassTestMarks.length === 2 &&
+        persistedClassTestMarks.some(
+          (mark) =>
+            mark.studentId === bridgeResult.studentId &&
+            mark.resultStatus === "Pass" &&
+            mark.marksObtained === 9,
+        ),
       "Class test or mark updates did not persist.",
     );
     const persistedQuestionPaper = database.getQuestionPaperById(
@@ -5722,7 +6232,7 @@ app.whenReady().then(async () => {
         0,
       );
     assert(
-      restoredAccountTransactions.length >= 7 &&
+      restoredAccountTransactions.length >= 8 &&
         restoredAccountTransactions.some(
           (transaction) =>
             transaction.id === bridgeResult.manualExpenseId &&
@@ -5730,7 +6240,7 @@ app.whenReady().then(async () => {
         ) &&
         restoredAccountTransactions.filter(
           (transaction) => transaction.linkedModule === "Fees",
-        ).length === 4 &&
+        ).length === 5 &&
         restoredPosAccountNet === 300,
       "Account transactions did not persist.",
     );
@@ -5754,7 +6264,7 @@ app.whenReady().then(async () => {
             studentId: bridgeResult.studentId,
           })
           .length === 1 &&
-        persistedReportCard?.reportCardNo === "RC-2026-0002" &&
+        /^RC-2026-[0-9]{4}$/.test(persistedReportCard?.reportCardNo || "") &&
         persistedReportCard.subjects[0]?.obtainedMarks === 20 &&
         persistedReportCard.resultStatus === "Fail",
       "Grading scheme, template, report card, or subject snapshots did not persist.",

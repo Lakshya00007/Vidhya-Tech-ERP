@@ -2,8 +2,29 @@ const crypto = require("node:crypto");
 const Database = require("better-sqlite3");
 
 const DEFAULT_SETTINGS_ID = "school-profile";
-const STUDENT_STATUSES = new Set(["Active", "Inactive"]);
+const STUDENT_STATUSES = new Set(["Draft", "Active", "Inactive"]);
 const MASTER_STATUSES = new Set(["Active", "Inactive"]);
+const ADMISSION_DOCUMENT_REQUIREMENT_STATUSES = new Set([
+  "Required",
+  "Optional",
+]);
+const ADMISSION_DOCUMENT_RECEIVED_STATUSES = new Set([
+  "Received",
+  "Pending",
+  "Not Applicable",
+]);
+const ADMISSION_DOCUMENT_TYPES = [
+  "Birth certificate",
+  "Child Aadhaar card",
+  "Parent Aadhaar/identity",
+  "Previous school Transfer Certificate",
+  "Previous report card",
+  "Passport photographs",
+  "Address proof",
+  "Caste/category certificate",
+  "Medical certificate",
+  "Other document",
+];
 const PAYMENT_MODES = new Set([
   "Cash",
   "UPI",
@@ -2064,6 +2085,7 @@ function guardianFromRow(row) {
     alternateMobile: row.alternate_mobile ?? "",
     email: row.email ?? "",
     occupation: row.occupation ?? "",
+    employerOrganization: row.employer_organization ?? "",
     qualification: row.qualification ?? "",
     annualIncome:
       row.annual_income === null || row.annual_income === undefined
@@ -2098,6 +2120,8 @@ function studentGuardianLinkFromRow(row) {
     alternateMobile: row.alternate_mobile ?? "",
     email: row.email ?? "",
     occupation: row.occupation ?? "",
+    employerOrganization: row.employer_organization ?? "",
+    qualification: row.qualification ?? "",
     address: row.address ?? "",
     familyId: row.family_id ?? "",
     familyCode: row.family_code ?? "",
@@ -2215,6 +2239,113 @@ function admissionFormSnapshotFromRow(row) {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at,
+    syncStatus: row.sync_status ?? "pending",
+  };
+}
+
+function studentAdmissionDetailsFromRow(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    studentId: row.student_id,
+    applicationNo: row.application_no ?? "",
+    academicSessionId: row.academic_session_id ?? "",
+    academicSessionName: row.academic_session_name ?? "",
+    admissionRequiredFor: row.admission_required_for ?? "",
+    rollNo: row.roll_no ?? "",
+    admissionType: row.admission_type ?? "",
+    feeStructureId: row.fee_structure_id ?? "",
+    feeStructureName: row.fee_structure_name ?? "",
+    transportRequired: Number(row.transport_required ?? 0) === 1,
+    pickupPoint: row.pickup_point ?? "",
+    routeName: row.route_name ?? "",
+    childPhotoPath: row.child_photo_path ?? "",
+    fatherPhotoPath: row.father_photo_path ?? "",
+    motherPhotoPath: row.mother_photo_path ?? "",
+    guardianPhotoPath: row.guardian_photo_path ?? "",
+    firstName: row.first_name ?? "",
+    middleName: row.middle_name ?? "",
+    lastName: row.last_name ?? "",
+    penNo: row.pen_no ?? "",
+    srNo: row.sr_no ?? "",
+    caste: row.caste ?? "",
+    category: row.category ?? "",
+    nationality: row.nationality ?? "",
+    religion: row.religion ?? "",
+    motherTongue: row.mother_tongue ?? "",
+    identificationMarks: row.identification_marks ?? "",
+    medicalNotes: row.medical_notes ?? "",
+    previousClass: row.previous_class ?? "",
+    previousBoard: row.previous_board ?? "",
+    previousSchoolAddress: row.previous_school_address ?? "",
+    previousTcNumber: row.previous_tc_number ?? "",
+    previousTcDate: row.previous_tc_date ?? "",
+    previousResultStatus: row.previous_result_status ?? "",
+    reasonForLeavingPreviousSchool:
+      row.reason_for_leaving_previous_school ?? "",
+    locality: row.locality ?? "",
+    city: row.city ?? "",
+    district: row.district ?? "",
+    state: row.state ?? "",
+    pinCode: row.pin_code ?? "",
+    distanceFromSchool: row.distance_from_school ?? "",
+    emergencyContactNumber: row.emergency_contact_number ?? "",
+    preferredSmsNumber: row.preferred_sms_number ?? "",
+    preferredWhatsappNumber: row.preferred_whatsapp_number ?? "",
+    sameAsGuardianAddress: Number(row.same_as_guardian_address ?? 0) === 1,
+    guardianDifferentFromParents:
+      Number(row.guardian_different_from_parents ?? 0) === 1,
+    primaryGuardianRole: row.primary_guardian_role ?? "",
+    feeContactRole: row.fee_contact_role ?? "",
+    smsContactRole: row.sms_contact_role ?? "",
+    emergencyContactRole: row.emergency_contact_role ?? "",
+    pickupAuthorizedRole: row.pickup_authorized_role ?? "",
+    declarationAccepted: Number(row.declaration_accepted ?? 0) === 1,
+    declarationAcceptedDate: row.declaration_accepted_date ?? "",
+    declarationAcceptedBy: row.declaration_accepted_by ?? "",
+    schoolRulesAccepted: Number(row.school_rules_accepted ?? 0) === 1,
+    communicationConsent: Number(row.communication_consent ?? 0) === 1,
+    emergencyConsent: Number(row.emergency_consent ?? 0) === 1,
+    photoConsent: Number(row.photo_consent ?? 0) === 1,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    syncStatus: row.sync_status ?? "pending",
+  };
+}
+
+function studentAdmissionDocumentFromRow(row) {
+  return {
+    id: row.id,
+    studentId: row.student_id,
+    documentType: row.document_type,
+    requirementStatus: row.requirement_status ?? "Optional",
+    receivedStatus: row.received_status ?? "Pending",
+    filePath: row.file_path ?? "",
+    notes: row.notes ?? "",
+    receivedAt: row.received_at ?? "",
+    verifiedBy: row.verified_by ?? "",
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    syncStatus: row.sync_status ?? "pending",
+  };
+}
+
+function studentAdmissionOfficeUseFromRow(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    studentId: row.student_id,
+    approvedBy: row.approved_by ?? "",
+    approvalDate: row.approval_date ?? "",
+    feePaymentId: row.fee_payment_id ?? "",
+    feeReceiptNo: row.fee_receipt_no ?? "",
+    studentIdIssued: Number(row.student_id_issued ?? 0) === 1,
+    studentIdIssueDate: row.student_id_issue_date ?? "",
+    admissionOfficer: row.admission_officer ?? "",
+    principalApproval: row.principal_approval ?? "",
+    remarks: row.remarks ?? "",
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
     syncStatus: row.sync_status ?? "pending",
   };
 }
@@ -2463,6 +2594,7 @@ function createDatabase(databasePath) {
       alternate_mobile TEXT,
       email TEXT,
       occupation TEXT,
+      employer_organization TEXT,
       qualification TEXT,
       annual_income INTEGER,
       address TEXT,
@@ -3087,6 +3219,7 @@ function createDatabase(databasePath) {
       cashier_name TEXT,
       created_at TEXT,
       updated_at TEXT,
+      deleted_at TEXT,
       sync_status TEXT DEFAULT 'pending',
       FOREIGN KEY (student_id) REFERENCES students(id)
     );
@@ -3822,6 +3955,108 @@ function createDatabase(databasePath) {
       FOREIGN KEY (student_id) REFERENCES students(id)
     );
 
+    CREATE TABLE IF NOT EXISTS student_admission_details (
+      id TEXT PRIMARY KEY,
+      student_id TEXT UNIQUE NOT NULL,
+      application_no TEXT,
+      academic_session_id TEXT,
+      academic_session_name TEXT,
+      admission_required_for TEXT,
+      roll_no TEXT,
+      admission_type TEXT,
+      fee_structure_id TEXT,
+      fee_structure_name TEXT,
+      transport_required INTEGER DEFAULT 0,
+      pickup_point TEXT,
+      route_name TEXT,
+      child_photo_path TEXT,
+      father_photo_path TEXT,
+      mother_photo_path TEXT,
+      guardian_photo_path TEXT,
+      first_name TEXT,
+      middle_name TEXT,
+      last_name TEXT,
+      pen_no TEXT,
+      sr_no TEXT,
+      caste TEXT,
+      category TEXT,
+      nationality TEXT,
+      religion TEXT,
+      mother_tongue TEXT,
+      identification_marks TEXT,
+      medical_notes TEXT,
+      previous_class TEXT,
+      previous_board TEXT,
+      previous_school_address TEXT,
+      previous_tc_number TEXT,
+      previous_tc_date TEXT,
+      previous_result_status TEXT,
+      reason_for_leaving_previous_school TEXT,
+      locality TEXT,
+      city TEXT,
+      district TEXT,
+      state TEXT,
+      pin_code TEXT,
+      distance_from_school TEXT,
+      emergency_contact_number TEXT,
+      preferred_sms_number TEXT,
+      preferred_whatsapp_number TEXT,
+      same_as_guardian_address INTEGER DEFAULT 0,
+      guardian_different_from_parents INTEGER DEFAULT 0,
+      primary_guardian_role TEXT,
+      fee_contact_role TEXT,
+      sms_contact_role TEXT,
+      emergency_contact_role TEXT,
+      pickup_authorized_role TEXT,
+      declaration_accepted INTEGER DEFAULT 0,
+      declaration_accepted_date TEXT,
+      declaration_accepted_by TEXT,
+      school_rules_accepted INTEGER DEFAULT 0,
+      communication_consent INTEGER DEFAULT 0,
+      emergency_consent INTEGER DEFAULT 0,
+      photo_consent INTEGER DEFAULT 0,
+      created_at TEXT,
+      updated_at TEXT,
+      sync_status TEXT DEFAULT 'pending',
+      FOREIGN KEY (student_id) REFERENCES students(id),
+      FOREIGN KEY (academic_session_id) REFERENCES academic_sessions(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS student_admission_documents (
+      id TEXT PRIMARY KEY,
+      student_id TEXT NOT NULL,
+      document_type TEXT NOT NULL,
+      requirement_status TEXT DEFAULT 'Optional',
+      received_status TEXT DEFAULT 'Pending',
+      file_path TEXT,
+      notes TEXT,
+      received_at TEXT,
+      verified_by TEXT,
+      created_at TEXT,
+      updated_at TEXT,
+      sync_status TEXT DEFAULT 'pending',
+      FOREIGN KEY (student_id) REFERENCES students(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS student_admission_office_use (
+      id TEXT PRIMARY KEY,
+      student_id TEXT UNIQUE NOT NULL,
+      approved_by TEXT,
+      approval_date TEXT,
+      fee_payment_id TEXT,
+      fee_receipt_no TEXT,
+      student_id_issued INTEGER DEFAULT 0,
+      student_id_issue_date TEXT,
+      admission_officer TEXT,
+      principal_approval TEXT,
+      remarks TEXT,
+      created_at TEXT,
+      updated_at TEXT,
+      sync_status TEXT DEFAULT 'pending',
+      FOREIGN KEY (student_id) REFERENCES students(id),
+      FOREIGN KEY (fee_payment_id) REFERENCES fee_payments(id)
+    );
+
     CREATE TABLE IF NOT EXISTS saved_report_definitions (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -4154,6 +4389,15 @@ function createDatabase(databasePath) {
     CREATE UNIQUE INDEX IF NOT EXISTS idx_student_guardian_links_active_unique
       ON student_guardian_links(student_id, guardian_id)
       WHERE deleted_at IS NULL;
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_student_admission_application_no
+      ON student_admission_details(application_no COLLATE NOCASE)
+      WHERE application_no IS NOT NULL AND application_no <> '';
+    CREATE INDEX IF NOT EXISTS idx_student_admission_details_session
+      ON student_admission_details(academic_session_id, admission_required_for);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_student_admission_documents_unique
+      ON student_admission_documents(student_id, document_type);
+    CREATE INDEX IF NOT EXISTS idx_student_admission_office_receipt
+      ON student_admission_office_use(fee_receipt_no);
     CREATE INDEX IF NOT EXISTS idx_employees_active
       ON employees(deleted_at, status, department, designation, name);
     CREATE INDEX IF NOT EXISTS idx_fee_payments_date
@@ -4312,6 +4556,93 @@ function createDatabase(databasePath) {
     addColumnIfMissing(db, "admission_form_snapshots", columnName, definition);
   });
   [
+    ["application_no", "TEXT"],
+    ["academic_session_id", "TEXT"],
+    ["academic_session_name", "TEXT"],
+    ["admission_required_for", "TEXT"],
+    ["roll_no", "TEXT"],
+    ["admission_type", "TEXT"],
+    ["fee_structure_id", "TEXT"],
+    ["fee_structure_name", "TEXT"],
+    ["transport_required", "INTEGER DEFAULT 0"],
+    ["pickup_point", "TEXT"],
+    ["route_name", "TEXT"],
+    ["child_photo_path", "TEXT"],
+    ["father_photo_path", "TEXT"],
+    ["mother_photo_path", "TEXT"],
+    ["guardian_photo_path", "TEXT"],
+    ["first_name", "TEXT"],
+    ["middle_name", "TEXT"],
+    ["last_name", "TEXT"],
+    ["pen_no", "TEXT"],
+    ["sr_no", "TEXT"],
+    ["caste", "TEXT"],
+    ["category", "TEXT"],
+    ["nationality", "TEXT"],
+    ["religion", "TEXT"],
+    ["mother_tongue", "TEXT"],
+    ["identification_marks", "TEXT"],
+    ["medical_notes", "TEXT"],
+    ["previous_class", "TEXT"],
+    ["previous_board", "TEXT"],
+    ["previous_school_address", "TEXT"],
+    ["previous_tc_number", "TEXT"],
+    ["previous_tc_date", "TEXT"],
+    ["previous_result_status", "TEXT"],
+    ["reason_for_leaving_previous_school", "TEXT"],
+    ["locality", "TEXT"],
+    ["city", "TEXT"],
+    ["district", "TEXT"],
+    ["state", "TEXT"],
+    ["pin_code", "TEXT"],
+    ["distance_from_school", "TEXT"],
+    ["emergency_contact_number", "TEXT"],
+    ["preferred_sms_number", "TEXT"],
+    ["preferred_whatsapp_number", "TEXT"],
+    ["same_as_guardian_address", "INTEGER DEFAULT 0"],
+    ["guardian_different_from_parents", "INTEGER DEFAULT 0"],
+    ["primary_guardian_role", "TEXT"],
+    ["fee_contact_role", "TEXT"],
+    ["sms_contact_role", "TEXT"],
+    ["emergency_contact_role", "TEXT"],
+    ["pickup_authorized_role", "TEXT"],
+    ["declaration_accepted", "INTEGER DEFAULT 0"],
+    ["declaration_accepted_date", "TEXT"],
+    ["declaration_accepted_by", "TEXT"],
+    ["school_rules_accepted", "INTEGER DEFAULT 0"],
+    ["communication_consent", "INTEGER DEFAULT 0"],
+    ["emergency_consent", "INTEGER DEFAULT 0"],
+    ["photo_consent", "INTEGER DEFAULT 0"],
+    ["sync_status", "TEXT DEFAULT 'pending'"],
+  ].forEach(([columnName, definition]) => {
+    addColumnIfMissing(db, "student_admission_details", columnName, definition);
+  });
+  [
+    ["requirement_status", "TEXT DEFAULT 'Optional'"],
+    ["received_status", "TEXT DEFAULT 'Pending'"],
+    ["file_path", "TEXT"],
+    ["notes", "TEXT"],
+    ["received_at", "TEXT"],
+    ["verified_by", "TEXT"],
+    ["sync_status", "TEXT DEFAULT 'pending'"],
+  ].forEach(([columnName, definition]) => {
+    addColumnIfMissing(db, "student_admission_documents", columnName, definition);
+  });
+  [
+    ["approved_by", "TEXT"],
+    ["approval_date", "TEXT"],
+    ["fee_payment_id", "TEXT"],
+    ["fee_receipt_no", "TEXT"],
+    ["student_id_issued", "INTEGER DEFAULT 0"],
+    ["student_id_issue_date", "TEXT"],
+    ["admission_officer", "TEXT"],
+    ["principal_approval", "TEXT"],
+    ["remarks", "TEXT"],
+    ["sync_status", "TEXT DEFAULT 'pending'"],
+  ].forEach(([columnName, definition]) => {
+    addColumnIfMissing(db, "student_admission_office_use", columnName, definition);
+  });
+  [
     ["serial_number", "TEXT"],
     ["sr_number", "TEXT"],
     ["pen_number", "TEXT"],
@@ -4353,6 +4684,7 @@ function createDatabase(databasePath) {
     SET status = 'Active'
     WHERE status IS NULL OR trim(status) = ''
   `).run();
+  addColumnIfMissing(db, "fee_payments", "deleted_at", "TEXT");
   addColumnIfMissing(db, "attendance", "admission_no", "TEXT");
   addColumnIfMissing(db, "attendance", "remarks", "TEXT");
   addColumnIfMissing(db, "users", "account_type", "TEXT DEFAULT 'Staff'");
@@ -4495,6 +4827,7 @@ function createDatabase(databasePath) {
     ["alternate_mobile", "TEXT"],
     ["email", "TEXT"],
     ["occupation", "TEXT"],
+    ["employer_organization", "TEXT"],
     ["qualification", "TEXT"],
     ["annual_income", "INTEGER"],
     ["address", "TEXT"],
@@ -4781,6 +5114,10 @@ function createDatabase(databasePath) {
     UPDATE announcements
     SET priority = 'Normal'
     WHERE priority IS NULL OR trim(priority) = '';
+    UPDATE student_admission_office_use
+    SET fee_payment_id = NULL
+    WHERE fee_payment_id IS NOT NULL
+      AND trim(fee_payment_id) = '';
     DELETE FROM message_recipients
     WHERE deleted_at IS NULL
       AND rowid NOT IN (
@@ -5571,6 +5908,19 @@ function createDatabase(databasePath) {
     return `VSE-${year}-${suffix}`;
   }
 
+  function generateApplicationNumber(referenceDate = now()) {
+    const year = optionalText(referenceDate).slice(0, 4) || String(new Date().getFullYear());
+    const prefix = `APP-${year}-`;
+    const sequence = db
+      .prepare(`
+        SELECT MAX(CAST(substr(application_no, length(?) + 1) AS INTEGER)) AS maximum
+        FROM student_admission_details
+        WHERE application_no LIKE ?
+      `)
+      .get(prefix, `${prefix}%`);
+    return `${prefix}${String(Number(sequence?.maximum ?? 0) + 1).padStart(4, "0")}`;
+  }
+
   function generateReceiptNumber(paymentDate) {
     const settings = db
       .prepare("SELECT receipt_prefix FROM school_settings WHERE id = ?")
@@ -5973,6 +6323,9 @@ function createDatabase(databasePath) {
         schoolSettings: settings,
         templateSettings,
         student: null,
+        admissionDetails: null,
+        admissionDocuments: [],
+        officeUse: null,
         guardians: [],
         primaryGuardian: null,
         father: null,
@@ -5987,6 +6340,7 @@ function createDatabase(databasePath) {
       throw new Error("The selected student was not found.");
     }
     const student = studentFromRow(studentRow);
+    const admissionProfile = buildStudentAdmissionProfile(student.id);
     const guardians = getStudentGuardianLinksForDocuments(student.id);
     const primaryGuardian = guardians.find((guardian) => guardian.isPrimary) ?? guardians[0] ?? null;
     const father =
@@ -6003,6 +6357,9 @@ function createDatabase(databasePath) {
       schoolSettings: settings,
       templateSettings,
       student,
+      admissionDetails: admissionProfile?.admissionDetails ?? null,
+      admissionDocuments: admissionProfile?.documents ?? [],
+      officeUse: admissionProfile?.officeUse ?? null,
       guardians,
       primaryGuardian,
       father,
@@ -6025,6 +6382,9 @@ function createDatabase(databasePath) {
       throw new Error("The selected student was not found.");
     }
     const student = studentFromRow(studentRow);
+    const admissionDetails = studentAdmissionDetailsFromRow(
+      getAdmissionDetailsRow(student.id),
+    );
     const guardians = getStudentGuardianLinksForDocuments(student.id);
     const father =
       guardians.find((guardian) => guardian.relationToStudent === "Father") ??
@@ -6054,11 +6414,11 @@ function createDatabase(databasePath) {
         serialNumber,
         srNumber:
           input.srNumber === undefined
-            ? existing?.sr_number ?? student.admissionNo
+            ? existing?.sr_number ?? admissionDetails?.srNo ?? student.admissionNo
             : optionalText(input.srNumber),
         penNumber:
           input.penNumber === undefined
-            ? existing?.pen_number ?? ""
+            ? existing?.pen_number ?? admissionDetails?.penNo ?? ""
             : optionalText(input.penNumber),
         academicSessionId:
           input.academicSessionId === undefined
@@ -6106,7 +6466,10 @@ function createDatabase(databasePath) {
               : "",
         admissionClass:
           input.admissionClass === undefined
-            ? existing?.admission_class ?? student.className ?? ""
+            ? existing?.admission_class ??
+              admissionDetails?.admissionRequiredFor ??
+              student.className ??
+              ""
             : optionalText(input.admissionClass),
         dateOfBirth:
           input.dateOfBirth === undefined
@@ -6146,11 +6509,14 @@ function createDatabase(databasePath) {
             : optionalText(input.reasonForLeaving),
         nationality:
           input.nationality === undefined
-            ? existing?.nationality ?? "Indian"
+            ? existing?.nationality ?? admissionDetails?.nationality ?? "Indian"
             : optionalText(input.nationality),
         casteCategory:
           input.casteCategory === undefined
-            ? existing?.caste_category ?? ""
+            ? existing?.caste_category ??
+              [admissionDetails?.caste, admissionDetails?.category]
+                .filter(Boolean)
+                .join(" / ")
             : optionalText(input.casteCategory),
         remarks:
           input.remarks === undefined
@@ -6368,6 +6734,8 @@ function createDatabase(databasePath) {
         guardians.alternate_mobile,
         guardians.email,
         guardians.occupation,
+        guardians.employer_organization,
+        guardians.qualification,
         guardians.address,
         guardians.can_pickup_student AS guardian_can_pickup_student,
         guardians.emergency_contact AS guardian_emergency_contact,
@@ -6387,6 +6755,1114 @@ function createDatabase(databasePath) {
         AND families.deleted_at IS NULL
       WHERE ${whereClause}
     `;
+  }
+
+  function normalizeOptionalDate(value, fieldName) {
+    const text = optionalText(value);
+    return text ? normalizeDate(text, fieldName) : "";
+  }
+
+  function validateStudentIdentifiers(input = {}) {
+    const aadharNo = optionalText(input.aadharNo);
+    if (aadharNo && !/^\d{12}$/.test(aadharNo.replace(/\s+/g, ""))) {
+      throw new Error("Aadhaar number must contain 12 digits.");
+    }
+    const penNo = optionalText(input.penNo);
+    if (penNo && !/^[A-Za-z0-9/-]{4,30}$/.test(penNo)) {
+      throw new Error("PEN number format is invalid.");
+    }
+    return { aadharNo, penNo };
+  }
+
+  function normalizeAdmissionDocumentRequirementStatus(value) {
+    const status = optionalText(value) || "Optional";
+    if (!ADMISSION_DOCUMENT_REQUIREMENT_STATUSES.has(status)) {
+      throw new Error("Document requirement status is invalid.");
+    }
+    return status;
+  }
+
+  function normalizeAdmissionDocumentReceivedStatus(value) {
+    const status = optionalText(value) || "Pending";
+    if (!ADMISSION_DOCUMENT_RECEIVED_STATUSES.has(status)) {
+      throw new Error("Document received status is invalid.");
+    }
+    return status;
+  }
+
+  function getAdmissionDetailsRow(studentId) {
+    return db
+      .prepare(`
+        SELECT *
+        FROM student_admission_details
+        WHERE student_id = ?
+      `)
+      .get(requiredText(studentId, "Student id"));
+  }
+
+  function getAdmissionDocuments(studentId) {
+    return db
+      .prepare(`
+        SELECT *
+        FROM student_admission_documents
+        WHERE student_id = ?
+        ORDER BY
+          CASE document_type
+            WHEN 'Birth certificate' THEN 1
+            WHEN 'Child Aadhaar card' THEN 2
+            WHEN 'Parent Aadhaar/identity' THEN 3
+            WHEN 'Previous school Transfer Certificate' THEN 4
+            WHEN 'Previous report card' THEN 5
+            WHEN 'Passport photographs' THEN 6
+            WHEN 'Address proof' THEN 7
+            WHEN 'Caste/category certificate' THEN 8
+            WHEN 'Medical certificate' THEN 9
+            WHEN 'Other document' THEN 10
+            ELSE 99
+          END,
+          document_type COLLATE NOCASE
+      `)
+      .all(requiredText(studentId, "Student id"))
+      .map(studentAdmissionDocumentFromRow);
+  }
+
+  function getAdmissionOfficeUseRow(studentId) {
+    return db
+      .prepare(`
+        SELECT *
+        FROM student_admission_office_use
+        WHERE student_id = ?
+      `)
+      .get(requiredText(studentId, "Student id"));
+  }
+
+  function getAdmissionSnapshots(filter = {}) {
+    const clauses = ["deleted_at IS NULL"];
+    const params = {};
+    const studentId = optionalText(filter.studentId);
+    if (studentId) {
+      clauses.push("student_id = @studentId");
+      params.studentId = studentId;
+    }
+    return db
+      .prepare(`
+        SELECT *
+        FROM admission_form_snapshots
+        WHERE ${clauses.join(" AND ")}
+        ORDER BY form_date DESC, created_at DESC
+      `)
+      .all(params)
+      .map(admissionFormSnapshotFromRow);
+  }
+
+  function getStudentFamilyFromLinks(links) {
+    const familyId = links.find((link) => link.familyId)?.familyId ?? "";
+    if (!familyId) return null;
+    const row = db
+      .prepare(`${familySelect("families.id = @familyId AND families.deleted_at IS NULL")}`)
+      .get({ familyId });
+    return row ? familyFromRow(row) : null;
+  }
+
+  function defaultAdmissionDetails(student) {
+    return {
+      id: "",
+      studentId: student?.id ?? "",
+      applicationNo: "",
+      academicSessionId: student?.academicSessionId ?? "",
+      academicSessionName: student?.academicSessionName ?? "",
+      admissionRequiredFor: student?.className ?? "",
+      rollNo: "",
+      admissionType: "",
+      feeStructureId: "",
+      feeStructureName: "",
+      transportRequired: false,
+      pickupPoint: "",
+      routeName: "",
+      childPhotoPath: "",
+      fatherPhotoPath: "",
+      motherPhotoPath: "",
+      guardianPhotoPath: "",
+      firstName: "",
+      middleName: "",
+      lastName: "",
+      penNo: "",
+      srNo: student?.admissionNo ?? "",
+      caste: "",
+      category: "",
+      nationality: "Indian",
+      religion: "",
+      motherTongue: "",
+      identificationMarks: "",
+      medicalNotes: "",
+      previousClass: "",
+      previousBoard: "",
+      previousSchoolAddress: "",
+      previousTcNumber: "",
+      previousTcDate: "",
+      previousResultStatus: "",
+      reasonForLeavingPreviousSchool: "",
+      locality: "",
+      city: "",
+      district: "",
+      state: "",
+      pinCode: "",
+      distanceFromSchool: "",
+      emergencyContactNumber: student?.mobile ?? "",
+      preferredSmsNumber: student?.mobile ?? "",
+      preferredWhatsappNumber: student?.mobile ?? "",
+      sameAsGuardianAddress: false,
+      guardianDifferentFromParents: false,
+      primaryGuardianRole: "Father",
+      feeContactRole: "Father",
+      smsContactRole: "Father",
+      emergencyContactRole: "Father",
+      pickupAuthorizedRole: "Father",
+      declarationAccepted: false,
+      declarationAcceptedDate: "",
+      declarationAcceptedBy: "",
+      schoolRulesAccepted: false,
+      communicationConsent: false,
+      emergencyConsent: false,
+      photoConsent: false,
+      createdAt: "",
+      updatedAt: "",
+      syncStatus: "pending",
+    };
+  }
+
+  function buildStudentAdmissionProfile(studentId) {
+    const row = getStudentStatement.get(requiredText(studentId, "Student id"));
+    if (!row) return null;
+    const student = studentFromRow(row);
+    const guardians = db
+      .prepare(`
+        ${studentGuardianLinkSelect("links.student_id = @studentId AND links.deleted_at IS NULL")}
+        ORDER BY links.is_primary DESC,
+          guardians.relation COLLATE NOCASE,
+          guardians.full_name COLLATE NOCASE
+      `)
+      .all({ studentId: student.id })
+      .map(studentGuardianLinkFromRow);
+    const details =
+      studentAdmissionDetailsFromRow(getAdmissionDetailsRow(student.id)) ??
+      defaultAdmissionDetails(student);
+    return {
+      student,
+      admissionDetails: details,
+      guardians,
+      family: getStudentFamilyFromLinks(guardians),
+      documents: getAdmissionDocuments(student.id),
+      officeUse: studentAdmissionOfficeUseFromRow(getAdmissionOfficeUseRow(student.id)),
+      snapshots: getAdmissionSnapshots({ studentId: student.id }),
+    };
+  }
+
+  function normalizeAdmissionDetailsInput(student, input = {}, existing = null) {
+    validateStudentIdentifiers({
+      aadharNo: student.aadharNo,
+      penNo: input.penNo,
+    });
+    const applicationNo =
+      input.applicationNo === undefined
+        ? existing?.application_no ?? generateApplicationNumber(student.admissionDate || now())
+        : optionalText(input.applicationNo) ||
+          existing?.application_no ||
+          generateApplicationNumber(student.admissionDate || now());
+    if (applicationNo) {
+      const duplicate = db
+        .prepare(`
+          SELECT student_id
+          FROM student_admission_details
+          WHERE application_no = ? COLLATE NOCASE
+            AND student_id <> ?
+          LIMIT 1
+        `)
+        .get(applicationNo, student.id);
+      if (duplicate) {
+        throw new Error("Application/Form number is already in use.");
+      }
+    }
+    const academicSessionId =
+      input.academicSessionId === undefined
+        ? existing?.academic_session_id ?? student.academicSessionId ?? ""
+        : optionalText(input.academicSessionId);
+    let academicSessionName =
+      input.academicSessionName === undefined
+        ? existing?.academic_session_name ?? student.academicSessionName ?? ""
+        : optionalText(input.academicSessionName);
+    if (academicSessionId) {
+      const session = getAcademicSessionRow(academicSessionId);
+      if (!session) throw new Error("Academic session was not found.");
+      academicSessionName = session.session_name;
+    }
+    return {
+      studentId: student.id,
+      applicationNo,
+      academicSessionId,
+      academicSessionName,
+      admissionRequiredFor:
+        input.admissionRequiredFor === undefined
+          ? existing?.admission_required_for ?? student.className
+          : optionalText(input.admissionRequiredFor),
+      rollNo:
+        input.rollNo === undefined
+          ? existing?.roll_no ?? ""
+          : optionalText(input.rollNo),
+      admissionType:
+        input.admissionType === undefined
+          ? existing?.admission_type ?? ""
+          : optionalText(input.admissionType),
+      feeStructureId:
+        input.feeStructureId === undefined
+          ? existing?.fee_structure_id ?? ""
+          : optionalText(input.feeStructureId),
+      feeStructureName:
+        input.feeStructureName === undefined
+          ? existing?.fee_structure_name ?? ""
+          : optionalText(input.feeStructureName),
+      transportRequired:
+        booleanFlag(
+          input.transportRequired,
+          Number(existing?.transport_required ?? 0) === 1,
+        )
+          ? 1
+          : 0,
+      pickupPoint:
+        input.pickupPoint === undefined
+          ? existing?.pickup_point ?? ""
+          : optionalText(input.pickupPoint),
+      routeName:
+        input.routeName === undefined
+          ? existing?.route_name ?? ""
+          : optionalText(input.routeName),
+      childPhotoPath:
+        input.childPhotoPath === undefined
+          ? existing?.child_photo_path ?? ""
+          : optionalText(input.childPhotoPath),
+      fatherPhotoPath:
+        input.fatherPhotoPath === undefined
+          ? existing?.father_photo_path ?? ""
+          : optionalText(input.fatherPhotoPath),
+      motherPhotoPath:
+        input.motherPhotoPath === undefined
+          ? existing?.mother_photo_path ?? ""
+          : optionalText(input.motherPhotoPath),
+      guardianPhotoPath:
+        input.guardianPhotoPath === undefined
+          ? existing?.guardian_photo_path ?? ""
+          : optionalText(input.guardianPhotoPath),
+      firstName:
+        input.firstName === undefined
+          ? existing?.first_name ?? ""
+          : optionalText(input.firstName),
+      middleName:
+        input.middleName === undefined
+          ? existing?.middle_name ?? ""
+          : optionalText(input.middleName),
+      lastName:
+        input.lastName === undefined
+          ? existing?.last_name ?? ""
+          : optionalText(input.lastName),
+      penNo:
+        input.penNo === undefined
+          ? existing?.pen_no ?? ""
+          : optionalText(input.penNo),
+      srNo:
+        input.srNo === undefined
+          ? existing?.sr_no ?? student.admissionNo
+          : optionalText(input.srNo),
+      caste:
+        input.caste === undefined
+          ? existing?.caste ?? ""
+          : optionalText(input.caste),
+      category:
+        input.category === undefined
+          ? existing?.category ?? ""
+          : optionalText(input.category),
+      nationality:
+        input.nationality === undefined
+          ? existing?.nationality ?? "Indian"
+          : optionalText(input.nationality),
+      religion:
+        input.religion === undefined
+          ? existing?.religion ?? ""
+          : optionalText(input.religion),
+      motherTongue:
+        input.motherTongue === undefined
+          ? existing?.mother_tongue ?? ""
+          : optionalText(input.motherTongue),
+      identificationMarks:
+        input.identificationMarks === undefined
+          ? existing?.identification_marks ?? ""
+          : optionalText(input.identificationMarks),
+      medicalNotes:
+        input.medicalNotes === undefined
+          ? existing?.medical_notes ?? ""
+          : optionalText(input.medicalNotes),
+      previousClass:
+        input.previousClass === undefined
+          ? existing?.previous_class ?? ""
+          : optionalText(input.previousClass),
+      previousBoard:
+        input.previousBoard === undefined
+          ? existing?.previous_board ?? ""
+          : optionalText(input.previousBoard),
+      previousSchoolAddress:
+        input.previousSchoolAddress === undefined
+          ? existing?.previous_school_address ?? ""
+          : optionalText(input.previousSchoolAddress),
+      previousTcNumber:
+        input.previousTcNumber === undefined
+          ? existing?.previous_tc_number ?? ""
+          : optionalText(input.previousTcNumber),
+      previousTcDate:
+        input.previousTcDate === undefined
+          ? existing?.previous_tc_date ?? ""
+          : normalizeOptionalDate(input.previousTcDate, "Previous TC date"),
+      previousResultStatus:
+        input.previousResultStatus === undefined
+          ? existing?.previous_result_status ?? ""
+          : optionalText(input.previousResultStatus),
+      reasonForLeavingPreviousSchool:
+        input.reasonForLeavingPreviousSchool === undefined
+          ? existing?.reason_for_leaving_previous_school ?? ""
+          : optionalText(input.reasonForLeavingPreviousSchool),
+      locality:
+        input.locality === undefined
+          ? existing?.locality ?? ""
+          : optionalText(input.locality),
+      city:
+        input.city === undefined ? existing?.city ?? "" : optionalText(input.city),
+      district:
+        input.district === undefined
+          ? existing?.district ?? ""
+          : optionalText(input.district),
+      state:
+        input.state === undefined
+          ? existing?.state ?? ""
+          : optionalText(input.state),
+      pinCode:
+        input.pinCode === undefined
+          ? existing?.pin_code ?? ""
+          : optionalText(input.pinCode),
+      distanceFromSchool:
+        input.distanceFromSchool === undefined
+          ? existing?.distance_from_school ?? ""
+          : optionalText(input.distanceFromSchool),
+      emergencyContactNumber:
+        input.emergencyContactNumber === undefined
+          ? existing?.emergency_contact_number ?? student.mobile
+          : optionalText(input.emergencyContactNumber),
+      preferredSmsNumber:
+        input.preferredSmsNumber === undefined
+          ? existing?.preferred_sms_number ?? student.mobile
+          : optionalText(input.preferredSmsNumber),
+      preferredWhatsappNumber:
+        input.preferredWhatsappNumber === undefined
+          ? existing?.preferred_whatsapp_number ?? student.mobile
+          : optionalText(input.preferredWhatsappNumber),
+      sameAsGuardianAddress:
+        booleanFlag(
+          input.sameAsGuardianAddress,
+          Number(existing?.same_as_guardian_address ?? 0) === 1,
+        )
+          ? 1
+          : 0,
+      guardianDifferentFromParents:
+        booleanFlag(
+          input.guardianDifferentFromParents,
+          Number(existing?.guardian_different_from_parents ?? 0) === 1,
+        )
+          ? 1
+          : 0,
+      primaryGuardianRole:
+        input.primaryGuardianRole === undefined
+          ? existing?.primary_guardian_role ?? "Father"
+          : optionalText(input.primaryGuardianRole),
+      feeContactRole:
+        input.feeContactRole === undefined
+          ? existing?.fee_contact_role ?? "Father"
+          : optionalText(input.feeContactRole),
+      smsContactRole:
+        input.smsContactRole === undefined
+          ? existing?.sms_contact_role ?? "Father"
+          : optionalText(input.smsContactRole),
+      emergencyContactRole:
+        input.emergencyContactRole === undefined
+          ? existing?.emergency_contact_role ?? "Father"
+          : optionalText(input.emergencyContactRole),
+      pickupAuthorizedRole:
+        input.pickupAuthorizedRole === undefined
+          ? existing?.pickup_authorized_role ?? "Father"
+          : optionalText(input.pickupAuthorizedRole),
+      declarationAccepted:
+        booleanFlag(
+          input.declarationAccepted,
+          Number(existing?.declaration_accepted ?? 0) === 1,
+        )
+          ? 1
+          : 0,
+      declarationAcceptedDate:
+        input.declarationAcceptedDate === undefined
+          ? existing?.declaration_accepted_date ?? ""
+          : normalizeOptionalDate(
+              input.declarationAcceptedDate,
+              "Declaration accepted date",
+            ),
+      declarationAcceptedBy:
+        input.declarationAcceptedBy === undefined
+          ? existing?.declaration_accepted_by ?? ""
+          : optionalText(input.declarationAcceptedBy),
+      schoolRulesAccepted:
+        booleanFlag(
+          input.schoolRulesAccepted,
+          Number(existing?.school_rules_accepted ?? 0) === 1,
+        )
+          ? 1
+          : 0,
+      communicationConsent:
+        booleanFlag(
+          input.communicationConsent,
+          Number(existing?.communication_consent ?? 0) === 1,
+        )
+          ? 1
+          : 0,
+      emergencyConsent:
+        booleanFlag(
+          input.emergencyConsent,
+          Number(existing?.emergency_consent ?? 0) === 1,
+        )
+          ? 1
+          : 0,
+      photoConsent:
+        booleanFlag(
+          input.photoConsent,
+          Number(existing?.photo_consent ?? 0) === 1,
+        )
+          ? 1
+          : 0,
+    };
+  }
+
+  function upsertStudentAdmissionDetails(student, input = {}, timestamp) {
+    const existing = getAdmissionDetailsRow(student.id);
+    const values = normalizeAdmissionDetailsInput(student, input, existing);
+    if (existing) {
+      db.prepare(`
+        UPDATE student_admission_details
+        SET application_no = @applicationNo,
+            academic_session_id = @academicSessionId,
+            academic_session_name = @academicSessionName,
+            admission_required_for = @admissionRequiredFor,
+            roll_no = @rollNo,
+            admission_type = @admissionType,
+            fee_structure_id = @feeStructureId,
+            fee_structure_name = @feeStructureName,
+            transport_required = @transportRequired,
+            pickup_point = @pickupPoint,
+            route_name = @routeName,
+            child_photo_path = @childPhotoPath,
+            father_photo_path = @fatherPhotoPath,
+            mother_photo_path = @motherPhotoPath,
+            guardian_photo_path = @guardianPhotoPath,
+            first_name = @firstName,
+            middle_name = @middleName,
+            last_name = @lastName,
+            pen_no = @penNo,
+            sr_no = @srNo,
+            caste = @caste,
+            category = @category,
+            nationality = @nationality,
+            religion = @religion,
+            mother_tongue = @motherTongue,
+            identification_marks = @identificationMarks,
+            medical_notes = @medicalNotes,
+            previous_class = @previousClass,
+            previous_board = @previousBoard,
+            previous_school_address = @previousSchoolAddress,
+            previous_tc_number = @previousTcNumber,
+            previous_tc_date = @previousTcDate,
+            previous_result_status = @previousResultStatus,
+            reason_for_leaving_previous_school = @reasonForLeavingPreviousSchool,
+            locality = @locality,
+            city = @city,
+            district = @district,
+            state = @state,
+            pin_code = @pinCode,
+            distance_from_school = @distanceFromSchool,
+            emergency_contact_number = @emergencyContactNumber,
+            preferred_sms_number = @preferredSmsNumber,
+            preferred_whatsapp_number = @preferredWhatsappNumber,
+            same_as_guardian_address = @sameAsGuardianAddress,
+            guardian_different_from_parents = @guardianDifferentFromParents,
+            primary_guardian_role = @primaryGuardianRole,
+            fee_contact_role = @feeContactRole,
+            sms_contact_role = @smsContactRole,
+            emergency_contact_role = @emergencyContactRole,
+            pickup_authorized_role = @pickupAuthorizedRole,
+            declaration_accepted = @declarationAccepted,
+            declaration_accepted_date = @declarationAcceptedDate,
+            declaration_accepted_by = @declarationAcceptedBy,
+            school_rules_accepted = @schoolRulesAccepted,
+            communication_consent = @communicationConsent,
+            emergency_consent = @emergencyConsent,
+            photo_consent = @photoConsent,
+            updated_at = @updatedAt,
+            sync_status = 'pending'
+        WHERE student_id = @studentId
+      `).run({ ...values, updatedAt: timestamp });
+    } else {
+      db.prepare(`
+        INSERT INTO student_admission_details (
+          id, student_id, application_no, academic_session_id,
+          academic_session_name, admission_required_for, roll_no,
+          admission_type, fee_structure_id, fee_structure_name,
+          transport_required, pickup_point, route_name, child_photo_path,
+          father_photo_path, mother_photo_path, guardian_photo_path,
+          first_name, middle_name, last_name, pen_no, sr_no, caste, category,
+          nationality, religion, mother_tongue, identification_marks,
+          medical_notes, previous_class, previous_board,
+          previous_school_address, previous_tc_number, previous_tc_date,
+          previous_result_status, reason_for_leaving_previous_school,
+          locality, city, district, state, pin_code, distance_from_school,
+          emergency_contact_number, preferred_sms_number,
+          preferred_whatsapp_number, same_as_guardian_address,
+          guardian_different_from_parents, primary_guardian_role,
+          fee_contact_role, sms_contact_role, emergency_contact_role,
+          pickup_authorized_role, declaration_accepted,
+          declaration_accepted_date, declaration_accepted_by,
+          school_rules_accepted, communication_consent, emergency_consent,
+          photo_consent, created_at, updated_at, sync_status
+        ) VALUES (
+          @id, @studentId, @applicationNo, @academicSessionId,
+          @academicSessionName, @admissionRequiredFor, @rollNo,
+          @admissionType, @feeStructureId, @feeStructureName,
+          @transportRequired, @pickupPoint, @routeName, @childPhotoPath,
+          @fatherPhotoPath, @motherPhotoPath, @guardianPhotoPath,
+          @firstName, @middleName, @lastName, @penNo, @srNo, @caste,
+          @category, @nationality, @religion, @motherTongue,
+          @identificationMarks, @medicalNotes, @previousClass,
+          @previousBoard, @previousSchoolAddress, @previousTcNumber,
+          @previousTcDate, @previousResultStatus,
+          @reasonForLeavingPreviousSchool, @locality, @city, @district,
+          @state, @pinCode, @distanceFromSchool, @emergencyContactNumber,
+          @preferredSmsNumber, @preferredWhatsappNumber,
+          @sameAsGuardianAddress, @guardianDifferentFromParents,
+          @primaryGuardianRole, @feeContactRole, @smsContactRole,
+          @emergencyContactRole, @pickupAuthorizedRole,
+          @declarationAccepted, @declarationAcceptedDate,
+          @declarationAcceptedBy, @schoolRulesAccepted,
+          @communicationConsent, @emergencyConsent, @photoConsent,
+          @createdAt, @updatedAt, 'pending'
+        )
+      `).run({
+        id: crypto.randomUUID(),
+        ...values,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+    }
+  }
+
+  function upsertAdmissionDocuments(studentId, documents = [], timestamp) {
+    if (!Array.isArray(documents)) return;
+    const normalized = documents
+      .filter((document) => optionalText(document?.documentType))
+      .map((document) => ({
+        studentId,
+        documentType: requiredText(document.documentType, "Document type"),
+        requirementStatus: normalizeAdmissionDocumentRequirementStatus(
+          document.requirementStatus,
+        ),
+        receivedStatus: normalizeAdmissionDocumentReceivedStatus(
+          document.receivedStatus,
+        ),
+        filePath: optionalText(document.filePath),
+        notes: optionalText(document.notes),
+        receivedAt: normalizeOptionalDate(document.receivedAt, "Received date"),
+        verifiedBy: optionalText(document.verifiedBy),
+      }));
+    const seen = new Set();
+    for (const document of normalized) {
+      const key = document.documentType.toLowerCase();
+      if (seen.has(key)) {
+        throw new Error("Each admission document can appear only once.");
+      }
+      seen.add(key);
+      const existing = db
+        .prepare(`
+          SELECT id
+          FROM student_admission_documents
+          WHERE student_id = @studentId AND document_type = @documentType
+        `)
+        .get(document);
+      if (existing) {
+        db.prepare(`
+          UPDATE student_admission_documents
+          SET requirement_status = @requirementStatus,
+              received_status = @receivedStatus,
+              file_path = @filePath,
+              notes = @notes,
+              received_at = @receivedAt,
+              verified_by = @verifiedBy,
+              updated_at = @updatedAt,
+              sync_status = 'pending'
+          WHERE id = @id
+        `).run({ id: existing.id, ...document, updatedAt: timestamp });
+      } else {
+        db.prepare(`
+          INSERT INTO student_admission_documents (
+            id, student_id, document_type, requirement_status,
+            received_status, file_path, notes, received_at, verified_by,
+            created_at, updated_at, sync_status
+          ) VALUES (
+            @id, @studentId, @documentType, @requirementStatus,
+            @receivedStatus, @filePath, @notes, @receivedAt, @verifiedBy,
+            @createdAt, @updatedAt, 'pending'
+          )
+        `).run({
+          id: crypto.randomUUID(),
+          ...document,
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        });
+      }
+    }
+  }
+
+  function upsertAdmissionOfficeUse(studentId, input = {}, timestamp) {
+    const existing = getAdmissionOfficeUseRow(studentId);
+    let feePaymentId =
+      input.feePaymentId === undefined
+        ? existing?.fee_payment_id ?? ""
+        : optionalText(input.feePaymentId);
+    let feeReceiptNo =
+      input.feeReceiptNo === undefined
+        ? existing?.fee_receipt_no ?? ""
+        : optionalText(input.feeReceiptNo);
+    if (feePaymentId || feeReceiptNo) {
+      const payment = db
+        .prepare(`
+          SELECT *
+          FROM fee_payments
+          WHERE deleted_at IS NULL
+            AND (
+              (@feePaymentId <> '' AND id = @feePaymentId)
+              OR (@feeReceiptNo <> '' AND receipt_no = @feeReceiptNo COLLATE NOCASE)
+            )
+          LIMIT 1
+        `)
+        .get({ feePaymentId, feeReceiptNo });
+      if (!payment) {
+        throw new Error("Select a real fee receipt from saved fee payments.");
+      }
+      if (payment.student_id && payment.student_id !== studentId) {
+        throw new Error("The selected fee receipt belongs to another student.");
+      }
+      feePaymentId = payment.id;
+      feeReceiptNo = payment.receipt_no;
+    }
+    const values = {
+      studentId,
+      approvedBy:
+        input.approvedBy === undefined
+          ? existing?.approved_by ?? ""
+          : optionalText(input.approvedBy),
+      approvalDate:
+        input.approvalDate === undefined
+          ? existing?.approval_date ?? ""
+          : normalizeOptionalDate(input.approvalDate, "Approval date"),
+      feePaymentId: feePaymentId || null,
+      feeReceiptNo,
+      studentIdIssued:
+        booleanFlag(
+          input.studentIdIssued,
+          Number(existing?.student_id_issued ?? 0) === 1,
+        )
+          ? 1
+          : 0,
+      studentIdIssueDate:
+        input.studentIdIssueDate === undefined
+          ? existing?.student_id_issue_date ?? ""
+          : normalizeOptionalDate(
+              input.studentIdIssueDate,
+              "Student ID issue date",
+            ),
+      admissionOfficer:
+        input.admissionOfficer === undefined
+          ? existing?.admission_officer ?? ""
+          : optionalText(input.admissionOfficer),
+      principalApproval:
+        input.principalApproval === undefined
+          ? existing?.principal_approval ?? ""
+          : optionalText(input.principalApproval),
+      remarks:
+        input.remarks === undefined
+          ? existing?.remarks ?? ""
+          : optionalText(input.remarks),
+    };
+    if (existing) {
+      db.prepare(`
+        UPDATE student_admission_office_use
+        SET approved_by = @approvedBy,
+            approval_date = @approvalDate,
+            fee_payment_id = @feePaymentId,
+            fee_receipt_no = @feeReceiptNo,
+            student_id_issued = @studentIdIssued,
+            student_id_issue_date = @studentIdIssueDate,
+            admission_officer = @admissionOfficer,
+            principal_approval = @principalApproval,
+            remarks = @remarks,
+            updated_at = @updatedAt,
+            sync_status = 'pending'
+        WHERE student_id = @studentId
+      `).run({ ...values, updatedAt: timestamp });
+    } else {
+      db.prepare(`
+        INSERT INTO student_admission_office_use (
+          id, student_id, approved_by, approval_date, fee_payment_id,
+          fee_receipt_no, student_id_issued, student_id_issue_date,
+          admission_officer, principal_approval, remarks, created_at,
+          updated_at, sync_status
+        ) VALUES (
+          @id, @studentId, @approvedBy, @approvalDate, @feePaymentId,
+          @feeReceiptNo, @studentIdIssued, @studentIdIssueDate,
+          @admissionOfficer, @principalApproval, @remarks, @createdAt,
+          @updatedAt, 'pending'
+        )
+      `).run({
+        id: crypto.randomUUID(),
+        ...values,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+    }
+  }
+
+  function normalizeGuardianAdmissionInput(input = {}, relationFallback = "Guardian") {
+    const fullName = optionalText(input.fullName);
+    if (!fullName) return null;
+    return {
+      guardianId: optionalText(input.guardianId),
+      fullName,
+      relation: normalizeGuardianRelation(input.relation, relationFallback),
+      mobile: optionalText(input.mobile),
+      alternateMobile: optionalText(input.whatsappNumber ?? input.alternateMobile),
+      email: optionalText(input.email),
+      occupation: optionalText(input.occupation),
+      employerOrganization: optionalText(input.employerOrganization),
+      qualification: optionalText(input.qualification),
+      annualIncome:
+        input.annualIncome === undefined ||
+        input.annualIncome === null ||
+        input.annualIncome === ""
+          ? null
+          : wholeNumber(input.annualIncome, "Annual income", 0),
+      address: optionalText(input.address),
+      isPrimary: booleanFlag(input.isPrimary, false),
+      canPickupStudent: booleanFlag(input.pickupAuthorized, true),
+      emergencyContact: booleanFlag(input.emergencyContact, false),
+      financialResponsibility: booleanFlag(input.financialResponsibility, false),
+      smsContact: booleanFlag(input.smsContact, false),
+      livesWithStudent: booleanFlag(input.livesWithStudent, true),
+      status: "Active",
+    };
+  }
+
+  function insertGuardianDirect(values, familyId, timestamp) {
+    const duplicate = findDuplicateGuardian(values);
+    if (duplicate) {
+      throw new Error(
+        `A guardian named ${values.fullName} with the same contact already exists. Select the existing family/guardian before saving.`,
+      );
+    }
+    const id = crypto.randomUUID();
+    db.prepare(`
+      INSERT INTO guardians (
+        id, family_id, full_name, relation, mobile, alternate_mobile,
+        email, occupation, employer_organization, qualification, annual_income, address,
+        is_primary, can_pickup_student, emergency_contact, status,
+        created_at, updated_at, deleted_at, sync_status
+      ) VALUES (
+        @id, @familyId, @fullName, @relation, @mobile, @alternateMobile,
+        @email, @occupation, @employerOrganization, @qualification, @annualIncome, @address,
+        @isPrimary, @canPickupStudent, @emergencyContact, 'Active',
+        @createdAt, @updatedAt, NULL, 'pending'
+      )
+    `).run({
+      id,
+      familyId: familyId || null,
+      ...values,
+      isPrimary: values.isPrimary ? 1 : 0,
+      canPickupStudent: values.canPickupStudent ? 1 : 0,
+      emergencyContact: values.emergencyContact ? 1 : 0,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    });
+    return id;
+  }
+
+  function updateGuardianDirect(guardianId, values, familyId, timestamp) {
+    const existing = getGuardianRowRequired(guardianId);
+    const duplicate = findDuplicateGuardian(values, guardianId);
+    if (duplicate) {
+      throw new Error(
+        `Another guardian named ${values.fullName} already uses the same contact.`,
+      );
+    }
+    db.prepare(`
+      UPDATE guardians
+      SET family_id = @familyId,
+          full_name = @fullName,
+          relation = @relation,
+          mobile = @mobile,
+          alternate_mobile = @alternateMobile,
+          email = @email,
+          occupation = @occupation,
+          employer_organization = @employerOrganization,
+          qualification = @qualification,
+          annual_income = @annualIncome,
+          address = @address,
+          is_primary = @isPrimary,
+          can_pickup_student = @canPickupStudent,
+          emergency_contact = @emergencyContact,
+          status = 'Active',
+          updated_at = @updatedAt,
+          sync_status = 'pending'
+      WHERE id = @id AND deleted_at IS NULL
+    `).run({
+      id: existing.id,
+      familyId: familyId || existing.family_id || null,
+      ...values,
+      isPrimary: values.isPrimary ? 1 : 0,
+      canPickupStudent: values.canPickupStudent ? 1 : 0,
+      emergencyContact: values.emergencyContact ? 1 : 0,
+      updatedAt: timestamp,
+    });
+    return existing.id;
+  }
+
+  function findLinkedGuardianId(studentId, relation) {
+    return db
+      .prepare(`
+        SELECT links.guardian_id
+        FROM student_guardian_links AS links
+        JOIN guardians
+          ON guardians.id = links.guardian_id
+          AND guardians.deleted_at IS NULL
+        WHERE links.student_id = @studentId
+          AND links.deleted_at IS NULL
+          AND (
+            links.relation_to_student = @relation COLLATE NOCASE
+            OR guardians.relation = @relation COLLATE NOCASE
+          )
+        ORDER BY links.updated_at DESC
+        LIMIT 1
+      `)
+      .get({ studentId, relation })?.guardian_id ?? "";
+  }
+
+  function findFamilyGuardianId(familyId, relation) {
+    if (!familyId) return "";
+    return (
+      db
+        .prepare(`
+          SELECT id
+          FROM guardians
+          WHERE family_id = @familyId
+            AND relation = @relation COLLATE NOCASE
+            AND deleted_at IS NULL
+          ORDER BY updated_at DESC
+          LIMIT 1
+        `)
+        .get({ familyId, relation })?.id ?? ""
+    );
+  }
+
+  function linkGuardianDirect(studentId, guardianId, familyId, values, timestamp) {
+    const existing = db
+      .prepare(`
+        SELECT *
+        FROM student_guardian_links
+        WHERE student_id = @studentId
+          AND guardian_id = @guardianId
+          AND deleted_at IS NULL
+      `)
+      .get({ studentId, guardianId });
+    if (values.isPrimary) {
+      db.prepare(`
+        UPDATE student_guardian_links
+        SET is_primary = 0,
+            updated_at = @updatedAt,
+            sync_status = 'pending'
+        WHERE student_id = @studentId
+          AND deleted_at IS NULL
+      `).run({ studentId, updatedAt: timestamp });
+    }
+    const linkValues = {
+      id: existing?.id ?? crypto.randomUUID(),
+      studentId,
+      guardianId,
+      familyId: familyId || null,
+      relationToStudent: values.relation,
+      isPrimary: values.isPrimary ? 1 : 0,
+      livesWithStudent: values.livesWithStudent ? 1 : 0,
+      financialResponsibility: values.financialResponsibility ? 1 : 0,
+      pickupAuthorized: values.canPickupStudent ? 1 : 0,
+      createdAt: existing?.created_at ?? timestamp,
+      updatedAt: timestamp,
+    };
+    if (existing) {
+      db.prepare(`
+        UPDATE student_guardian_links
+        SET family_id = @familyId,
+            relation_to_student = @relationToStudent,
+            is_primary = @isPrimary,
+            lives_with_student = @livesWithStudent,
+            financial_responsibility = @financialResponsibility,
+            pickup_authorized = @pickupAuthorized,
+            updated_at = @updatedAt,
+            sync_status = 'pending'
+        WHERE id = @id AND deleted_at IS NULL
+      `).run(linkValues);
+    } else {
+      db.prepare(`
+        INSERT INTO student_guardian_links (
+          id, student_id, guardian_id, family_id, relation_to_student,
+          is_primary, lives_with_student, financial_responsibility,
+          pickup_authorized, created_at, updated_at, deleted_at, sync_status
+        ) VALUES (
+          @id, @studentId, @guardianId, @familyId, @relationToStudent,
+          @isPrimary, @livesWithStudent, @financialResponsibility,
+          @pickupAuthorized, @createdAt, @updatedAt, NULL, 'pending'
+        )
+      `).run(linkValues);
+    }
+  }
+
+  function resolveAdmissionFamily(student, input = {}, guardians = {}, timestamp) {
+    const selectedFamilyId = optionalText(input.familyId);
+    if (selectedFamilyId) {
+      getFamilyRowRequired(selectedFamilyId);
+      return selectedFamilyId;
+    }
+    const existingFamilyId =
+      db
+        .prepare(`
+          SELECT family_id
+          FROM student_guardian_links
+          WHERE student_id = ?
+            AND family_id IS NOT NULL
+            AND deleted_at IS NULL
+          LIMIT 1
+        `)
+        .get(student.id)?.family_id ?? "";
+    if (existingFamilyId) return existingFamilyId;
+    if (!booleanFlag(input.createNew, false)) return "";
+    const fatherName = optionalText(guardians.father?.fullName);
+    const motherName = optionalText(guardians.mother?.fullName);
+    const guardianName = optionalText(guardians.guardian?.fullName);
+    const primaryName = fatherName || guardianName || motherName || student.guardianName;
+    const primaryMobile =
+      optionalText(guardians.father?.mobile) ||
+      optionalText(guardians.guardian?.mobile) ||
+      optionalText(guardians.mother?.mobile) ||
+      student.mobile;
+    const familyId = crypto.randomUUID();
+    db.prepare(`
+      INSERT INTO families (
+        id, family_code, family_name, primary_contact_name, primary_mobile,
+        secondary_mobile, email, address, city, state, postal_code,
+        emergency_contact_name, emergency_contact_mobile, notes, status,
+        created_at, updated_at, deleted_at, sync_status
+      ) VALUES (
+        @id, @familyCode, @familyName, @primaryContactName, @primaryMobile,
+        @secondaryMobile, @email, @address, @city, @state, @postalCode,
+        @emergencyContactName, @emergencyContactMobile, @notes, 'Active',
+        @createdAt, @updatedAt, NULL, 'pending'
+      )
+    `).run({
+      id: familyId,
+      familyCode: generateFamilyCode(),
+      familyName: optionalText(input.familyName) || `${student.name} Family`,
+      primaryContactName: primaryName,
+      primaryMobile,
+      secondaryMobile: optionalText(guardians.mother?.mobile),
+      email:
+        optionalText(guardians.father?.email) ||
+        optionalText(guardians.guardian?.email) ||
+        optionalText(guardians.mother?.email) ||
+        student.email,
+      address: student.address,
+      city: "",
+      state: "",
+      postalCode: "",
+      emergencyContactName: guardianName || primaryName,
+      emergencyContactMobile:
+        optionalText(guardians.guardian?.mobile) || primaryMobile,
+      notes: "Created from student admission workflow.",
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    });
+    return familyId;
+  }
+
+  function upsertAdmissionGuardians(student, familyInput = {}, guardianInput = {}, timestamp) {
+    const father = normalizeGuardianAdmissionInput(guardianInput.father, "Father");
+    const mother = normalizeGuardianAdmissionInput(guardianInput.mother, "Mother");
+    const guardian = normalizeGuardianAdmissionInput(
+      guardianInput.guardian,
+      "Guardian",
+    );
+    const familyId = resolveAdmissionFamily(
+      student,
+      familyInput,
+      { father, mother, guardian },
+      timestamp,
+    );
+    const guardianRecords = [
+      father ? { key: "Father", values: father } : null,
+      mother ? { key: "Mother", values: mother } : null,
+      guardian ? { key: guardian.relation || "Guardian", values: guardian } : null,
+    ].filter(Boolean);
+    for (const item of guardianRecords) {
+      const values = item.values;
+      const existingGuardianId =
+        values.guardianId ||
+        findLinkedGuardianId(student.id, values.relation) ||
+        findFamilyGuardianId(familyId, values.relation);
+      const guardianId = existingGuardianId
+        ? updateGuardianDirect(existingGuardianId, values, familyId, timestamp)
+        : insertGuardianDirect(values, familyId, timestamp);
+      linkGuardianDirect(student.id, guardianId, familyId, values, timestamp);
+    }
+    if (familyId) {
+      const primary = father || guardian || mother;
+      db.prepare(`
+        UPDATE families
+        SET primary_contact_name = COALESCE(NULLIF(@primaryContactName, ''), primary_contact_name),
+            primary_mobile = COALESCE(NULLIF(@primaryMobile, ''), primary_mobile),
+            secondary_mobile = COALESCE(NULLIF(@secondaryMobile, ''), secondary_mobile),
+            email = COALESCE(NULLIF(@email, ''), email),
+            address = COALESCE(NULLIF(@address, ''), address),
+            emergency_contact_name = COALESCE(NULLIF(@emergencyContactName, ''), emergency_contact_name),
+            emergency_contact_mobile = COALESCE(NULLIF(@emergencyContactMobile, ''), emergency_contact_mobile),
+            updated_at = @updatedAt,
+            sync_status = 'pending'
+        WHERE id = @familyId AND deleted_at IS NULL
+      `).run({
+        familyId,
+        primaryContactName: primary?.fullName ?? "",
+        primaryMobile: primary?.mobile ?? "",
+        secondaryMobile: mother?.mobile ?? "",
+        email: primary?.email ?? "",
+        address: student.address,
+        emergencyContactName: guardian?.fullName || primary?.fullName || "",
+        emergencyContactMobile: guardian?.mobile || primary?.mobile || "",
+        updatedAt: timestamp,
+      });
+    }
   }
 
   function makeLegacyParentInfoRows(student) {
@@ -12008,6 +13484,80 @@ function createDatabase(databasePath) {
       return row ? studentFromRow(row) : null;
     },
 
+    getStudentAdmissionProfile(id) {
+      return buildStudentAdmissionProfile(id);
+    },
+
+    getNextStudentAdmissionNumbers() {
+      return {
+        admissionNo: generateAdmissionNumber(),
+        applicationNo: generateApplicationNumber(now()),
+      };
+    },
+
+    saveStudentAdmission(input = {}) {
+      const timestamp = now();
+      const mode = optionalText(input.mode) || "Admit";
+      if (!["Draft", "Admit", "Update"].includes(mode)) {
+        throw new Error("Admission save mode is invalid.");
+      }
+      const existingStudentId = optionalText(input.studentId);
+      const existingStudent = existingStudentId
+        ? studentFromRow(getStudentRowRequired(existingStudentId))
+        : null;
+      const incomingStudent = input.student ?? {};
+      const detailsInput = input.admissionDetails ?? {};
+      validateStudentIdentifiers({
+        aadharNo: incomingStudent.aadharNo,
+        penNo: detailsInput.penNo,
+      });
+      const status =
+        mode === "Draft"
+          ? "Draft"
+          : mode === "Admit"
+            ? "Active"
+            : optionalText(incomingStudent.status) ||
+              existingStudent?.status ||
+              "Active";
+      const studentInput = {
+        ...incomingStudent,
+        status,
+        admissionDate:
+          incomingStudent.admissionDate ??
+          detailsInput.admissionDate ??
+          existingStudent?.admissionDate ??
+          "",
+      };
+      let savedStudent = null;
+      db.transaction(() => {
+        savedStudent = existingStudentId
+          ? this.updateStudent(existingStudentId, studentInput)
+          : this.createStudent(studentInput);
+        upsertStudentAdmissionDetails(
+          savedStudent,
+          input.admissionDetails ?? {},
+          timestamp,
+        );
+        upsertAdmissionGuardians(
+          savedStudent,
+          input.family ?? {},
+          input.guardians ?? {},
+          timestamp,
+        );
+        upsertAdmissionDocuments(
+          savedStudent.id,
+          input.documents ?? [],
+          timestamp,
+        );
+        upsertAdmissionOfficeUse(
+          savedStudent.id,
+          input.officeUse ?? {},
+          timestamp,
+        );
+      })();
+      return buildStudentAdmissionProfile(savedStudent.id);
+    },
+
     createStudent(input) {
       const timestamp = now();
       const status = optionalText(input?.status) || "Active";
@@ -12064,7 +13614,10 @@ function createDatabase(databasePath) {
       db.transaction(() => {
         insertStudentStatement.run(student);
         ensureStudentSessionHistory(student.id, null, {
-          status: status === "Active" ? "Active" : "Inactive",
+          status:
+            status === "Active"
+              ? "Active"
+              : "Inactive",
         });
       })();
       return studentFromRow(getStudentsStatement.all().find(
@@ -12219,7 +13772,10 @@ function createDatabase(databasePath) {
       ensureStudentSessionHistory(studentId, null, {
         className: updatedStudent.className,
         section: updatedStudent.section,
-        status: updatedStudent.status === "Active" ? "Active" : "Inactive",
+        status:
+          updatedStudent.status === "Active"
+            ? "Active"
+            : "Inactive",
       });
       return studentFromRow(
         getStudentsStatement.all().find((row) => row.id === studentId),
@@ -12670,6 +14226,10 @@ function createDatabase(databasePath) {
 
     getAdmissionFormData(input = {}) {
       return buildAdmissionFormData(input);
+    },
+
+    getAdmissionFormSnapshots(filter = {}) {
+      return getAdmissionSnapshots(filter);
     },
 
     saveAdmissionFormSnapshot(input = {}) {
@@ -21928,12 +23488,12 @@ function createDatabase(databasePath) {
         db.prepare(`
           INSERT INTO guardians (
             id, family_id, full_name, relation, mobile, alternate_mobile,
-            email, occupation, qualification, annual_income, address,
+            email, occupation, employer_organization, qualification, annual_income, address,
             is_primary, can_pickup_student, emergency_contact, status,
             created_at, updated_at, deleted_at, sync_status
           ) VALUES (
             @id, @familyId, @fullName, @relation, @mobile, @alternateMobile,
-            @email, @occupation, @qualification, @annualIncome, @address,
+            @email, @occupation, @employerOrganization, @qualification, @annualIncome, @address,
             @isPrimary, @canPickupStudent, @emergencyContact, @status,
             @createdAt, @updatedAt, NULL, 'pending'
           )
@@ -21946,6 +23506,7 @@ function createDatabase(databasePath) {
           alternateMobile: optionalText(input.alternateMobile),
           email: optionalText(input.email),
           occupation: optionalText(input.occupation),
+          employerOrganization: optionalText(input.employerOrganization),
           qualification: optionalText(input.qualification),
           annualIncome:
             input.annualIncome === undefined ||
@@ -22018,6 +23579,7 @@ function createDatabase(databasePath) {
               alternate_mobile = @alternateMobile,
               email = @email,
               occupation = @occupation,
+              employer_organization = @employerOrganization,
               qualification = @qualification,
               annual_income = @annualIncome,
               address = @address,
@@ -22046,6 +23608,10 @@ function createDatabase(databasePath) {
             input.occupation === undefined
               ? existing.occupation ?? ""
               : optionalText(input.occupation),
+          employerOrganization:
+            input.employerOrganization === undefined
+              ? existing.employer_organization ?? ""
+              : optionalText(input.employerOrganization),
           qualification:
             input.qualification === undefined
               ? existing.qualification ?? ""

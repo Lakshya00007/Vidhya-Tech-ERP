@@ -49,6 +49,9 @@ const channels = [
   "audit:get",
   "demo:create-data",
   "students:get-all",
+  "students:admission-profile",
+  "students:admission-next-numbers",
+  "students:admission-save",
   "students:create",
   "students:update",
   "students:delete",
@@ -334,6 +337,7 @@ const channels = [
   "document-templates:get-all",
   "document-templates:update",
   "documents:admission-form:get",
+  "documents:admission-form:snapshots",
   "documents:admission-form:snapshot",
   "transfer-certificates:get-all",
   "transfer-certificates:get-by-id",
@@ -699,6 +703,38 @@ function registerIpcHandlers(
     authenticated(() => {
       requireRoles(["Owner", "Admin", "Accountant", "Teacher", "Viewer"]);
       return database.getStudents();
+    }),
+  );
+  ipcMain.handle(
+    "students:admission-profile",
+    authenticated((_event, studentId) => {
+      requireRoles(["Owner", "Admin", "Accountant", "Teacher", "Viewer"]);
+      return database.getStudentAdmissionProfile(studentId);
+    }),
+  );
+  ipcMain.handle(
+    "students:admission-next-numbers",
+    authenticated(() => {
+      requireRoles(["Owner", "Admin"]);
+      return database.getNextStudentAdmissionNumbers();
+    }),
+  );
+  ipcMain.handle(
+    "students:admission-save",
+    authenticated((_event, input) => {
+      const actor = requireRoles(["Owner", "Admin"]);
+      const profile = database.saveStudentAdmission(input);
+      authService?.audit(
+        profile.student.status === "Draft"
+          ? "Student admission draft saved"
+          : input?.studentId
+            ? "Student admission updated"
+            : "Student admitted",
+        "Students",
+        `${profile.student.name} (${profile.student.admissionNo}) admission workflow saved.`,
+        actor,
+      );
+      return profile;
     }),
   );
   ipcMain.handle(
@@ -3740,6 +3776,13 @@ function registerIpcHandlers(
     authenticated((_event, input) => {
       requireRoles(["Owner", "Admin", "Accountant", "Teacher", "Viewer"]);
       return database.getAdmissionFormData(input);
+    }),
+  );
+  ipcMain.handle(
+    "documents:admission-form:snapshots",
+    authenticated((_event, filter) => {
+      requireRoles(["Owner", "Admin", "Accountant", "Teacher", "Viewer"]);
+      return database.getAdmissionFormSnapshots(filter);
     }),
   );
   ipcMain.handle(

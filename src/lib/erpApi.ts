@@ -101,6 +101,7 @@ const documentApiMethods = [
   'getDocumentTemplateSettings',
   'updateDocumentTemplateSetting',
   'getAdmissionFormData',
+  'getAdmissionFormSnapshots',
   'saveAdmissionFormSnapshot',
   'getTransferCertificates',
   'getTransferCertificate',

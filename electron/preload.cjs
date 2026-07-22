@@ -141,6 +141,12 @@ contextBridge.exposeInMainWorld("erpApi", {
   createDemoData: () => ipcRenderer.invoke("demo:create-data"),
 
   getStudents: () => ipcRenderer.invoke("students:get-all"),
+  getStudentAdmissionProfile: (studentId) =>
+    ipcRenderer.invoke("students:admission-profile", studentId),
+  getNextStudentAdmissionNumbers: () =>
+    ipcRenderer.invoke("students:admission-next-numbers"),
+  saveStudentAdmission: (input) =>
+    ipcRenderer.invoke("students:admission-save", input),
   createStudent: (student) => ipcRenderer.invoke("students:create", student),
   updateStudent: (id, student) =>
     ipcRenderer.invoke("students:update", id, student),
@@ -734,6 +740,8 @@ contextBridge.exposeInMainWorld("erpApi", {
     ipcRenderer.invoke("document-templates:update", documentType, input),
   getAdmissionFormData: (input) =>
     ipcRenderer.invoke("documents:admission-form:get", input),
+  getAdmissionFormSnapshots: (filter) =>
+    ipcRenderer.invoke("documents:admission-form:snapshots", filter),
   saveAdmissionFormSnapshot: (input) =>
     ipcRenderer.invoke("documents:admission-form:snapshot", input),
   getTransferCertificates: (filter) =>

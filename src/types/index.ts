@@ -532,7 +532,7 @@ export interface AuditLog {
   createdAt: string
 }
 
-export type StudentStatus = 'Active' | 'Inactive'
+export type StudentStatus = 'Draft' | 'Active' | 'Inactive'
 
 export interface Student {
   id: string
@@ -586,6 +586,166 @@ export interface CreateStudentInput {
 
 export type UpdateStudentInput = Partial<CreateStudentInput>
 
+export interface StudentAdmissionDetails {
+  id: string
+  studentId: string
+  applicationNo: string
+  academicSessionId: string
+  academicSessionName: string
+  admissionRequiredFor: string
+  rollNo: string
+  admissionType: string
+  feeStructureId: string
+  feeStructureName: string
+  transportRequired: boolean
+  pickupPoint: string
+  routeName: string
+  childPhotoPath: string
+  fatherPhotoPath: string
+  motherPhotoPath: string
+  guardianPhotoPath: string
+  firstName: string
+  middleName: string
+  lastName: string
+  penNo: string
+  srNo: string
+  caste: string
+  category: string
+  nationality: string
+  religion: string
+  motherTongue: string
+  identificationMarks: string
+  medicalNotes: string
+  previousClass: string
+  previousBoard: string
+  previousSchoolAddress: string
+  previousTcNumber: string
+  previousTcDate: string
+  previousResultStatus: string
+  reasonForLeavingPreviousSchool: string
+  locality: string
+  city: string
+  district: string
+  state: string
+  pinCode: string
+  distanceFromSchool: string
+  emergencyContactNumber: string
+  preferredSmsNumber: string
+  preferredWhatsappNumber: string
+  sameAsGuardianAddress: boolean
+  guardianDifferentFromParents: boolean
+  primaryGuardianRole: string
+  feeContactRole: string
+  smsContactRole: string
+  emergencyContactRole: string
+  pickupAuthorizedRole: string
+  declarationAccepted: boolean
+  declarationAcceptedDate: string
+  declarationAcceptedBy: string
+  schoolRulesAccepted: boolean
+  communicationConsent: boolean
+  emergencyConsent: boolean
+  photoConsent: boolean
+  createdAt: string
+  updatedAt: string
+  syncStatus: SyncStatus
+}
+
+export type AdmissionDocumentRequirementStatus = 'Required' | 'Optional'
+export type AdmissionDocumentReceivedStatus =
+  | 'Received'
+  | 'Pending'
+  | 'Not Applicable'
+
+export interface StudentAdmissionDocument {
+  id: string
+  studentId: string
+  documentType: string
+  requirementStatus: AdmissionDocumentRequirementStatus
+  receivedStatus: AdmissionDocumentReceivedStatus
+  filePath: string
+  notes: string
+  receivedAt: string
+  verifiedBy: string
+  createdAt: string
+  updatedAt: string
+  syncStatus: SyncStatus
+}
+
+export interface StudentAdmissionOfficeUse {
+  id: string
+  studentId: string
+  approvedBy: string
+  approvalDate: string
+  feePaymentId: string
+  feeReceiptNo: string
+  studentIdIssued: boolean
+  studentIdIssueDate: string
+  admissionOfficer: string
+  principalApproval: string
+  remarks: string
+  createdAt: string
+  updatedAt: string
+  syncStatus: SyncStatus
+}
+
+export interface StudentAdmissionGuardianInput {
+  guardianId?: string
+  fullName?: string
+  relation: GuardianRelation
+  mobile?: string
+  whatsappNumber?: string
+  email?: string
+  occupation?: string
+  employerOrganization?: string
+  qualification?: string
+  annualIncome?: number | null
+  address?: string
+  photoPath?: string
+  isPrimary?: boolean
+  financialResponsibility?: boolean
+  smsContact?: boolean
+  emergencyContact?: boolean
+  pickupAuthorized?: boolean
+  livesWithStudent?: boolean
+}
+
+export interface StudentAdmissionFamilyInput {
+  familyId?: string
+  createNew?: boolean
+  familyName?: string
+}
+
+export interface StudentAdmissionSaveInput {
+  studentId?: string
+  mode: 'Draft' | 'Admit' | 'Update'
+  student: CreateStudentInput
+  admissionDetails?: Partial<StudentAdmissionDetails>
+  family?: StudentAdmissionFamilyInput
+  guardians?: {
+    father?: StudentAdmissionGuardianInput
+    mother?: StudentAdmissionGuardianInput
+    guardian?: StudentAdmissionGuardianInput
+  }
+  documents?: Array<Partial<StudentAdmissionDocument>>
+  officeUse?: Partial<StudentAdmissionOfficeUse>
+}
+
+export interface StudentAdmissionProfile {
+  student: Student
+  admissionDetails: StudentAdmissionDetails | null
+  guardians: StudentGuardianLink[]
+  family: Family | null
+  documents: StudentAdmissionDocument[]
+  officeUse: StudentAdmissionOfficeUse | null
+  snapshots: AdmissionFormSnapshot[]
+}
+
+export interface StudentAdmissionNumbers {
+  admissionNo: string
+  applicationNo: string
+}
+
 export type GuardianRelation =
   | 'Father'
   | 'Mother'
@@ -633,6 +793,7 @@ export interface Guardian {
   alternateMobile: string
   email: string
   occupation: string
+  employerOrganization: string
   qualification: string
   annualIncome: number | null
   address: string
@@ -662,6 +823,8 @@ export interface StudentGuardianLink {
   alternateMobile: string
   email: string
   occupation: string
+  employerOrganization: string
+  qualification: string
   address: string
   familyId: string
   familyCode: string
@@ -725,6 +888,7 @@ export interface CreateGuardianInput {
   alternateMobile?: string
   email?: string
   occupation?: string
+  employerOrganization?: string
   qualification?: string
   annualIncome?: number | null
   address?: string
@@ -2955,6 +3119,9 @@ export interface AdmissionFormData {
   schoolSettings: SchoolSettings
   templateSettings: DocumentTemplateSettings
   student: Student | null
+  admissionDetails: StudentAdmissionDetails | null
+  admissionDocuments: StudentAdmissionDocument[]
+  officeUse: StudentAdmissionOfficeUse | null
   guardians: StudentGuardianLink[]
   primaryGuardian: StudentGuardianLink | null
   father: StudentGuardianLink | null
