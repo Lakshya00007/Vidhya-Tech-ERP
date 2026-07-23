@@ -1,4 +1,5 @@
 import { Icon } from './Icon'
+import { ManagedImagePreview } from './ManagedImage'
 import {
   amountToWords,
   displayValue,
@@ -18,31 +19,46 @@ const contactLine = (settings: SchoolSettings) =>
   [settings.phone, settings.email].filter(Boolean).join(' | ')
 
 function SchoolLogo({
-  path,
+  assetKey,
   label = 'School logo',
 }: {
-  path?: string
+  assetKey?: string
   label?: string
 }) {
-  if (path) {
-    return <img alt={label} className="print-school-logo" src={path} />
-  }
-  return (
+  const placeholder = (
     <span className="print-school-logo print-school-logo--placeholder">
       <Icon name="school" size={26} />
     </span>
   )
+  if (assetKey) {
+    return (
+      <ManagedImagePreview
+        alt={label}
+        assetKey={assetKey}
+        className="print-school-logo"
+        fallback={placeholder}
+      />
+    )
+  }
+  return placeholder
 }
 
 function SignatureImage({
-  path,
+  assetKey,
   label,
 }: {
-  path?: string
+  assetKey?: string
   label: string
 }) {
-  if (!path) return <span className="print-signature-line" />
-  return <img alt={label} className="print-signature-image" src={path} />
+  if (!assetKey) return <span className="print-signature-line" />
+  return (
+    <ManagedImagePreview
+      alt={label}
+      assetKey={assetKey}
+      className="print-signature-image"
+      fallback={<span className="print-signature-line" />}
+    />
+  )
 }
 
 export function PrintDocumentHeader({
@@ -61,7 +77,7 @@ export function PrintDocumentHeader({
       className="print-document-header"
       style={{ borderColor: template.accentColor }}
     >
-      <SchoolLogo path={template.schoolStampPath} />
+      <SchoolLogo assetKey={settings.logoAssetKey} />
       <div>
         <h1>{settings.schoolName}</h1>
         {settings.address && <p>{settings.address}</p>}
@@ -104,16 +120,20 @@ function FieldLine({
   )
 }
 
-function PhotoBox({ label, path }: { label: string; path?: string }) {
-  if (path) {
+function PhotoBox({ label, assetKey, compact = false }: { label: string; assetKey?: string; compact?: boolean }) {
+  if (assetKey) {
     return (
-      <div className="print-photo-box">
-        <img alt={label} src={path} />
+      <div className={compact ? 'print-photo-box print-photo-box--compact' : 'print-photo-box'}>
+        <ManagedImagePreview
+          alt={label}
+          assetKey={assetKey}
+          fallback={<span>{label}</span>}
+        />
       </div>
     )
   }
   return (
-    <div className="print-photo-box">
+    <div className={compact ? 'print-photo-box print-photo-box--compact' : 'print-photo-box'}>
       <span>{label}</span>
     </div>
   )
@@ -188,31 +208,32 @@ export function AdmissionFormPrint({ data }: { data: AdmissionFormData }) {
             <FieldLine label="Previous class" value={admissionDetails?.previousClass} />
           </div>
         </div>
-        <PhotoBox label="Child photograph" path={admissionDetails?.childPhotoPath} />
+        <PhotoBox label="Child photograph" assetKey={student?.photoAssetKey || admissionDetails?.childPhotoPath} />
       </section>
 
       <section className="print-section-block">
         <h2>Parent / Guardian Details</h2>
         <div className="admission-parent-grid">
           <div>
-            <PhotoBox label="Father photo" path={admissionDetails?.fatherPhotoPath} />
+            <PhotoBox label="Father photo" assetKey={father?.photoAssetKey || admissionDetails?.fatherPhotoPath} compact />
             <FieldLine label="Father name" value={student?.fatherName || father?.guardianName} />
-            <FieldLine label="Qualification" value={father?.guardianFullName ? father?.relation : ''} />
+            <FieldLine label="Qualification" value={father?.qualification} />
             <FieldLine label="Occupation" value={father?.occupation} />
             <FieldLine label="Contact number" value={father?.mobile || student?.mobile} />
             <FieldLine label="WhatsApp number" value={father?.mobile || student?.mobile} />
             <FieldLine label="Email" value={father?.email || student?.email} />
           </div>
           <div>
-            <PhotoBox label="Mother photo" path={admissionDetails?.motherPhotoPath} />
+            <PhotoBox label="Mother photo" assetKey={mother?.photoAssetKey || admissionDetails?.motherPhotoPath} compact />
             <FieldLine label="Mother name" value={student?.motherName || mother?.guardianName} />
-            <FieldLine label="Qualification" value="" />
+            <FieldLine label="Qualification" value={mother?.qualification} />
             <FieldLine label="Occupation" value={mother?.occupation} />
             <FieldLine label="Contact number" value={mother?.mobile} />
             <FieldLine label="WhatsApp number" value={mother?.mobile} />
             <FieldLine label="Email" value={mother?.email} />
           </div>
           <div>
+            <PhotoBox label="Guardian photo" assetKey={primaryGuardian?.photoAssetKey || admissionDetails?.guardianPhotoPath} compact />
             <FieldLine label="Guardian name" value={primaryGuardian?.guardianName || student?.guardianName} />
             <FieldLine label="Relationship" value={primaryGuardian?.relationToStudent} />
             <FieldLine label="Contact number" value={primaryGuardian?.mobile || student?.mobile} />
@@ -264,7 +285,7 @@ export function AdmissionFormPrint({ data }: { data: AdmissionFormData }) {
         <div><span />Mother</div>
         <div><span />Admission Officer</div>
         <div>
-          <SignatureImage path={template.principalSignaturePath} label="Principal signature" />
+          <SignatureImage assetKey={template.principalSignaturePath} label="Principal signature" />
           {template.principalName || 'Principal'}
         </div>
       </footer>
@@ -350,11 +371,11 @@ export function TransferCertificatePrint({
         <div><span />Prepared By</div>
         <div><span />Checked By</div>
         <div>
-          <SignatureImage path={template.principalSignaturePath} label="Principal signature" />
+          <SignatureImage assetKey={template.principalSignaturePath} label="Principal signature" />
           {template.principalName || 'Principal'}
         </div>
         <div>
-          <SignatureImage path={template.schoolStampPath} label="School stamp" />
+          <SignatureImage assetKey={template.schoolStampPath} label="School stamp" />
           School Stamp
         </div>
       </footer>
@@ -448,7 +469,7 @@ export function FeeReceiptPrint({
       <footer className="print-signature-grid">
         <div><span />Cashier / Authorized Signature</div>
         <div>
-          <SignatureImage path={templateSettings.schoolStampPath} label="School stamp" />
+          <SignatureImage assetKey={templateSettings.schoolStampPath} label="School stamp" />
           School Stamp
         </div>
       </footer>

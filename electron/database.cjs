@@ -396,6 +396,7 @@ function studentFromRow(row) {
     address: row.address ?? "",
     dateOfBirth: row.date_of_birth ?? "",
     admissionDate: row.admission_date ?? "",
+    photoAssetKey: row.photo_asset_key ?? "",
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at,
@@ -948,6 +949,7 @@ function settingsFromRow(row) {
     email: row.email ?? "",
     academicYear: row.academic_year ?? "",
     receiptPrefix: row.receipt_prefix ?? "",
+    logoAssetKey: row.logo_asset_key ?? "",
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -2087,6 +2089,7 @@ function guardianFromRow(row) {
     occupation: row.occupation ?? "",
     employerOrganization: row.employer_organization ?? "",
     qualification: row.qualification ?? "",
+    photoAssetKey: row.photo_asset_key ?? "",
     annualIncome:
       row.annual_income === null || row.annual_income === undefined
         ? null
@@ -2122,6 +2125,7 @@ function studentGuardianLinkFromRow(row) {
     occupation: row.occupation ?? "",
     employerOrganization: row.employer_organization ?? "",
     qualification: row.qualification ?? "",
+    photoAssetKey: row.photo_asset_key ?? "",
     address: row.address ?? "",
     familyId: row.family_id ?? "",
     familyCode: row.family_code ?? "",
@@ -2512,6 +2516,7 @@ function createDatabase(databasePath) {
       email TEXT,
       academic_year TEXT,
       receipt_prefix TEXT,
+      logo_asset_key TEXT,
       created_at TEXT,
       updated_at TEXT
     );
@@ -2552,6 +2557,7 @@ function createDatabase(databasePath) {
       address TEXT,
       date_of_birth TEXT,
       admission_date TEXT,
+      photo_asset_key TEXT,
       created_at TEXT,
       updated_at TEXT,
       deleted_at TEXT,
@@ -2596,6 +2602,7 @@ function createDatabase(databasePath) {
       occupation TEXT,
       employer_organization TEXT,
       qualification TEXT,
+      photo_asset_key TEXT,
       annual_income INTEGER,
       address TEXT,
       is_primary INTEGER DEFAULT 0,
@@ -4520,6 +4527,9 @@ function createDatabase(databasePath) {
   addColumnIfMissing(db, "fee_payments", "reversed_at", "TEXT");
   addColumnIfMissing(db, "fee_payments", "reversed_by", "TEXT");
   addColumnIfMissing(db, "fee_payments", "reversal_reason", "TEXT");
+  addColumnIfMissing(db, "school_settings", "logo_asset_key", "TEXT");
+  addColumnIfMissing(db, "students", "photo_asset_key", "TEXT");
+  addColumnIfMissing(db, "guardians", "photo_asset_key", "TEXT");
   addColumnIfMissing(
     db,
     "communication_gateway_settings",
@@ -4829,6 +4839,7 @@ function createDatabase(databasePath) {
     ["occupation", "TEXT"],
     ["employer_organization", "TEXT"],
     ["qualification", "TEXT"],
+    ["photo_asset_key", "TEXT"],
     ["annual_income", "INTEGER"],
     ["address", "TEXT"],
     ["is_primary", "INTEGER DEFAULT 0"],
@@ -5471,10 +5482,10 @@ function createDatabase(databasePath) {
   db.prepare(`
     INSERT OR IGNORE INTO school_settings (
       id, school_name, address, phone, email, academic_year,
-      receipt_prefix, created_at, updated_at
+      receipt_prefix, logo_asset_key, created_at, updated_at
     ) VALUES (
       @id, @schoolName, @address, @phone, @email, @academicYear,
-      @receiptPrefix, @createdAt, @updatedAt
+      @receiptPrefix, '', @createdAt, @updatedAt
     )
   `).run({
     id: DEFAULT_SETTINGS_ID,
@@ -5830,12 +5841,12 @@ function createDatabase(databasePath) {
       id, admission_no, name, class_name, section, guardian_name, mobile,
       father_name, mother_name, email, gender, blood_group, aadhar_no,
       previous_school, notes, status, address, date_of_birth, admission_date,
-      created_at, updated_at, deleted_at, sync_status
+      photo_asset_key, created_at, updated_at, deleted_at, sync_status
     ) VALUES (
       @id, @admissionNo, @name, @className, @section, @guardianName, @mobile,
       @fatherName, @motherName, @email, @gender, @bloodGroup, @aadharNo,
       @previousSchool, @notes, @status, @address, @dateOfBirth,
-      @admissionDate, @createdAt, @updatedAt, NULL, 'pending'
+      @admissionDate, @photoAssetKey, @createdAt, @updatedAt, NULL, 'pending'
     )
   `);
 
@@ -5859,6 +5870,7 @@ function createDatabase(databasePath) {
         address = @address,
         date_of_birth = @dateOfBirth,
         admission_date = @admissionDate,
+        photo_asset_key = @photoAssetKey,
         updated_at = @updatedAt,
         sync_status = 'pending'
     WHERE id = @id AND deleted_at IS NULL
@@ -6736,6 +6748,7 @@ function createDatabase(databasePath) {
         guardians.occupation,
         guardians.employer_organization,
         guardians.qualification,
+        guardians.photo_asset_key,
         guardians.address,
         guardians.can_pickup_student AS guardian_can_pickup_student,
         guardians.emergency_contact AS guardian_emergency_contact,
@@ -7553,6 +7566,7 @@ function createDatabase(databasePath) {
       occupation: optionalText(input.occupation),
       employerOrganization: optionalText(input.employerOrganization),
       qualification: optionalText(input.qualification),
+      photoAssetKey: optionalText(input.photoAssetKey),
       annualIncome:
         input.annualIncome === undefined ||
         input.annualIncome === null ||
@@ -7581,12 +7595,12 @@ function createDatabase(databasePath) {
     db.prepare(`
       INSERT INTO guardians (
         id, family_id, full_name, relation, mobile, alternate_mobile,
-        email, occupation, employer_organization, qualification, annual_income, address,
+        email, occupation, employer_organization, qualification, photo_asset_key, annual_income, address,
         is_primary, can_pickup_student, emergency_contact, status,
         created_at, updated_at, deleted_at, sync_status
       ) VALUES (
         @id, @familyId, @fullName, @relation, @mobile, @alternateMobile,
-        @email, @occupation, @employerOrganization, @qualification, @annualIncome, @address,
+        @email, @occupation, @employerOrganization, @qualification, @photoAssetKey, @annualIncome, @address,
         @isPrimary, @canPickupStudent, @emergencyContact, 'Active',
         @createdAt, @updatedAt, NULL, 'pending'
       )
@@ -7622,6 +7636,7 @@ function createDatabase(databasePath) {
           occupation = @occupation,
           employer_organization = @employerOrganization,
           qualification = @qualification,
+          photo_asset_key = @photoAssetKey,
           annual_income = @annualIncome,
           address = @address,
           is_primary = @isPrimary,
@@ -13607,6 +13622,7 @@ function createDatabase(databasePath) {
         address: optionalText(input?.address),
         dateOfBirth: optionalText(input?.dateOfBirth),
         admissionDate: optionalText(input?.admissionDate),
+        photoAssetKey: optionalText(input?.photoAssetKey),
         createdAt: timestamp,
         updatedAt: timestamp,
       };
@@ -13731,6 +13747,10 @@ function createDatabase(databasePath) {
           input?.admissionDate === undefined
             ? existingStudent.admissionDate
             : optionalText(input.admissionDate),
+        photoAssetKey:
+          input?.photoAssetKey === undefined
+            ? existingStudent.photoAssetKey
+            : optionalText(input.photoAssetKey),
         updatedAt: now(),
       });
 
@@ -14100,6 +14120,10 @@ function createDatabase(databasePath) {
                 existingStudent && !wasProvided("admissionDate")
                   ? existingStudent.admission_date ?? ""
                   : admissionDate,
+              photoAssetKey:
+                existingStudent && !wasProvided("photoAssetKey")
+                  ? existingStudent.photo_asset_key ?? ""
+                  : "",
               createdAt: existingStudent?.created_at ?? now(),
               updatedAt: now(),
             };
@@ -14689,6 +14713,7 @@ function createDatabase(databasePath) {
             email = @email,
             academic_year = @academicYear,
             receipt_prefix = @receiptPrefix,
+            logo_asset_key = @logoAssetKey,
             updated_at = @updatedAt
         WHERE id = @id
       `).run({
@@ -14699,12 +14724,49 @@ function createDatabase(databasePath) {
         email: optionalText(input?.email),
         academicYear: optionalText(input?.academicYear),
         receiptPrefix: optionalText(input?.receiptPrefix) || "VSE-RC",
+        logoAssetKey:
+          input?.logoAssetKey === undefined
+            ? existingSettings.logoAssetKey
+            : optionalText(input.logoAssetKey),
         updatedAt,
       });
 
       return settingsFromRow(
         db.prepare("SELECT * FROM school_settings WHERE id = ?").get(existingSettings.id),
       );
+    },
+
+    isManagedAssetReferenced(assetKey) {
+      const key = optionalText(assetKey);
+      if (!key) return false;
+      const exactChecks = [
+        ["school_settings", "logo_asset_key"],
+        ["students", "photo_asset_key"],
+        ["guardians", "photo_asset_key"],
+        ["document_template_settings", "principal_signature_path"],
+        ["document_template_settings", "school_stamp_path"],
+        ["student_admission_details", "child_photo_path"],
+        ["student_admission_details", "father_photo_path"],
+        ["student_admission_details", "mother_photo_path"],
+        ["student_admission_details", "guardian_photo_path"],
+        ["store_products", "image_path"],
+      ];
+      for (const [tableName, columnName] of exactChecks) {
+        const row = db
+          .prepare(`SELECT 1 AS found FROM ${tableName} WHERE ${columnName} = ? LIMIT 1`)
+          .get(key);
+        if (row) return true;
+      }
+      const snapshot = db
+        .prepare(`
+          SELECT 1 AS found
+          FROM admission_form_snapshots
+          WHERE deleted_at IS NULL
+            AND snapshot_json LIKE ?
+          LIMIT 1
+        `)
+        .get(`%${key.replace(/[%_]/g, "\\$&")}%`);
+      return Boolean(snapshot);
     },
 
     getFeePayments() {
@@ -23488,12 +23550,12 @@ function createDatabase(databasePath) {
         db.prepare(`
           INSERT INTO guardians (
             id, family_id, full_name, relation, mobile, alternate_mobile,
-            email, occupation, employer_organization, qualification, annual_income, address,
+            email, occupation, employer_organization, qualification, photo_asset_key, annual_income, address,
             is_primary, can_pickup_student, emergency_contact, status,
             created_at, updated_at, deleted_at, sync_status
           ) VALUES (
             @id, @familyId, @fullName, @relation, @mobile, @alternateMobile,
-            @email, @occupation, @employerOrganization, @qualification, @annualIncome, @address,
+            @email, @occupation, @employerOrganization, @qualification, @photoAssetKey, @annualIncome, @address,
             @isPrimary, @canPickupStudent, @emergencyContact, @status,
             @createdAt, @updatedAt, NULL, 'pending'
           )
@@ -23508,6 +23570,7 @@ function createDatabase(databasePath) {
           occupation: optionalText(input.occupation),
           employerOrganization: optionalText(input.employerOrganization),
           qualification: optionalText(input.qualification),
+          photoAssetKey: optionalText(input.photoAssetKey),
           annualIncome:
             input.annualIncome === undefined ||
             input.annualIncome === null ||
@@ -23581,6 +23644,7 @@ function createDatabase(databasePath) {
               occupation = @occupation,
               employer_organization = @employerOrganization,
               qualification = @qualification,
+              photo_asset_key = @photoAssetKey,
               annual_income = @annualIncome,
               address = @address,
               is_primary = @isPrimary,
@@ -23616,6 +23680,10 @@ function createDatabase(databasePath) {
             input.qualification === undefined
               ? existing.qualification ?? ""
               : optionalText(input.qualification),
+          photoAssetKey:
+            input.photoAssetKey === undefined
+              ? existing.photo_asset_key ?? ""
+              : optionalText(input.photoAssetKey),
           annualIncome:
             input.annualIncome === undefined
               ? existing.annual_income

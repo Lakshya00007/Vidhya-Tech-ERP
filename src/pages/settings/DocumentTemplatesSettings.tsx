@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Icon } from '../../components/Icon'
+import { ManagedImageField } from '../../components/ManagedImage'
 import { getErpApi, getErrorMessage } from '../../lib/erpApi'
 import type {
   DocumentTemplateSettings,
@@ -207,28 +208,26 @@ export function DocumentTemplatesSettings({
               <option value="Half A4">Half A4</option>
             </select>
           </label>
-          <label className="form-field">
-            <span>Principal Signature Image Path</span>
-            <input
+          <div className="form-field form-field--full">
+            <ManagedImageField
+              assetKey={form.principalSignaturePath}
+              category="principal-signature"
               disabled={isLoading || readOnly}
-              placeholder="document-assets/principal-signature.png"
-              value={form.principalSignaturePath ?? ''}
-              onChange={(event) =>
-                updateField('principalSignaturePath', event.target.value)
-              }
+              label="Principal Signature"
+              onChange={(assetKey) => updateField('principalSignaturePath', assetKey)}
+              onError={(message) => onNotice({ type: 'error', message })}
             />
-          </label>
-          <label className="form-field">
-            <span>School Stamp Image Path</span>
-            <input
+          </div>
+          <div className="form-field form-field--full">
+            <ManagedImageField
+              assetKey={form.schoolStampPath}
+              category="school-stamp"
               disabled={isLoading || readOnly}
-              placeholder="document-assets/school-stamp.png"
-              value={form.schoolStampPath ?? ''}
-              onChange={(event) =>
-                updateField('schoolStampPath', event.target.value)
-              }
+              label="School Stamp"
+              onChange={(assetKey) => updateField('schoolStampPath', assetKey)}
+              onError={(message) => onNotice({ type: 'error', message })}
             />
-          </label>
+          </div>
           <label className="form-field form-field--full">
             <span>Footer Text</span>
             <textarea
@@ -260,14 +259,15 @@ export function DocumentTemplatesSettings({
         <div className="panel-heading">
           <div>
             <h3>Asset Storage</h3>
-            <p>Use local image paths from the managed document-assets folder.</p>
+            <p>Upload printable school signatures and stamps into managed local assets.</p>
           </div>
         </div>
         <div className="form-note">
           <Icon name="download" size={17} />
-          Files stored under the managed document-assets directory are included
-          in full ZIP backups. Keep original school profile details in School
-          Profile and use these settings only for document presentation.
+          Uploaded document assets are stored under the app user-data managed
+          asset area and are included in full ZIP backups. Keep original school
+          profile details in School Profile and use these settings only for
+          document presentation.
         </div>
       </section>
 

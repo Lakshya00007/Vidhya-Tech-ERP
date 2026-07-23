@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Icon } from '../../components/Icon'
+import { ManagedImageField } from '../../components/ManagedImage'
 import { getErpApi, getErrorMessage } from '../../lib/erpApi'
 import type { SaveSchoolSettingsInput } from '../../types'
 import type { SettingsSectionProps } from '../Settings'
@@ -11,6 +12,7 @@ const defaultSettings: SaveSchoolSettingsInput = {
   email: '',
   academicYear: '2026–2027',
   receiptPrefix: 'VSE-RC',
+  logoAssetKey: '',
 }
 
 interface SchoolProfileSettingsProps extends SettingsSectionProps {
@@ -22,6 +24,7 @@ export function SchoolProfileSettings({
   readOnly = false,
 }: SchoolProfileSettingsProps) {
   const [form, setForm] = useState<SaveSchoolSettingsInput>(defaultSettings)
+  const [persistedLogoAssetKey, setPersistedLogoAssetKey] = useState('')
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
 
@@ -39,7 +42,9 @@ export function SchoolProfileSettings({
             email: settings.email,
             academicYear: settings.academicYear,
             receiptPrefix: settings.receiptPrefix,
+            logoAssetKey: settings.logoAssetKey,
           })
+          setPersistedLogoAssetKey(settings.logoAssetKey ?? '')
         }
       })
       .catch((error: unknown) => {
@@ -62,6 +67,7 @@ export function SchoolProfileSettings({
     event.preventDefault()
     if (readOnly) return
     setIsSaving(true)
+    const previousLogoAssetKey = persistedLogoAssetKey
     try {
       const settings = await getErpApi().saveSchoolSettings(form)
       setForm({
@@ -71,9 +77,17 @@ export function SchoolProfileSettings({
         email: settings.email,
         academicYear: settings.academicYear,
         receiptPrefix: settings.receiptPrefix,
+        logoAssetKey: settings.logoAssetKey,
       })
+      setPersistedLogoAssetKey(settings.logoAssetKey ?? '')
+      if (previousLogoAssetKey && previousLogoAssetKey !== settings.logoAssetKey) {
+        void getErpApi().removeManagedImage(previousLogoAssetKey).catch(() => undefined)
+      }
       onNotice({ type: 'success', message: 'School settings saved locally.' })
     } catch (error) {
+      if (form.logoAssetKey && form.logoAssetKey !== previousLogoAssetKey) {
+        void getErpApi().removeManagedImage(form.logoAssetKey).catch(() => undefined)
+      }
       onNotice({ type: 'error', message: getErrorMessage(error) })
     } finally {
       setIsSaving(false)
@@ -89,16 +103,14 @@ export function SchoolProfileSettings({
             <p>Details shown on receipts, reports and marksheets</p>
           </div>
         </div>
-        <div className="profile-upload">
-          <div className="school-logo-placeholder">
-            <Icon name="school" size={30} />
-          </div>
-          <div>
-            <strong>School Logo</strong>
-            <span>Logo storage will be added in a later phase</span>
-            {!readOnly && <button type="button" className="text-button">Choose image</button>}
-          </div>
-        </div>
+        <ManagedImageField
+          assetKey={form.logoAssetKey}
+          category="school-logo"
+          disabled={isLoading || readOnly}
+          label="School Logo"
+          onChange={(assetKey) => setForm({ ...form, logoAssetKey: assetKey })}
+          onError={(message) => onNotice({ type: 'error', message })}
+        />
         <div className="settings-fields">
           <label className="form-field form-field--full">
             <span>School Name</span>

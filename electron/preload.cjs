@@ -138,6 +138,14 @@ contextBridge.exposeInMainWorld("erpApi", {
     ipcRenderer.invoke("communications:get-job", id),
   retryCommunicationJob: (id) =>
     ipcRenderer.invoke("communications:retry-job", id),
+  selectManagedImage: (input) =>
+    ipcRenderer.invoke("assets:managed-image:select", input),
+  replaceManagedImage: (input) =>
+    ipcRenderer.invoke("assets:managed-image:replace", input),
+  getManagedImageUrl: (assetKey) =>
+    ipcRenderer.invoke("assets:managed-image:url", assetKey),
+  removeManagedImage: (assetKey) =>
+    ipcRenderer.invoke("assets:managed-image:remove", assetKey),
   createDemoData: () => ipcRenderer.invoke("demo:create-data"),
 
   getStudents: () => ipcRenderer.invoke("students:get-all"),

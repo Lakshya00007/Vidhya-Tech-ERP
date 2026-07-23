@@ -1183,6 +1183,13 @@
   background: #e9f0fd;
 }
 
+.person-avatar img {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  object-fit: cover;
+}
+
 .neutral-badge,
 .active-student-badge {
   display: inline-flex;
@@ -4630,48 +4637,6 @@
   border-color: #f0dfbd;
 }
 
-.profile-upload {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: 16px 18px 0;
-  padding: 12px;
-  background: #f8fafc;
-  border: 1px dashed #ced7e3;
-  border-radius: 9px;
-}
-
-.school-logo-placeholder {
-  width: 53px;
-  height: 53px;
-  display: grid;
-  place-items: center;
-  color: #466da8;
-  background: #eaf1fa;
-  border-radius: 10px;
-}
-
-.profile-upload > div:last-child {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-}
-
-.profile-upload strong {
-  color: #334158;
-  font-size: 9px;
-}
-
-.profile-upload span {
-  margin: 3px 0 2px;
-  color: #8c97a7;
-  font-size: 7.5px;
-}
-
-.profile-upload .text-button {
-  padding: 0;
-}
-
 .settings-fields {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -6275,6 +6240,124 @@
   font-size: 8px;
 }
 
+.secondary-button--active {
+  color: #fff;
+  background: var(--primary);
+  border-color: var(--primary);
+}
+
+.managed-image-field {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  gap: 14px;
+  align-items: center;
+  padding: 12px;
+  background: var(--canvas);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.managed-image-field--portrait {
+  grid-template-columns: 120px minmax(0, 1fr);
+}
+
+.managed-image-field__preview {
+  width: 76px;
+  height: 76px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  color: var(--muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.managed-image-field--portrait .managed-image-field__preview {
+  width: 96px;
+  height: 128px;
+}
+
+.managed-image-field__preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.managed-image-field__preview span,
+.managed-image-field__body {
+  display: grid;
+  gap: 6px;
+}
+
+.managed-image-field__preview span {
+  justify-items: center;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.managed-image-field__body strong {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.managed-image-field__body small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.managed-image-field__body > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.settings-panel > .managed-image-field {
+  margin: 16px 18px 0;
+}
+
+.document-preview-shell--a4 {
+  display: grid;
+  gap: 12px;
+  padding: 0;
+  background: transparent;
+}
+
+.document-preview-canvas {
+  max-width: 100%;
+  min-height: calc(100vh - 260px);
+  overflow: auto;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 28px;
+  background: #e7ebf1;
+  border: 1px solid #d8e0eb;
+  border-radius: 8px;
+}
+
+.document-preview-page {
+  flex: 0 0 auto;
+  transform-origin: top center;
+}
+
+.document-preview-page--fit-page {
+  zoom: 0.72;
+}
+
+.document-preview-page--fit-width {
+  zoom: 0.86;
+}
+
+.document-preview-page--actual {
+  zoom: 1;
+}
+
+.document-toolbar .secondary-button {
+  white-space: nowrap;
+}
+
 .id-card-print-area {
   display: grid;
   grid-template-columns: repeat(2, minmax(320px, 410px));
@@ -6366,6 +6449,19 @@
   color: #8b9ab0;
   font-size: 6px;
   text-transform: uppercase;
+}
+
+.student-id-card__photo img {
+  width: 100%;
+  height: 100%;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.student-id-card__school-mark img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
 .student-id-card__details {
@@ -10924,6 +11020,141 @@
   min-height: 0;
 }
 
+.document-preview-shell--a4 .school-document-print,
+.admission-success-panel .school-document-print,
+.admission-form-print {
+  width: 210mm;
+  min-height: 297mm;
+  max-width: none;
+  padding: 10mm 11mm;
+  border: 0;
+  box-shadow: 0 14px 38px rgba(15, 23, 42, 0.16);
+  font-family: Arial, "Helvetica Neue", sans-serif;
+  font-size: 8.5pt;
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
+}
+
+.admission-form-print .print-document-header {
+  grid-template-columns: 22mm minmax(0, 1fr) 42mm;
+  gap: 4mm;
+  padding-bottom: 3mm;
+}
+
+.admission-form-print .print-school-logo {
+  width: 20mm;
+  height: 20mm;
+}
+
+.admission-form-print .print-document-header h1 {
+  font-size: 16pt;
+}
+
+.admission-form-print .print-document-header p,
+.admission-form-print .print-document-header span,
+.admission-form-print .print-document-header small {
+  font-size: 7pt;
+}
+
+.admission-form-print .print-document-title-block strong {
+  font-size: 11pt;
+}
+
+.admission-form-print .print-document-meta-grid,
+.admission-form-print .print-field-grid {
+  gap: 2mm 3mm;
+  margin-top: 3mm;
+}
+
+.admission-form-print .print-field {
+  min-height: 7.5mm;
+  padding-bottom: 1mm;
+}
+
+.admission-form-print .print-field span {
+  font-size: 5.8pt;
+  letter-spacing: 0.25px;
+}
+
+.admission-form-print .print-field strong {
+  min-height: 4.5mm;
+  margin-top: 1mm;
+  font-size: 8.2pt;
+  line-height: 1.2;
+}
+
+.admission-form-print .print-section-block {
+  margin-top: 3.2mm;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.admission-form-print .print-section-block h2 {
+  margin-bottom: 1.8mm;
+  font-size: 8.2pt;
+}
+
+.admission-form-print .admission-child-grid {
+  grid-template-columns: minmax(0, 1fr) 34mm;
+  gap: 4mm;
+  margin-top: 3.2mm;
+}
+
+.admission-form-print .print-photo-box {
+  width: 32mm;
+  min-height: 42mm;
+  align-self: start;
+  overflow: hidden;
+  font-size: 6pt;
+}
+
+.admission-form-print .print-photo-box--compact,
+.admission-form-print .admission-parent-grid .print-photo-box {
+  width: 28mm;
+  min-height: 36mm;
+  margin: 0 0 2mm;
+}
+
+.admission-form-print .admission-parent-grid {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(36mm, 0.75fr);
+  gap: 3mm;
+}
+
+.admission-form-print .document-checklist {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.6mm 2mm;
+}
+
+.admission-form-print .document-checklist span,
+.admission-form-print .print-declaration,
+.admission-form-print .print-footer-note {
+  font-size: 7pt;
+}
+
+.admission-form-print .print-declaration {
+  margin-top: 3mm;
+  padding: 2mm 3mm;
+}
+
+.admission-form-print .print-signature-grid {
+  gap: 5mm;
+  margin-top: 6mm;
+  font-size: 7pt;
+  break-inside: avoid;
+}
+
+.admission-form-print .print-signature-grid span,
+.admission-form-print .print-signature-line {
+  height: 8mm;
+  margin-bottom: 1.5mm;
+}
+
+.admission-form-print .office-use {
+  margin-top: 6mm;
+  padding-top: 4mm;
+  border-top: 1px solid #cbd5e1;
+}
+
 @media print {
   @page receipt {
     size: A4 portrait;
@@ -11103,6 +11334,25 @@
     overflow: visible;
   }
 
+  .document-preview-canvas,
+  .document-preview-page,
+  .document-preview-page--fit-page,
+  .document-preview-page--fit-width,
+  .document-preview-page--actual {
+    width: auto;
+    min-height: 0;
+    display: block;
+    margin: 0;
+    padding: 0;
+    background: #fff;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    overflow: visible;
+    transform: none !important;
+    zoom: 1 !important;
+  }
+
   .receipt-backdrop,
   .receipt-modal,
   .receipt-print-area,
@@ -11263,6 +11513,13 @@
     overflow: visible;
     print-color-adjust: exact;
     -webkit-print-color-adjust: exact;
+  }
+
+  .admission-form-print {
+    width: auto;
+    min-height: 277mm;
+    padding: 10mm 11mm;
+    box-shadow: none;
   }
 
   .receipt-print-area .school-document-print {

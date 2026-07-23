@@ -22,6 +22,7 @@ export function AdmissionForm({ onNotice, students }: AdmissionFormProps) {
   const [snapshots, setSnapshots] = useState<AdmissionFormSnapshot[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [scaleMode, setScaleMode] = useState<'fit-page' | 'fit-width' | 'actual'>('fit-page')
   const selectedStudentId = useMemo(() => {
     if (mode === 'Blank') return ''
     if (selectableStudents.some((student) => student.id === studentId)) {
@@ -154,6 +155,27 @@ export function AdmissionForm({ onNotice, students }: AdmissionFormProps) {
             />
           </label>
           <button
+            className={scaleMode === 'fit-page' ? 'secondary-button secondary-button--active' : 'secondary-button'}
+            onClick={() => setScaleMode('fit-page')}
+            type="button"
+          >
+            Fit Page
+          </button>
+          <button
+            className={scaleMode === 'fit-width' ? 'secondary-button secondary-button--active' : 'secondary-button'}
+            onClick={() => setScaleMode('fit-width')}
+            type="button"
+          >
+            Fit Width
+          </button>
+          <button
+            className={scaleMode === 'actual' ? 'secondary-button secondary-button--active' : 'secondary-button'}
+            onClick={() => setScaleMode('actual')}
+            type="button"
+          >
+            Actual Size
+          </button>
+          <button
             className="secondary-button document-print-button"
             disabled={!data || isSaving}
             onClick={() => void saveSnapshot()}
@@ -182,12 +204,16 @@ export function AdmissionForm({ onNotice, students }: AdmissionFormProps) {
         </section>
       ) : (
         <>
-          <section className="panel document-preview-shell document-preview-shell--paper">
-            <div className="document-preview-label">
+          <section className="document-preview-shell document-preview-shell--a4">
+            <div className="document-preview-label panel">
               <span>A4 print preview</span>
               <strong>{mode}</strong>
             </div>
-            <AdmissionFormPrint data={data} />
+            <div className="document-preview-canvas">
+              <div className={`document-preview-page document-preview-page--${scaleMode}`}>
+                <AdmissionFormPrint data={data} />
+              </div>
+            </div>
           </section>
           {mode === 'Prefilled' && (
             <section className="panel document-history-panel">

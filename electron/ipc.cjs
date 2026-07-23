@@ -367,6 +367,10 @@ const channels = [
   "database:get-info",
   "database:open-folder",
   "app:restart",
+  "assets:managed-image:select",
+  "assets:managed-image:replace",
+  "assets:managed-image:url",
+  "assets:managed-image:remove",
 ];
 
 function registerIpcHandlers(
@@ -375,6 +379,7 @@ function registerIpcHandlers(
   authService,
   licenseService,
   communicationService,
+  managedAssetService,
 ) {
   const requireValidLicense = () =>
     licenseService?.requireValidLicense();
@@ -384,6 +389,23 @@ function registerIpcHandlers(
     requireValidLicense();
     requireAuthenticated();
     return handler(event, ...args);
+  };
+  const requireManagedAssetWriteRole = (category) => {
+    const normalized = String(category ?? "");
+    if (
+      ["school-logo", "principal-signature", "school-stamp", "document-template-asset"].includes(
+        normalized,
+      )
+    ) {
+      return requireRoles(["Owner", "Admin"]);
+    }
+    if (["student-photo", "guardian-photo"].includes(normalized)) {
+      return requireRoles(["Owner", "Admin"]);
+    }
+    if (normalized === "store-product-image") {
+      return requireRoles(["Owner", "Admin", "Accountant"]);
+    }
+    return requireRoles(["Owner"]);
   };
   const getCurrentEmployeeForScope = () => {
     const portalData = authService?.getCurrentEmployeePortalData();
@@ -4079,6 +4101,37 @@ function registerIpcHandlers(
       authenticated(() => {
         requireRoles(["Owner"]);
         return backupService.restartApp();
+      }),
+    );
+  }
+
+  if (managedAssetService) {
+    ipcMain.handle(
+      "assets:managed-image:select",
+      authenticated(async (event, input = {}) => {
+        requireManagedAssetWriteRole(input?.category);
+        return managedAssetService.selectManagedImage(event, input);
+      }),
+    );
+    ipcMain.handle(
+      "assets:managed-image:replace",
+      authenticated(async (event, input = {}) => {
+        requireManagedAssetWriteRole(input?.category);
+        return managedAssetService.replaceManagedImage(event, input);
+      }),
+    );
+    ipcMain.handle(
+      "assets:managed-image:url",
+      authenticated((_event, assetKey) => {
+        requireRoles(["Owner", "Admin", "Accountant", "Teacher", "Viewer", "Student"]);
+        return managedAssetService.getManagedImageUrl(assetKey);
+      }),
+    );
+    ipcMain.handle(
+      "assets:managed-image:remove",
+      authenticated((_event, assetKey) => {
+        requireRoles(["Owner", "Admin"]);
+        return managedAssetService.removeManagedImage(assetKey);
       }),
     );
   }

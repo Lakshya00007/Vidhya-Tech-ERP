@@ -7,6 +7,7 @@ const {
   createBackupService,
 } = require("./backup.cjs");
 const { createAuthService } = require("./auth.cjs");
+const { createManagedAssetService } = require("./assets.cjs");
 const { createCommunicationService } = require("./communications.cjs");
 const { createDatabase } = require("./database.cjs");
 const { registerIpcHandlers } = require("./ipc.cjs");
@@ -87,6 +88,11 @@ app
       licenseService,
       isDevelopment,
     });
+    const managedAssetService = createManagedAssetService({
+      app,
+      database,
+      userDataPath: app.getPath("userData"),
+    });
     const backupService = createBackupService({
       app,
       databasePath,
@@ -99,6 +105,7 @@ app
       authService,
       licenseService,
       communicationService,
+      managedAssetService,
     );
     await createWindow();
   })

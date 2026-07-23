@@ -4,7 +4,7 @@ const os = require("node:os");
 const path = require("node:path");
 const crypto = require("node:crypto");
 const Database = require("better-sqlite3");
-const { app, BrowserWindow } = require("electron");
+const { app, BrowserWindow, dialog } = require("electron");
 const {
   applyPendingDatabaseRestore,
   createBackupService,
@@ -21,6 +21,7 @@ const {
   createCommunicationService,
   extractSafeErrorMessage,
 } = require("./communications.cjs");
+const { createManagedAssetService } = require("./assets.cjs");
 const { createDatabase } = require("./database.cjs");
 const { registerIpcHandlers } = require("./ipc.cjs");
 const {
@@ -36,6 +37,11 @@ function assert(condition, message) {
     throw new Error(message);
   }
 }
+
+const TINY_PNG_BUFFER = Buffer.from(
+  "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000a49444154789c6360000002000100ffff03000006000557bfab0000000049454e44ae426082",
+  "hex",
+);
 
 app.whenReady().then(async () => {
   const temporaryDirectory = fs.mkdtempSync(
@@ -313,12 +319,124 @@ app.whenReady().then(async () => {
       getDatabase: () => database,
       closeDatabase: () => database?.close(),
     });
+    const managedAssetService = createManagedAssetService({
+      app,
+      database,
+      userDataPath: temporaryDirectory,
+    });
+    const managedAssetSourcePath = path.join(
+      temporaryDirectory,
+      "managed-image-source.png",
+    );
+    fs.writeFileSync(managedAssetSourcePath, TINY_PNG_BUFFER);
+    const managedSchoolLogo = managedAssetService._test.importManagedImageFromPath({
+      sourcePath: managedAssetSourcePath,
+      category: "school-logo",
+      ownerId: "school",
+    });
+    const managedChildPhoto = managedAssetService._test.importManagedImageFromPath({
+      sourcePath: managedAssetSourcePath,
+      category: "student-photo",
+      ownerId: "admission-workflow",
+    });
+    const managedFatherPhoto = managedAssetService._test.importManagedImageFromPath({
+      sourcePath: managedAssetSourcePath,
+      category: "guardian-photo",
+      ownerId: "father",
+    });
+    const managedMotherPhoto = managedAssetService._test.importManagedImageFromPath({
+      sourcePath: managedAssetSourcePath,
+      category: "guardian-photo",
+      ownerId: "mother",
+    });
+    const managedGuardianPhoto = managedAssetService._test.importManagedImageFromPath({
+      sourcePath: managedAssetSourcePath,
+      category: "guardian-photo",
+      ownerId: "guardian",
+    });
+    assert(
+      managedSchoolLogo.assetKey.startsWith("school/logo/") &&
+        managedSchoolLogo.dataUrl.startsWith("data:image/png;base64,") &&
+        !path.isAbsolute(managedSchoolLogo.assetKey),
+      "Managed school logo import did not return a safe relative asset key.",
+    );
+    assert(
+      managedAssetService
+        ._test.resolveAssetPath(managedSchoolLogo.assetKey)
+        .startsWith(managedAssetService.getManagedAssetsRoot()),
+      "Managed asset key did not resolve inside the managed asset root.",
+    );
+    let traversalAssetRejected = false;
+    try {
+      managedAssetService.getManagedImageUrl("../school/logo.png");
+    } catch {
+      traversalAssetRejected = true;
+    }
+    assert(traversalAssetRejected, "Managed asset traversal key was not rejected.");
+    const invalidImagePath = path.join(temporaryDirectory, "invalid-image.txt");
+    fs.writeFileSync(invalidImagePath, "not an image", "utf8");
+    let invalidImageRejected = false;
+    try {
+      managedAssetService._test.importManagedImageFromPath({
+        sourcePath: invalidImagePath,
+        category: "school-logo",
+      });
+    } catch {
+      invalidImageRejected = true;
+    }
+    assert(invalidImageRejected, "Invalid managed image type was not rejected.");
+    const oversizedImagePath = path.join(temporaryDirectory, "oversized-image.png");
+    fs.writeFileSync(
+      oversizedImagePath,
+      Buffer.concat([TINY_PNG_BUFFER, Buffer.alloc(5 * 1024 * 1024 + 1)]),
+    );
+    let oversizedImageRejected = false;
+    try {
+      managedAssetService._test.importManagedImageFromPath({
+        sourcePath: oversizedImagePath,
+        category: "school-logo",
+      });
+    } catch {
+      oversizedImageRejected = true;
+    }
+    assert(oversizedImageRejected, "Oversized managed image was not rejected.");
+    const originalShowOpenDialog = dialog.showOpenDialog;
+    try {
+      dialog.showOpenDialog = async () => ({ canceled: true, filePaths: [] });
+      const cancelledSelection = await managedAssetService.selectManagedImage(null, {
+        category: "school-logo",
+      });
+      assert(
+        cancelledSelection.canceled,
+        "Cancelled image picker did not return a cancelled result.",
+      );
+    } finally {
+      dialog.showOpenDialog = originalShowOpenDialog;
+    }
+    database.saveSchoolSettings({
+      ...database.getSchoolSettings(),
+      logoAssetKey: managedSchoolLogo.assetKey,
+    });
+    assert(
+      database.getSchoolSettings().logoAssetKey === managedSchoolLogo.assetKey,
+      "School logo asset key did not persist in school settings.",
+    );
+    const referencedLogoRemoval =
+      managedAssetService.removeManagedImage(managedSchoolLogo.assetKey);
+    assert(
+      referencedLogoRemoval.referenced &&
+        fs.existsSync(
+          managedAssetService._test.resolveAssetPath(managedSchoolLogo.assetKey),
+        ),
+      "Referenced managed asset was removed without a reference check.",
+    );
     const unregisterIpcHandlers = registerIpcHandlers(
       database,
       backupService,
       authService,
       licenseService,
       communicationService,
+      managedAssetService,
     );
     const window = new BrowserWindow({
       show: false,
@@ -423,6 +541,12 @@ app.whenReady().then(async () => {
           "getCommunicationJobs",
           "getCommunicationJob",
           "retryCommunicationJob"
+        ].every((method) => typeof window.erpApi[method] === "function");
+        const managedAssetApiAvailable = [
+          "selectManagedImage",
+          "replaceManagedImage",
+          "getManagedImageUrl",
+          "removeManagedImage"
         ].every((method) => typeof window.erpApi[method] === "function");
         const demoApiAvailable =
           typeof window.erpApi.createDemoData === "function";
@@ -764,6 +888,22 @@ app.whenReady().then(async () => {
         );
         await window.erpApi.logout();
         await window.erpApi.login("owner", "Initial-Owner-Password");
+        const managedLogoUrl = await window.erpApi.getManagedImageUrl(
+          ${JSON.stringify(managedSchoolLogo.assetKey)}
+        );
+        const missingManagedImage = await window.erpApi.getManagedImageUrl(
+          "school/logo/missing-image.png"
+        );
+        let managedTraversalRejected = false;
+        try {
+          await window.erpApi.getManagedImageUrl("../school/logo.png");
+        } catch {
+          managedTraversalRejected = true;
+        }
+        const protectedManagedAssetRemoval =
+          await window.erpApi.removeManagedImage(
+            ${JSON.stringify(managedSchoolLogo.assetKey)}
+          );
         const accountProfile = await window.erpApi.getCurrentAccountProfile();
         const accountProfileSafe = [
           "passwordHash",
@@ -1043,7 +1183,8 @@ app.whenReady().then(async () => {
           status: "Draft",
           address: "12 Admission Street",
           dateOfBirth: "2020-04-15",
-          admissionDate: "2026-04-10"
+          admissionDate: "2026-04-10",
+          photoAssetKey: ${JSON.stringify(managedChildPhoto.assetKey)}
         };
         const admissionDetailsInput = {
           applicationNo: admissionNumbers.applicationNo,
@@ -1057,9 +1198,9 @@ app.whenReady().then(async () => {
           transportRequired: true,
           pickupPoint: "North Gate",
           routeName: "Route A",
-          childPhotoPath: "student-photos/admission-workflow.jpg",
-          fatherPhotoPath: "parent-photos/admission-father.jpg",
-          motherPhotoPath: "parent-photos/admission-mother.jpg",
+          childPhotoPath: ${JSON.stringify(managedChildPhoto.assetKey)},
+          fatherPhotoPath: ${JSON.stringify(managedFatherPhoto.assetKey)},
+          motherPhotoPath: ${JSON.stringify(managedMotherPhoto.assetKey)},
           firstName: "Admission",
           middleName: "Workflow",
           lastName: "Student",
@@ -1090,6 +1231,7 @@ app.whenReady().then(async () => {
           preferredWhatsappNumber: "9666666602",
           sameAsGuardianAddress: true,
           guardianDifferentFromParents: false,
+          guardianPhotoPath: ${JSON.stringify(managedGuardianPhoto.assetKey)},
           primaryGuardianRole: "Father",
           feeContactRole: "Father",
           smsContactRole: "Father",
@@ -1110,6 +1252,7 @@ app.whenReady().then(async () => {
           occupation: "Engineer",
           employerOrganization: "Smoke Engineering Works",
           qualification: "B.Tech",
+          photoAssetKey: ${JSON.stringify(managedFatherPhoto.assetKey)},
           annualIncome: 900000,
           address: "12 Admission Street",
           isPrimary: true,
@@ -1128,6 +1271,7 @@ app.whenReady().then(async () => {
           occupation: "Doctor",
           employerOrganization: "Smoke Clinic",
           qualification: "MBBS",
+          photoAssetKey: ${JSON.stringify(managedMotherPhoto.assetKey)},
           annualIncome: 1000000,
           address: "12 Admission Street",
           isPrimary: false,
@@ -3201,6 +3345,7 @@ app.whenReady().then(async () => {
           releaseModuleApiAvailable,
           messageApiAvailable,
           communicationApiAvailable,
+          managedAssetApiAvailable,
           settingsPreferencesApiAvailable,
           licenseApiAvailable,
           deviceId,
@@ -3220,6 +3365,13 @@ app.whenReady().then(async () => {
           familyCreated:
             smokeFamily.familyCode.startsWith("FAM-") &&
             smokeFamily.primaryContactName === "Smoke Test Father",
+          managedImageBridgeCorrect:
+            managedLogoUrl.assetKey ===
+              ${JSON.stringify(managedSchoolLogo.assetKey)} &&
+            managedLogoUrl.dataUrl.startsWith("data:image/png;base64,") &&
+            missingManagedImage.missing === true &&
+            managedTraversalRejected &&
+            protectedManagedAssetRemoval.referenced === true,
           admissionWorkflowCorrect:
             admissionDraftProfileCorrect &&
             admittedProfile.student.status === "Active" &&
@@ -3229,10 +3381,25 @@ app.whenReady().then(async () => {
               admissionNumbers.applicationNo &&
             admittedProfile.admissionDetails.feeStructureId ===
               tuitionFeeStructure.id &&
-            admittedProfile.admissionDetails.childPhotoPath.includes(
-              "admission-workflow"
+            admittedProfile.student.photoAssetKey ===
+              ${JSON.stringify(managedChildPhoto.assetKey)} &&
+            admittedProfile.admissionDetails.childPhotoPath ===
+              ${JSON.stringify(managedChildPhoto.assetKey)} &&
+            admittedProfile.guardians.some(
+              (link) =>
+                link.relationToStudent === "Father" &&
+                link.photoAssetKey === ${JSON.stringify(managedFatherPhoto.assetKey)}
+            ) &&
+            admittedProfile.guardians.some(
+              (link) =>
+                link.relationToStudent === "Mother" &&
+                link.photoAssetKey === ${JSON.stringify(managedMotherPhoto.assetKey)}
             ) &&
             admissionPrefilledForm.student.id === admittedProfile.student.id &&
+            admissionPrefilledForm.student.photoAssetKey ===
+              ${JSON.stringify(managedChildPhoto.assetKey)} &&
+            admissionPrefilledForm.father?.photoAssetKey ===
+              ${JSON.stringify(managedFatherPhoto.assetKey)} &&
             admissionPrefilledForm.ageAtAdmission.years === 5 &&
             admissionPrefilledForm.ageAtAdmission.months === 11 &&
             admissionPrefilledForm.father?.qualification === "B.Tech" &&
@@ -4150,6 +4317,11 @@ app.whenReady().then(async () => {
     assert(
       bridgeResult.communicationApiAvailable,
       "External communication APIs were not exposed by the preload bridge.",
+    );
+    assert(
+      bridgeResult.managedAssetApiAvailable &&
+        bridgeResult.managedImageBridgeCorrect,
+      "Managed image APIs were not exposed or did not return safe image data.",
     );
     assert(
       bridgeResult.settingsPreferencesApiAvailable,
@@ -5538,6 +5710,8 @@ app.whenReady().then(async () => {
       "smoke-product.txt",
     );
     fs.writeFileSync(managedStoreAssetPath, "original store image", "utf8");
+    const managedSchoolLogoPath =
+      managedAssetService._test.resolveAssetPath(managedSchoolLogo.assetKey);
 
     const backupPath = path.join(temporaryDirectory, "smoke-backup.db");
     validateDatabaseFile(databasePath);
@@ -5570,7 +5744,10 @@ app.whenReady().then(async () => {
     });
     assert(
       fs.existsSync(fullBackupPath) &&
-        fullBackupArchive.manifest.totalFileCount === 1 &&
+        fullBackupArchive.manifest.totalFileCount >= 6 &&
+        fullBackupArchive.manifest.includedFileCategories.some(
+          (category) => category.directory === "managed-assets",
+        ) &&
         fullBackupArchive.manifest.includedFileCategories.some(
           (category) => category.directory === "store-products",
         ),
@@ -5602,7 +5779,16 @@ app.whenReady().then(async () => {
             "smoke-product.txt",
           ),
           "utf8",
-        ) === "original store image",
+        ) === "original store image" &&
+        fs.readFileSync(
+          path.join(
+            extractedBackupDirectory,
+            "backup",
+            "files",
+            "managed-assets",
+            managedSchoolLogo.assetKey,
+          ),
+        ).equals(TINY_PNG_BUFFER),
       "Full backup archive extraction did not preserve database and assets.",
     );
 
@@ -5911,6 +6097,11 @@ app.whenReady().then(async () => {
       "current asset before failed restore",
       "utf8",
     );
+    fs.writeFileSync(
+      managedSchoolLogoPath,
+      "current managed asset before failed restore",
+      "utf8",
+    );
     extractFullBackupArchive(fullBackupPath, restorePaths.pendingDirectory);
     fs.writeFileSync(
       path.join(
@@ -5935,6 +6126,8 @@ app.whenReady().then(async () => {
         failedRestoreMessage.includes("checksum validation failed")) &&
         fs.readFileSync(managedStoreAssetPath, "utf8") ===
           "current asset before failed restore" &&
+        fs.readFileSync(managedSchoolLogoPath, "utf8") ===
+          "current managed asset before failed restore" &&
         !fs.existsSync(restorePaths.pendingDirectory),
       "Failed restore did not preserve current data and clear the bad staged restore.",
     );
@@ -5944,6 +6137,7 @@ app.whenReady().then(async () => {
       "Failed restore modified the current database.",
     );
     fs.writeFileSync(managedStoreAssetPath, "mutated store image", "utf8");
+    fs.writeFileSync(managedSchoolLogoPath, "mutated managed logo", "utf8");
     extractFullBackupArchive(fullBackupPath, restorePaths.pendingDirectory);
     assert(
       backupService.getDatabaseInfo().restorePending,
@@ -5965,12 +6159,14 @@ app.whenReady().then(async () => {
         !fs.existsSync(restorePaths.restoreTempPath),
       "Full archive staged restore files were not cleaned after restore.",
     );
+    database = createDatabase(databasePath);
     assert(
       fs.readFileSync(managedStoreAssetPath, "utf8") ===
-        "original store image",
+        "original store image" &&
+        fs.readFileSync(managedSchoolLogoPath).equals(TINY_PNG_BUFFER) &&
+        database.getSchoolSettings().logoAssetKey === managedSchoolLogo.assetKey,
       "Full archive restore did not roll managed assets back to the backup state.",
     );
-    database = createDatabase(databasePath);
     const restoredOwnerUser = database.getUserById(bridgeResult.ownerId);
     const restoredDirectMessageReport = database.getMessageDeliveryReport(
       restoredOwnerUser,

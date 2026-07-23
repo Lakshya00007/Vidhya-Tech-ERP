@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { AdmissionFormPrint } from '../../components/PrintableSchoolDocuments'
 import { Icon } from '../../components/Icon'
+import { ManagedImageField } from '../../components/ManagedImage'
 import { getErpApi, getErrorMessage } from '../../lib/erpApi'
 import {
   formatDocumentDate,
@@ -53,6 +54,13 @@ const admissionDocumentTypes = [
 
 type AdmissionStep = (typeof admissionSteps)[number]
 
+type AdmissionAssetKeys = {
+  child: string
+  father: string
+  mother: string
+  guardian: string
+}
+
 interface StudentAdmissionFormProps {
   classes: ClassItem[]
   editingStudent?: Student | null
@@ -88,6 +96,7 @@ const emptyStudentForm: StudentFormState = {
   address: '',
   dateOfBirth: '',
   admissionDate: getTodayInputValue(),
+  photoAssetKey: '',
 }
 
 const emptyDetails: Partial<StudentAdmissionDetails> = {
@@ -186,6 +195,7 @@ const blankGuardian = (
   qualification: '',
   annualIncome: null,
   address: '',
+  photoAssetKey: '',
   isPrimary: relation === 'Father',
   financialResponsibility: relation === 'Father' || relation === 'Guardian',
   smsContact: relation === 'Father',
@@ -230,6 +240,16 @@ const dateToWords = (value?: string) => {
   return text ? text.replaceAll(',', '') : ''
 }
 
+const emptyAdmissionAssetKeys: AdmissionAssetKeys = {
+  child: '',
+  father: '',
+  mother: '',
+  guardian: '',
+}
+
+const uniqueAssetKeys = (keys: string[]) =>
+  Array.from(new Set(keys.map((key) => key.trim()).filter(Boolean)))
+
 export function StudentAdmissionForm({
   classes,
   editingStudent,
@@ -267,6 +287,9 @@ export function StudentAdmissionForm({
     useState<StudentAdmissionProfile | null>(null)
   const [printData, setPrintData] = useState<AdmissionFormData | null>(null)
   const [isDirty, setIsDirty] = useState(false)
+  const [persistedAssetKeys, setPersistedAssetKeys] = useState<AdmissionAssetKeys>(
+    emptyAdmissionAssetKeys,
+  )
 
   const activeClasses = useMemo(
     () => classes.filter((item) => item.status === 'Active'),
@@ -288,6 +311,43 @@ export function StudentAdmissionForm({
     student.admissionDate,
   )
 
+  const getAssetKeysFromProfile = (profile: StudentAdmissionProfile): AdmissionAssetKeys => {
+    const fatherLink = profile.guardians.find(
+      (item) => item.relationToStudent === 'Father' || item.relation === 'Father',
+    )
+    const motherLink = profile.guardians.find(
+      (item) => item.relationToStudent === 'Mother' || item.relation === 'Mother',
+    )
+    const guardianLink = profile.guardians.find(
+      (item) =>
+        item.relationToStudent !== 'Father' &&
+        item.relationToStudent !== 'Mother' &&
+        item.relation !== 'Father' &&
+        item.relation !== 'Mother',
+    )
+    return {
+      child: profile.student.photoAssetKey ?? '',
+      father: fatherLink?.photoAssetKey ?? '',
+      mother: motherLink?.photoAssetKey ?? '',
+      guardian: guardianLink?.photoAssetKey ?? '',
+    }
+  }
+
+  const cleanupReplacedAssets = async (
+    previous: AdmissionAssetKeys,
+    current: AdmissionAssetKeys,
+  ) => {
+    const currentKeys = new Set(uniqueAssetKeys(Object.values(current)))
+    const removableKeys = uniqueAssetKeys(Object.values(previous)).filter(
+      (key) => !currentKeys.has(key),
+    )
+    await Promise.all(
+      removableKeys.map((key) =>
+        getErpApi().removeManagedImage(key).catch(() => undefined),
+      ),
+    )
+  }
+
   useEffect(() => {
     let isCurrent = true
     void (async () => {
@@ -308,6 +368,7 @@ export function StudentAdmissionForm({
           if (!isCurrent || !profile) return
           // eslint-disable-next-line react-hooks/immutability
           loadProfile(profile)
+          setPersistedAssetKeys(getAssetKeysFromProfile(profile))
         } else {
           const firstClass = activeClasses[0]
           const firstSection = sections.find(
@@ -329,6 +390,7 @@ export function StudentAdmissionForm({
             admissionRequiredFor: firstClass?.name ?? '',
             srNo: numbers.admissionNo,
           })
+          setPersistedAssetKeys(emptyAdmissionAssetKeys)
         }
         setError('')
       } catch (loadError) {
@@ -374,6 +436,7 @@ export function StudentAdmissionForm({
       address: profileStudent.address,
       dateOfBirth: profileStudent.dateOfBirth,
       admissionDate: profileStudent.admissionDate,
+      photoAssetKey: profileStudent.photoAssetKey,
     })
     setDetails({
       ...emptyDetails,
@@ -396,6 +459,7 @@ export function StudentAdmissionForm({
             occupation: fatherLink.occupation,
             employerOrganization: fatherLink.employerOrganization,
             qualification: fatherLink.qualification,
+            photoAssetKey: fatherLink.photoAssetKey,
             annualIncome: null,
             address: fatherLink.address,
             isPrimary: fatherLink.isPrimary,
@@ -425,6 +489,7 @@ export function StudentAdmissionForm({
             occupation: motherLink.occupation,
             employerOrganization: motherLink.employerOrganization,
             qualification: motherLink.qualification,
+            photoAssetKey: motherLink.photoAssetKey,
             annualIncome: null,
             address: motherLink.address,
             isPrimary: motherLink.isPrimary,
@@ -448,6 +513,7 @@ export function StudentAdmissionForm({
             occupation: guardianLink.occupation,
             employerOrganization: guardianLink.employerOrganization,
             qualification: guardianLink.qualification,
+            photoAssetKey: guardianLink.photoAssetKey,
             annualIncome: null,
             address: guardianLink.address,
             isPrimary: guardianLink.isPrimary,
@@ -543,6 +609,7 @@ export function StudentAdmissionForm({
       if (!allValid) return
     }
     setIsSaving(true)
+    const previousAssetKeys = persistedAssetKeys
     try {
       const saved = await getErpApi().saveStudentAdmission({
         studentId: editingStudent?.id,
@@ -559,6 +626,10 @@ export function StudentAdmissionForm({
         admissionDetails: {
           ...details,
           admissionRequiredFor: details.admissionRequiredFor || student.className,
+          childPhotoPath: student.photoAssetKey || details.childPhotoPath || '',
+          fatherPhotoPath: father.photoAssetKey || details.fatherPhotoPath || '',
+          motherPhotoPath: mother.photoAssetKey || details.motherPhotoPath || '',
+          guardianPhotoPath: guardian.photoAssetKey || details.guardianPhotoPath || '',
           feeStructureName: selectedFeeStructure
             ? `${selectedFeeStructure.feeHeadName} · ${selectedFeeStructure.academicYear}`
             : details.feeStructureName,
@@ -576,6 +647,9 @@ export function StudentAdmissionForm({
         documents,
         officeUse,
       } satisfies StudentAdmissionSaveInput)
+      const nextAssetKeys = getAssetKeysFromProfile(saved)
+      setPersistedAssetKeys(nextAssetKeys)
+      await cleanupReplacedAssets(previousAssetKeys, nextAssetKeys)
       setSuccessProfile(saved)
       setIsDirty(false)
       await onSaved(saved)
@@ -638,11 +712,37 @@ export function StudentAdmissionForm({
     title: string,
     value: StudentAdmissionGuardianInput,
     setValue: (value: StudentAdmissionGuardianInput) => void,
-    photoPath: string | undefined,
-    setPhotoPath: (value: string) => void,
+    onPhotoChange: (value: string) => void,
   ) => (
     <section className="admission-step-card">
       <h3>{title}</h3>
+      <ManagedImageField
+        assetKey={value.photoAssetKey}
+        category="guardian-photo"
+        label={`${title} Photograph`}
+        onBeforeRemove={() =>
+          !value.guardianId ||
+          !value.photoAssetKey ||
+          window.confirm(
+            'Removing this guardian photo may affect other siblings using the same linked guardian. Continue?',
+          )
+        }
+        onBeforeSelect={() =>
+          !value.guardianId ||
+          !value.photoAssetKey ||
+          window.confirm(
+            'This guardian photo belongs to a linked guardian record and may appear for other siblings using the same guardian. Continue?',
+          )
+        }
+        onChange={(assetKey) => {
+          setValue({ ...value, photoAssetKey: assetKey })
+          onPhotoChange(assetKey)
+          setIsDirty(true)
+        }}
+        onError={setError}
+        ownerId={value.guardianId}
+        portrait
+      />
       <div className="admission-form-grid">
         {renderTextInput(`${title} name`, value.fullName, (next) =>
           setValue({ ...value, fullName: next }),
@@ -656,9 +756,6 @@ export function StudentAdmissionForm({
         {renderTextInput('Employer / organization', value.employerOrganization, (next) =>
           setValue({ ...value, employerOrganization: next }),
         )}
-        {renderTextInput(`${title} photo path`, photoPath, setPhotoPath, {
-          placeholder: `${title.toLowerCase()}-photos/name.jpg`,
-        })}
         {renderTextInput('Residential address', value.address, (next) =>
           setValue({ ...value, address: next }),
         )}
@@ -845,6 +942,18 @@ export function StudentAdmissionForm({
         return (
           <section className="admission-step-card">
             <h3>Child Details</h3>
+            <ManagedImageField
+              assetKey={student.photoAssetKey || details.childPhotoPath}
+              category="student-photo"
+              label="Child Photograph"
+              onChange={(assetKey) => {
+                updateStudent({ photoAssetKey: assetKey })
+                updateDetails({ childPhotoPath: assetKey })
+              }}
+              onError={setError}
+              ownerId={editingStudent?.id}
+              portrait
+            />
             <div className="admission-form-grid">
               {renderTextInput('Full name', student.name, (value) => {
                 const names = splitName(value)
@@ -859,10 +968,6 @@ export function StudentAdmissionForm({
               )}
               {renderTextInput('Last name', details.lastName, (value) =>
                 updateDetails({ lastName: value }),
-              )}
-              {renderTextInput('Child photo path', details.childPhotoPath, (value) =>
-                updateDetails({ childPhotoPath: value }),
-                { placeholder: 'student-photos/admission-no.jpg' },
               )}
               {renderTextInput('Date of birth', student.dateOfBirth, (value) =>
                 updateStudent({ dateOfBirth: value }),
@@ -929,7 +1034,6 @@ export function StudentAdmissionForm({
             })
             setIsDirty(true)
           },
-          details.fatherPhotoPath,
           (value) => updateDetails({ fatherPhotoPath: value }),
         )
       case 'Mother Details':
@@ -941,7 +1045,6 @@ export function StudentAdmissionForm({
             updateStudent({ motherName: value.fullName })
             setIsDirty(true)
           },
-          details.motherPhotoPath,
           (value) => updateDetails({ motherPhotoPath: value }),
         )
       case 'Guardian Details':
@@ -970,7 +1073,6 @@ export function StudentAdmissionForm({
                   })
                   setIsDirty(true)
                 },
-                details.guardianPhotoPath,
                 (value) => updateDetails({ guardianPhotoPath: value }),
               )}
             <div className="admission-form-grid">

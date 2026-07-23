@@ -373,21 +373,21 @@ Do not run destructive restore tests against the real production userData path.
 
 - [ ] Pass / [ ] Fail
   Setup: Add Student form open.
-  Steps: Enter DOB, admission date, Aadhaar, PEN, caste/category, nationality, religion, blood group, photo path and medical notes.
+  Steps: Enter DOB, admission date, Aadhaar, PEN, caste/category, nationality, religion and blood group; upload a child photo with Select Photo.
   Expected: Age is calculated from DOB to admission date, DOB words preview is readable, invalid Aadhaar/PEN values are rejected and missing optional values stay blank.
 
 ## Father Details Admission Entry
 
 - [ ] Pass / [ ] Fail
   Setup: Add Student form open on Father Details.
-  Steps: Enter father name, qualification, occupation, employer/organization, phone, WhatsApp, email, income, address, photo path and contact flags.
+  Steps: Enter father name, qualification, occupation, employer/organization, phone, WhatsApp, email, income and address; upload a father photo and set contact flags.
   Expected: A Father guardian record is created or updated, qualification/employer/address remain separate and primary/fee/SMS/pickup flags save correctly.
 
 ## Mother Details Admission Entry
 
 - [ ] Pass / [ ] Fail
   Setup: Add Student form open on Mother Details.
-  Steps: Enter mother name, qualification, occupation, employer/organization, contact fields, income, address, photo path and emergency-contact flag.
+  Steps: Enter mother name, qualification, occupation, employer/organization, contact fields, income and address; upload a mother photo and set the emergency-contact flag.
   Expected: A Mother guardian record is created or updated and can be displayed in Student Profile and the prefilled Admission Form.
 
 ## Different Guardian
@@ -473,3 +473,157 @@ Do not run destructive restore tests against the real production userData path.
   Setup: Accounts for Owner/Admin, Teacher, Accountant, Viewer and Student exist.
   Steps: Attempt Add Student, Office Use update and admission save through each role.
   Expected: Owner/Admin can admit and approve; unauthorized roles are blocked in UI and IPC, and Student accounts cannot access Add Student.
+
+## Upload School Logo
+
+- [ ] Pass / [ ] Fail
+  Setup: Login as Owner/Admin and prepare a PNG/JPEG/WebP logo under 5 MB.
+  Steps: Open General Settings -> Institute Profile, click Choose Image under School Logo, select the file and save settings.
+  Expected: Native picker opens, preview updates, success appears only after save and the old later-phase placeholder text is not shown.
+
+## Replace School Logo
+
+- [ ] Pass / [ ] Fail
+  Setup: Existing saved school logo.
+  Steps: Click Replace Image, select a different valid image and save settings.
+  Expected: New logo appears immediately and remains after reopening settings; old unreferenced logo is cleaned safely.
+
+## Remove School Logo
+
+- [ ] Pass / [ ] Fail
+  Setup: Existing saved school logo.
+  Steps: Click Remove and save settings.
+  Expected: Logo preview returns to the clean placeholder and reports/documents no longer show the old logo.
+
+## Restart And Verify Logo
+
+- [ ] Pass / [ ] Fail
+  Setup: School logo saved.
+  Steps: Quit the app completely, relaunch, open Institute Profile, Admission Form, Transfer Certificate and Fee Receipt preview.
+  Expected: The same logo appears from managed local assets with no broken local filesystem path displayed.
+
+## Upload Child Photo In Draft
+
+- [ ] Pass / [ ] Fail
+  Setup: Add Student form open on Child Details.
+  Steps: Select a valid portrait photo, save as Draft, close and reopen the Draft.
+  Expected: Photo persists, preview remains portrait 3:4 and no temporary browser object URL is stored.
+
+## Upload Father Photo
+
+- [ ] Pass / [ ] Fail
+  Setup: Add/Edit Student form open on Father Details.
+  Steps: Upload father photo, save, reopen the student and open the prefilled Admission Form.
+  Expected: Father guardian photo persists and appears in a compact portrait box on the Admission Form.
+
+## Upload Mother Photo
+
+- [ ] Pass / [ ] Fail
+  Setup: Add/Edit Student form open on Mother Details.
+  Steps: Upload mother photo, save, reopen the student and open the prefilled Admission Form.
+  Expected: Mother guardian photo persists and appears in a compact portrait box on the Admission Form.
+
+## Upload Guardian Photo
+
+- [ ] Pass / [ ] Fail
+  Setup: Add/Edit Student form with Guardian is different from parents enabled.
+  Steps: Upload guardian photo, save, reopen and verify linked guardian details.
+  Expected: Guardian photo persists only for that linked guardian unless intentionally shared through the same guardian record.
+
+## Reopen Draft And Verify Photos
+
+- [ ] Pass / [ ] Fail
+  Setup: Draft admission with child/father/mother photos saved.
+  Steps: Close Add Student, reopen the Draft from Students -> Edit.
+  Expected: All selected photos reload from managed assets and can be replaced or removed.
+
+## Admit Student And Verify Photos
+
+- [ ] Pass / [ ] Fail
+  Setup: Draft admission with photos.
+  Steps: Complete required fields and click Admit Student.
+  Expected: Student becomes Active and photos remain visible in Students list, Student ID Card and Admission Form preview.
+
+## Student Profile Photo
+
+- [ ] Pass / [ ] Fail
+  Setup: Student with saved child photo.
+  Steps: Open the Students list and any available student detail/profile action.
+  Expected: The saved child photo is shown where student identity is displayed; missing photos fall back to initials/placeholders.
+
+## Admission Form Fit Page Preview
+
+- [ ] Pass / [ ] Fail
+  Setup: Student with admission details and photos.
+  Steps: Open Students -> Admission Form and choose Fit Page.
+  Expected: A centered white A4 page appears on a neutral preview background without horizontal overflow.
+
+## Admission Form Actual Size Preview
+
+- [ ] Pass / [ ] Fail
+  Setup: Admission Form preview open.
+  Steps: Click Actual Size, then Fit Width and Fit Page.
+  Expected: The document scales on screen only; print dimensions remain A4 and the app sidebar/topbar do not overlap the page.
+
+## Admission Form A4 PDF
+
+- [ ] Pass / [ ] Fail
+  Setup: Prefilled Admission Form preview open.
+  Steps: Click Print / Save PDF and save an A4 PDF from the system dialog.
+  Expected: PDF has sharp vector text, school logo, child photo and compact parent portrait photos; app chrome is hidden.
+
+## Parent Photo Proportions
+
+- [ ] Pass / [ ] Fail
+  Setup: Prefilled Admission Form with father and mother photos.
+  Steps: Inspect preview and saved PDF.
+  Expected: Father and mother photo boxes are portrait-oriented and compact, not wide horizontal rectangles.
+
+## Page-Break Review
+
+- [ ] Pass / [ ] Fail
+  Setup: Admission Form with long address and remarks.
+  Steps: Print/save PDF.
+  Expected: Sections do not split awkwardly through photo cards or signature rows; Office Use appears purposefully without mostly blank pages.
+
+## Principal Signature Upload
+
+- [ ] Pass / [ ] Fail
+  Setup: Valid signature image under 5 MB.
+  Steps: Open General Settings -> Document Templates, upload Principal Signature and save.
+  Expected: Signature preview persists and appears in Transfer Certificate/Admission Form signature area when configured.
+
+## School Stamp Upload
+
+- [ ] Pass / [ ] Fail
+  Setup: Valid stamp image under 5 MB.
+  Steps: Open General Settings -> Document Templates, upload School Stamp and save.
+  Expected: Stamp preview persists and appears in configured printable documents.
+
+## Full Backup With Images
+
+- [ ] Pass / [ ] Fail
+  Setup: School logo, student photo, guardian photos, signature and stamp saved.
+  Steps: Create a full ZIP backup.
+  Expected: Backup manifest/checksums include the managed-assets directory and all image files.
+
+## Full Restore With Images
+
+- [ ] Pass / [ ] Fail
+  Setup: Full image backup created; isolated QA profile available.
+  Steps: Restore the backup into the isolated profile and relaunch.
+  Expected: Logo, student and guardian photos, signature and stamp display using relative keys on the restored profile.
+
+## Unauthorized Image Upload
+
+- [ ] Pass / [ ] Fail
+  Setup: Login as Teacher/Viewer/Student.
+  Steps: Attempt to upload school logo, template assets or admission photos through UI and direct workflows.
+  Expected: Unauthorized controls are unavailable or read-only and IPC rejects unauthorized upload attempts.
+
+## Invalid Or Oversized Image
+
+- [ ] Pass / [ ] Fail
+  Setup: Prepare a `.txt`, SVG and an image larger than 5 MB.
+  Steps: Try selecting each as logo/student photo.
+  Expected: Upload is rejected with a readable validation message; existing image remains unchanged.

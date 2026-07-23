@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { DataTable, type TableColumn } from '../components/DataTable'
 import { Icon } from '../components/Icon'
+import { ManagedImagePreview } from '../components/ManagedImage'
 import { StudentImportDialog } from '../components/StudentImportDialog'
 import { getErpApi, getErrorMessage } from '../lib/erpApi'
 import { downloadStudentImportTemplate } from '../lib/studentImport'
@@ -208,11 +209,19 @@ export function Students({
       render: (student) => (
         <div className="person-cell">
           <span className="person-avatar person-avatar--blue">
-            {student.name
-              .split(' ')
-              .map((name) => name[0])
-              .join('')
-              .slice(0, 2)}
+            <ManagedImagePreview
+              alt={`${student.name} photo`}
+              assetKey={student.photoAssetKey}
+              fallback={
+                <>
+                  {student.name
+                    .split(' ')
+                    .map((name) => name[0])
+                    .join('')
+                    .slice(0, 2)}
+                </>
+              }
+            />
           </span>
           <strong>{student.name}</strong>
         </div>

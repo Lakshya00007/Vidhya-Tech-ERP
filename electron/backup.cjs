@@ -27,6 +27,7 @@ const MAX_ZIP_FILE_BYTES = 1024 * 1024 * 1024;
 
 const MANAGED_FILE_CATEGORIES = [
   { id: "school-logo", directory: "school-logo" },
+  { id: "managed-assets", directory: "managed-assets" },
   { id: "student-photos", directory: "student-photos" },
   { id: "employee-photos", directory: "employee-photos" },
   { id: "documents", directory: "documents" },

@@ -554,6 +554,7 @@ export interface Student {
   address: string
   dateOfBirth: string
   admissionDate: string
+  photoAssetKey: string
   createdAt: string
   updatedAt: string
   deletedAt: string | null
@@ -582,6 +583,7 @@ export interface CreateStudentInput {
   address?: string
   dateOfBirth?: string
   admissionDate?: string
+  photoAssetKey?: string
 }
 
 export type UpdateStudentInput = Partial<CreateStudentInput>
@@ -702,6 +704,7 @@ export interface StudentAdmissionGuardianInput {
   annualIncome?: number | null
   address?: string
   photoPath?: string
+  photoAssetKey?: string
   isPrimary?: boolean
   financialResponsibility?: boolean
   smsContact?: boolean
@@ -795,6 +798,7 @@ export interface Guardian {
   occupation: string
   employerOrganization: string
   qualification: string
+  photoAssetKey: string
   annualIncome: number | null
   address: string
   isPrimary: boolean
@@ -825,6 +829,7 @@ export interface StudentGuardianLink {
   occupation: string
   employerOrganization: string
   qualification: string
+  photoAssetKey: string
   address: string
   familyId: string
   familyCode: string
@@ -890,6 +895,7 @@ export interface CreateGuardianInput {
   occupation?: string
   employerOrganization?: string
   qualification?: string
+  photoAssetKey?: string
   annualIncome?: number | null
   address?: string
   isPrimary?: boolean
@@ -2120,14 +2126,46 @@ export interface SchoolSettings {
   email: string
   academicYear: string
   receiptPrefix: string
+  logoAssetKey?: string
   createdAt: string
   updatedAt: string
 }
 
 export type SaveSchoolSettingsInput = Pick<
   SchoolSettings,
-  'schoolName' | 'address' | 'phone' | 'email' | 'academicYear' | 'receiptPrefix'
+  | 'schoolName'
+  | 'address'
+  | 'phone'
+  | 'email'
+  | 'academicYear'
+  | 'receiptPrefix'
+  | 'logoAssetKey'
 >
+
+export type ManagedImageCategory =
+  | 'school-logo'
+  | 'principal-signature'
+  | 'school-stamp'
+  | 'student-photo'
+  | 'guardian-photo'
+  | 'document-template-asset'
+  | 'store-product-image'
+
+export interface ManagedImageSelectionInput {
+  category: ManagedImageCategory
+  ownerId?: string
+  currentAssetKey?: string
+}
+
+export interface ManagedImageResult {
+  canceled?: boolean
+  assetKey?: string
+  category?: ManagedImageCategory
+  dataUrl?: string
+  mimeType?: string
+  size?: number
+  missing?: boolean
+}
 
 export type DocumentTemplateType =
   | 'Admission Form'

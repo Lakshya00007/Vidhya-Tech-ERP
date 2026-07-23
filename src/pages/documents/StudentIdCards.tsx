@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Icon } from '../../components/Icon'
+import { ManagedImagePreview } from '../../components/ManagedImage'
 import { getStudentInitials } from '../../lib/studentDocuments'
 import type {
   ClassItem,
@@ -26,7 +27,11 @@ function StudentIdCard({
     <article className="student-id-card">
       <header className="student-id-card__header">
         <span className="student-id-card__school-mark">
-          <Icon name="school" size={18} />
+          <ManagedImagePreview
+            alt="School logo"
+            assetKey={settings.logoAssetKey}
+            fallback={<Icon name="school" size={18} />}
+          />
         </span>
         <div>
           <strong>{settings.schoolName}</strong>
@@ -35,8 +40,16 @@ function StudentIdCard({
       </header>
       <div className="student-id-card__body">
         <div className="student-id-card__photo">
-          <span>{getStudentInitials(student.name) || 'ST'}</span>
-          <small>Photo</small>
+          <ManagedImagePreview
+            alt={`${student.name} photo`}
+            assetKey={student.photoAssetKey}
+            fallback={
+              <>
+                <span>{getStudentInitials(student.name) || 'ST'}</span>
+                <small>Photo</small>
+              </>
+            }
+          />
         </div>
         <div className="student-id-card__details">
           <h3>{student.name}</h3>

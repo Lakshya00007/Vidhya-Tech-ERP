@@ -113,6 +113,8 @@ import type {
   LoginHistoryFilter,
   LinkGuardianToStudentInput,
   LinkSiblingStudentsInput,
+  ManagedImageResult,
+  ManagedImageSelectionInput,
   Announcement,
   AnnouncementInput,
   AnnouncementReadReport,
@@ -421,6 +423,16 @@ export interface ErpApi {
   }) => Promise<ExternalCommunicationJob[]>
   getCommunicationJob: (id: string) => Promise<ExternalCommunicationJob>
   retryCommunicationJob: (id: string) => Promise<ExternalCommunicationJob>
+  selectManagedImage: (
+    input: ManagedImageSelectionInput,
+  ) => Promise<ManagedImageResult>
+  replaceManagedImage: (
+    input: ManagedImageSelectionInput,
+  ) => Promise<ManagedImageResult>
+  getManagedImageUrl: (assetKey: string) => Promise<ManagedImageResult>
+  removeManagedImage: (
+    assetKey: string,
+  ) => Promise<{ success: boolean; removed?: boolean; referenced?: boolean }>
   createDemoData: () => Promise<DemoDataResult>
 
   getStudents: () => Promise<Student[]>
